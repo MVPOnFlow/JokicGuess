@@ -31,6 +31,7 @@ message_to_question = {}
 emoji_to_letter = {'🇦': 'A', '🇧': 'B', '🇨': 'C', '🇩': 'D'}
 
 cutoff_time = None
+guess_channel = None  # Variable to store the channel ID for guessing
 
 def find_question_for_message(msg_id):
     # Retrieve the question based on the message ID
@@ -50,7 +51,7 @@ client = MyClient(intents=intents)
 @client.tree.command(name="guess", description="Start the guessing game")
 @app_commands.checks.has_permissions(administrator=True)
 async def guess(interaction: discord.Interaction):
-    global cutoff_time
+    global cutoff_time, guess_channel
     guild_id = interaction.guild.id
     user_guesses[guild_id] = {}
     user_numeric_guesses[guild_id] = {}
@@ -58,6 +59,7 @@ async def guess(interaction: discord.Interaction):
     
     # Set the cutoff time to 1 hour from now
     cutoff_time = datetime(2024, 7, 28, 15, 15, 0)
+    guess_channel = interaction.channel.id  # Store the channel ID where /guess was used
     
     await interaction.response.send_message("Starting the guessing game! Make your predictions before the game starts. Predictions made after game start will be ignored.")
     for question_data in questions:
@@ -192,14 +194,8 @@ async def on_message(message):
     if message.author.bot:
         return
 
-    if datetime.utcnow() > cutoff_time:
-        await message.delete()
-        return
-
     guild_id = message.guild.id
-    
-    # Check if the message is related to numeric input
-    if guild_id in user_numeric_guesses:
+    if guild_id in user_numeric_guesses and message.channel.id == guess_channel:
         try:
             minutes = int(message.content)
             if message.id not in user_numeric_guesses[guild_id]:
@@ -208,7 +204,7 @@ async def on_message(message):
                 user_numeric_guesses[guild_id][message.id][message.author.id] = minutes
             await message.delete()
         except ValueError:
-            await message.delete()  # Delete the message if it's not a valid number
+            await message.delete()
 
 # Read the token from secret.txt
 token = os.getenv('DISCORD_TOKEN')
