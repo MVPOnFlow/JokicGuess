@@ -22,7 +22,7 @@ questions = [
     {"question": "7. Davis (+0.5) or Team Serbia? Who will have more blocks?", "options": ["A: AnthonyDavis(+0.5)", "B: Serbia"], "tie_breaker": False},
     {"question": "8. Who will be the top scorer in the game? (Tiebreaker less minutes played)", "options": ["A: Jokic", "B: Curry", "C: Lebron", "D: Others"], "tie_breaker": False},
     {"question": "9. Is anyone going to foul out in the game?", "options": ["A: Yes", "B: No"], "tie_breaker": False},
-    {"question": "Tie Breaker - How many points+rebounds+assists will Jokic have? Type a message in chat", "options": [], "tie_breaker": True}  # Handle separately
+    {"question": "Tie Breaker (Type message in chat) - How many points+rebounds+assists will Jokic have?", "options": [], "tie_breaker": True}  # Handle separately
 ]
 
 user_guesses = {}
@@ -57,9 +57,9 @@ async def guess(interaction: discord.Interaction):
     message_to_question.clear()  # Clear previous mappings
     
     # Set the cutoff time to 1 hour from now
-    cutoff_time = datetime.utcnow() + timedelta(minutes=3)
+    cutoff_time = datetime(2024, 7, 28, 15, 15, 0)
     
-    await interaction.response.send_message("Predict outcomes at USA-Serbia game at the Olympic tournament! Make your predictions before the game starts. Predictions made after game start will be ignored.")
+    await interaction.response.send_message("Starting the guessing game! Make your predictions before the game starts. Predictions made after game start will be ignored.")
     for question_data in questions:
         question = question_data["question"]
         options = question_data["options"]
