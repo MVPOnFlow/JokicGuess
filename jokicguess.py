@@ -82,42 +82,45 @@ async def guess(interaction: discord.Interaction):
 @client.tree.command(name="results", description="Enter the correct results (admin only)")
 @app_commands.checks.has_permissions(administrator=True)
 async def results(interaction: discord.Interaction, correct_answers: str, correct_tie_breaker: str):
-    guild_id = interaction.guild.id
-    score_board = {}
+    try:
+        guild_id = interaction.guild.id
+        score_board = {}
 
-    correct_answers_list = correct_answers.split()
-    print(f"Correct answers: {correct_answers_list}")
+        correct_answers_list = correct_answers.split()
+        print(f"Correct answers: {correct_answers_list}")
 
-    for i, msg_id in enumerate(user_guesses[guild_id]):
-        correct_answer = correct_answers_list[i]
-        for user_id, guess in user_guesses[guild_id][msg_id].items():
-            guess_letter = emoji_to_letter.get(guess)
-            if guess_letter == correct_answer:
-                if user_id not in score_board:
-                    score_board[user_id] = 0
-                score_board[user_id] += 1
+        for i, msg_id in enumerate(user_guesses[guild_id]):
+            correct_answer = correct_answers_list[i]
+            for user_id, guess in user_guesses[guild_id][msg_id].items():
+                guess_letter = emoji_to_letter.get(guess)
+                if guess_letter == correct_answer:
+                    if user_id not in score_board:
+                        score_board[user_id] = 0
+                    score_board[user_id] += 1
 
-    # Handle numeric question with a tie-breaker
-    if guild_id in user_numeric_guesses:
-        for msg_id in user_numeric_guesses[guild_id]:
-            user_numeric_guesses_dict = user_numeric_guesses[guild_id][msg_id]
-            tie_breaker_value = int(correct_tie_breaker)
+        # Handle numeric question with a tie-breaker
+        if guild_id in user_numeric_guesses:
+            for msg_id in user_numeric_guesses[guild_id]:
+                user_numeric_guesses_dict = user_numeric_guesses[guild_id][msg_id]
+                tie_breaker_value = int(correct_tie_breaker)
 
-            for user_id, guess_value in user_numeric_guesses_dict.items():
-                if user_id not in score_board:
-                    score_board[user_id] = 0
-                # Tie-breaker logic
-                score_board[user_id] -= abs(guess_value - tie_breaker_value) / 100  # Adjust based on how close the guess is
+                for user_id, guess_value in user_numeric_guesses_dict.items():
+                    if user_id not in score_board:
+                        score_board[user_id] = 0
+                    # Tie-breaker logic
+                    score_board[user_id] -= abs(guess_value - tie_breaker_value) / 100  # Adjust based on how close the guess is
 
-    sorted_scores = sorted(score_board.items(), key=lambda item: (item[1], -item[0]), reverse=True)
+        sorted_scores = sorted(score_board.items(), key=lambda item: (item[1], -item[0]), reverse=True)
 
-    results_message = "Results:\n"
-    for user_id, score in sorted_scores:
-        user = await client.fetch_user(user_id)
-        results_message += f"{user.name}: {score} points\n"
+        results_message = "Results:\n"
+        for user_id, score in sorted_scores:
+            user = await client.fetch_user(user_id)
+            results_message += f"{user.name}: {score} points\n"
 
-    await interaction.response.send_message(results_message)
-    print(f"Results message sent: {results_message}")
+        await interaction.response.send_message(results_message)
+        print(f"Results message sent: {results_message}")
+    except Exception as e:
+        print(f"Error in on_message: {e}")
 
 @results.error
 async def results_error(interaction: discord.Interaction, error: app_commands.AppCommandError):
@@ -130,37 +133,40 @@ async def results_error(interaction: discord.Interaction, error: app_commands.Ap
 @client.tree.command(name="predictions", description="Show all predictions made by all players")
 @app_commands.checks.has_permissions(administrator=True)
 async def predictions(interaction: discord.Interaction):
-    guild_id = interaction.guild.id
-    if guild_id not in user_guesses and guild_id not in user_numeric_guesses:
-        await interaction.response.send_message("No predictions have been made yet.")
-        return
+    try:
+        guild_id = interaction.guild.id
+        if guild_id not in user_guesses and guild_id not in user_numeric_guesses:
+            await interaction.response.send_message("No predictions have been made yet.")
+            return
 
-    predictions_message = "Player Predictions:\n"
+        predictions_message = "Player Predictions:\n"
 
-    # Gather multiple choice predictions
-    for msg_id, guesses in user_guesses.get(guild_id, {}).items():
-        question = find_question_for_message(msg_id)
-        predictions_message += f"\n**{question}**\n"
-        for user_id, emoji in guesses.items():
-            user = await client.fetch_user(user_id)
-            letter = emoji_to_letter.get(emoji, emoji)
-            predictions_message += f"{user.name}: {letter}\n"
-
-    # Gather numeric predictions
-    if guild_id in user_numeric_guesses:
-        predictions_message += "\n**How many points+rebounds+assists will joked have?**\n"
-        for msg_id, guesses in user_numeric_guesses[guild_id].items():
-            for user_id, guess in guesses.items():
+        # Gather multiple choice predictions
+        for msg_id, guesses in user_guesses.get(guild_id, {}).items():
+            question = find_question_for_message(msg_id)
+            predictions_message += f"\n**{question}**\n"
+            for user_id, emoji in guesses.items():
                 user = await client.fetch_user(user_id)
-                predictions_message += f"{user.name}: {guess} minutes\n"
+                letter = emoji_to_letter.get(emoji, emoji)
+                predictions_message += f"{user.name}: {letter}\n"
 
-    # Send the initial response
-    await interaction.response.send_message("Here are the current predictions:")
+        # Gather numeric predictions
+        if guild_id in user_numeric_guesses:
+            predictions_message += "\n**How many points+rebounds+assists will joked have?**\n"
+            for msg_id, guesses in user_numeric_guesses[guild_id].items():
+                for user_id, guess in guesses.items():
+                    user = await client.fetch_user(user_id)
+                    predictions_message += f"{user.name}: {guess}\n"
 
-    # Send the predictions message in chunks if it exceeds Discord's limit
-    for chunk in [predictions_message[i:i + 1500] for i in range(0, len(predictions_message), 1500)]:
-        await interaction.followup.send(chunk)
-        print(f"Predictions message sent: {chunk}")
+        # Send the initial response
+        await interaction.response.send_message("Here are the current predictions:")
+
+        # Send the predictions message in chunks if it exceeds Discord's limit
+        for chunk in [predictions_message[i:i + 1500] for i in range(0, len(predictions_message), 1500)]:
+            await interaction.followup.send(chunk)
+            print(f"Predictions message sent: {chunk}")
+    except Exception as e:
+        print(f"Error in on_message: {e}")
 
 @predictions.error
 async def predictions_error(interaction: discord.Interaction, error: app_commands.AppCommandError):
@@ -173,38 +179,71 @@ async def predictions_error(interaction: discord.Interaction, error: app_command
 
 @client.event
 async def on_reaction_add(reaction, user):
-    if user.bot:
-        return
+    try:
+        if user.bot:
+            return
 
-    if datetime.utcnow() > cutoff_time:
-        return
+        if datetime.utcnow() > cutoff_time:
+            return
 
-    msg_id = reaction.message.id
-    guild_id = reaction.message.guild.id
+        msg_id = reaction.message.id
+        guild_id = reaction.message.guild.id
 
-    if msg_id in user_guesses.get(guild_id, {}):
-        user_guesses[guild_id][msg_id][user.id] = reaction.emoji
-        try:
-            await reaction.message.remove_reaction(reaction.emoji, user)
-        except discord.Forbidden:
-            print("The bot does not have permission to remove reactions. Please enable the 'Manage Messages' permission.")
+        if msg_id in user_guesses.get(guild_id, {}):
+            user_guesses[guild_id][msg_id][user.id] = reaction.emoji
+            try:
+                await reaction.message.remove_reaction(reaction.emoji, user)
+            except discord.Forbidden:
+                print("The bot does not have permission to remove reactions. Please enable the 'Manage Messages' permission.")
+    except Exception as e:
+        print(f"Error in on_message: {e}")
 
 @client.event
 async def on_message(message):
-    if message.author.bot:
-        return
+    try:
+        if message.author.bot:
+            return
+        guild_id = message.guild.id
+        if guild_id in user_numeric_guesses and message.channel.id == guess_channel:
+            try:
+                minutes = int(message.content)
+                if message.id not in user_numeric_guesses[guild_id]:
+                    user_numeric_guesses[guild_id][message.id] = {message.author.id: minutes}
+                else:
+                    user_numeric_guesses[guild_id][message.id][message.author.id] = minutes
+                await message.delete()
+            except ValueError:
+                await message.delete()        
+    except Exception as e:
+        print(f"Error in on_message: {e}")
 
-    guild_id = message.guild.id
-    if guild_id in user_numeric_guesses and message.channel.id == guess_channel:
-        try:
-            minutes = int(message.content)
-            if message.id not in user_numeric_guesses[guild_id]:
-                user_numeric_guesses[guild_id][message.id] = {message.author.id: minutes}
-            else:
+@client.event
+async def on_message(message):
+    try:
+        if message.author.bot:
+            return
+
+        guild_id = message.guild.id
+        if guild_id in user_numeric_guesses and message.channel.id == guess_channel:
+            try:
+                # Attempt to parse the message content as an integer
+                minutes = int(message.content)
+                
+                # Check if message ID is in the numeric guesses
+                if message.id not in user_numeric_guesses[guild_id]:
+                    user_numeric_guesses[guild_id][message.id] = {}
+
+                # Update the prediction with the latest value
                 user_numeric_guesses[guild_id][message.id][message.author.id] = minutes
-            await message.delete()
-        except ValueError:
-            await message.delete()
+                
+                # Delete the message to prevent clutter
+                await message.delete()
+            except ValueError:
+                # If the message content is not an integer, delete the message
+                await message.delete()
+    except Exception as e:
+        print(f"Error in on_message: {e}")
+
 
 # Read the token from secret.txt
 token = os.getenv('DISCORD_TOKEN')
