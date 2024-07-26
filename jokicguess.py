@@ -2,6 +2,7 @@ import discord
 from discord.ext import commands
 from discord import app_commands
 import os
+from datetime import datetime, timedelta
 
 intents = discord.Intents.default()
 intents.reactions = True
@@ -12,21 +13,24 @@ bot = commands.Bot(command_prefix='/', intents=intents)
 
 # Questions and related data
 questions = [
-    {"question": "Real vs fake MVP clash. Who will score more points?", "options": ["A: Jokic", "B: Embiid"], "tie_breaker": False},
-    {"question": "Who will win the game (Serbia +12.5)?", "options": ["A: Serbia(+12.5)", "B: USA(-12.5)"], "tie_breaker": False},
-    {"question": "Real vs fake MVP clash. Who will have more rebounds?", "options": ["A: Jokic", "B: Embiid"], "tie_breaker": False},
-    {"question": "Who will score more 3 pointers?", "options": ["A: Curry(-0.5)", "B: Bogdanovic(+0.5)"], "tie_breaker": False},
-    {"question": "Heat duel, who will play more minutes?", "options": ["A: Bam", "B: Jovic"], "tie_breaker": False},
-    {"question": "Point guard vs point forward? Who is the real GOAT, who will have more assists?", "options": ["A: LebronJames", "B: VasilijeMicic"], "tie_breaker": False},
-    {"question": "Davis (+0.5) or Team Serbia? Who will have more blocks?", "options": ["A: AnthonyDavis(+0.5)", "B: Serbia"], "tie_breaker": False},
-    {"question": "Who will be the top scorer in the game? (Tiebreaker less minutes played)", "options": ["A: Jokic", "B: Curry", "C: Lebron", "D: Others"], "tie_breaker": False},
-    {"question": "How many points+rebounds+assists will Jokic have?", "options": [], "tie_breaker": True}  # Handle separately
+    {"question": "1. Real vs fake MVP clash. Who will score more points?", "options": ["A: Jokic", "B: Embiid"], "tie_breaker": False},
+    {"question": "2. Who will win the game (Serbia +12.5)?", "options": ["A: Serbia(+12.5)", "B: USA(-12.5)"], "tie_breaker": False},
+    {"question": "3. Real vs fake MVP clash. Who will have more rebounds?", "options": ["A: Jokic", "B: Embiid"], "tie_breaker": False},
+    {"question": "4. Who will score more 3 pointers?", "options": ["A: Curry(-0.5)", "B: Bogdanovic(+0.5)"], "tie_breaker": False},
+    {"question": "5. Heat duel, who will play more minutes?", "options": ["A: Bam", "B: Jovic"], "tie_breaker": False},
+    {"question": "6. Point guard vs point forward? Who is the real GOAT, who will have more assists?", "options": ["A: LebronJames", "B: VasilijeMicic"], "tie_breaker": False},
+    {"question": "7. Davis (+0.5) or Team Serbia? Who will have more blocks?", "options": ["A: AnthonyDavis(+0.5)", "B: Serbia"], "tie_breaker": False},
+    {"question": "8. Who will be the top scorer in the game? (Tiebreaker less minutes played)", "options": ["A: Jokic", "B: Curry", "C: Lebron", "D: Others"], "tie_breaker": False},
+    {"question": "9. Is anyone going to foul out in the game?", "options": ["A: Yes", "B: No"], "tie_breaker": False},
+    {"question": "Tie Breaker - How many points+rebounds+assists will Jokic have? Type a message in chat", "options": [], "tie_breaker": True}  # Handle separately
 ]
 
 user_guesses = {}
 user_numeric_guesses = {}
 message_to_question = {}
 emoji_to_letter = {'🇦': 'A', '🇧': 'B', '🇨': 'C', '🇩': 'D'}
+
+cutoff_time = None
 
 def find_question_for_message(msg_id):
     # Retrieve the question based on the message ID
@@ -46,12 +50,16 @@ client = MyClient(intents=intents)
 @client.tree.command(name="guess", description="Start the guessing game")
 @app_commands.checks.has_permissions(administrator=True)
 async def guess(interaction: discord.Interaction):
+    global cutoff_time
     guild_id = interaction.guild.id
     user_guesses[guild_id] = {}
     user_numeric_guesses[guild_id] = {}
     message_to_question.clear()  # Clear previous mappings
     
-    await interaction.response.send_message("Starting the guessing game!")
+    # Set the cutoff time to 1 hour from now
+    cutoff_time = datetime.utcnow() + timedelta(minutes=3)
+    
+    await interaction.response.send_message("Predict outcomes at USA-Serbia game at the Olympic tournament! Make your predictions before the game starts. Predictions made after game start will be ignored.")
     for question_data in questions:
         question = question_data["question"]
         options = question_data["options"]
@@ -158,6 +166,9 @@ async def on_reaction_add(reaction, user):
     if user.bot:
         return
 
+    if datetime.utcnow() > cutoff_time:
+        return
+
     msg_id = reaction.message.id
     guild_id = reaction.message.guild.id
 
@@ -171,6 +182,10 @@ async def on_reaction_add(reaction, user):
 @client.event
 async def on_message(message):
     if message.author.bot:
+        return
+
+    if datetime.utcnow() > cutoff_time:
+        await message.delete()
         return
 
     guild_id = message.guild.id
