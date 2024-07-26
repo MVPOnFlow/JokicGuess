@@ -13,9 +13,9 @@ bot = commands.Bot(command_prefix='/', intents=intents)
 
 # Questions and related data
 questions = [
-    {"question": "1. Real vs fake MVP clash. Who will score more points?", "options": ["A: Jokic", "B: Embiid"], "tie_breaker": False},
+    {"question": "1. Real vs fake MVP clash. Who will score more points? Tie goes to Embiid.", "options": ["A: Jokic", "B: Embiid"], "tie_breaker": False},
     {"question": "2. Who will win the game (Serbia +12.5)?", "options": ["A: Serbia(+12.5)", "B: USA(-12.5)"], "tie_breaker": False},
-    {"question": "3. Real vs fake MVP clash. Who will have more rebounds?", "options": ["A: Jokic", "B: Embiid"], "tie_breaker": False},
+    {"question": "3. Real vs fake MVP clash. Who will have more rebounds? Tie goes to Embiid.", "options": ["A: Jokic", "B: Embiid"], "tie_breaker": False},
     {"question": "4. Who will score more 3 pointers?", "options": ["A: Curry(-0.5)", "B: Bogdanovic(+0.5)"], "tie_breaker": False},
     {"question": "5. Heat duel, who will play more minutes?", "options": ["A: Bam", "B: Jovic"], "tie_breaker": False},
     {"question": "6. Point guard vs point forward? Who is the real GOAT, who will have more assists?", "options": ["A: LebronJames", "B: VasilijeMicic"], "tie_breaker": False},
