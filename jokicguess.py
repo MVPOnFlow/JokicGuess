@@ -12,11 +12,15 @@ bot = commands.Bot(command_prefix='/', intents=intents)
 
 # Questions and related data
 questions = [
-    {"question": "How many points will Jokic have?", "options": ["A: 0-20", "B: 20+"], "tie_breaker": False},
-    {"question": "How many assists will Jokic have?", "options": ["A: 0-5", "B: 6+"], "tie_breaker": False},
-    {"question": "How many rebounds will Jokic have?", "options": ["A: 0-5", "B: 6-9", "C: 10+"], "tie_breaker": False},
-    {"question": "Who will be the best scorer?", "options": ["A: Jokic", "B: Lebron", "C: Edwards", "D: Others"], "tie_breaker": False},
-    {"question": "How many minutes will Jokic play?", "options": [], "tie_breaker": True}  # Handle separately
+    {"question": "Real vs fake MVP clash. Who will score more points?", "options": ["A: Jokic", "B: Embiid"], "tie_breaker": False},
+    {"question": "Who will win the game (Serbia +12.5)?", "options": ["A: Serbia(+12.5)", "B: USA(-12.5)"], "tie_breaker": False},
+    {"question": "Real vs fake MVP clash. Who will have more rebounds?", "options": ["A: Jokic", "B: Embiid"], "tie_breaker": False},
+    {"question": "Who will score more 3 pointers?", "options": ["A: Curry(-0.5)", "B: Bogdanovic(+0.5)"], "tie_breaker": False},
+    {"question": "Heat duel, who will play more minutes?", "options": ["A: Bam", "B: Jovic"], "tie_breaker": False},
+    {"question": "Point guard vs point forward? Who is the real GOAT, who will have more assists?", "options": ["A: LebronJames", "B: VasilijeMicic"], "tie_breaker": False},
+    {"question": "Davis (+0.5) or Team Serbia? Who will have more blocks?, "options": ["A: AnthonyDavis(+0.5)", "B: Serbia"], "tie_breaker": False},
+    {"question": "Who will be the top scorer in the game? (Tiebreaker less minutes played)", "options": ["A: Jokic", "B: Curry", "C: Lebron", "D: Others"], "tie_breaker": False},
+    {"question": "How many points+rebounds+assists will Jokic have?", "options": [], "tie_breaker": True}  # Handle separately
 ]
 
 user_guesses = {}
@@ -40,6 +44,7 @@ class MyClient(discord.Client):
 client = MyClient(intents=intents)
 
 @client.tree.command(name="guess", description="Start the guessing game")
+@app_commands.checks.has_permissions(administrator=True)
 async def guess(interaction: discord.Interaction):
     guild_id = interaction.guild.id
     user_guesses[guild_id] = {}
@@ -113,6 +118,7 @@ async def results_error(interaction: discord.Interaction, error: app_commands.Ap
     print(f"Error in results command: {error}")
 
 @client.tree.command(name="predictions", description="Show all predictions made by all players")
+@app_commands.checks.has_permissions(administrator=True)
 async def predictions(interaction: discord.Interaction):
     guild_id = interaction.guild.id
     if guild_id not in user_guesses and guild_id not in user_numeric_guesses:
