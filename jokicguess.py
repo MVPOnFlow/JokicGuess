@@ -1,6 +1,7 @@
 import discord
 from discord.ext import commands
 from discord import app_commands
+import os
 
 intents = discord.Intents.default()
 intents.reactions = True
@@ -181,7 +182,9 @@ async def on_message(message):
             await message.delete()  # Delete the message if it's not a valid number
 
 # Read the token from secret.txt
-with open('secret.txt', 'r') as file:
-    token = file.read().strip()
+token = os.getenv('DISCORD_TOKEN')
+if not token: 
+    with open('secret.txt', 'r') as file:
+        token = file.read().strip()
 
 client.run(token)
