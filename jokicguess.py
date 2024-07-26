@@ -152,13 +152,21 @@ async def predictions(interaction: discord.Interaction):
                 user = await client.fetch_user(user_id)
                 predictions_message += f"{user.name}: {guess} minutes\n"
 
-    # Send the predictions message
-    await interaction.response.send_message(predictions_message)
-    print(f"Predictions message sent: {predictions_message}")
+    # Send the initial response
+    await interaction.response.send_message("Here are the current predictions:")
+
+    # Send the predictions message in chunks if it exceeds Discord's limit
+    for chunk in [predictions_message[i:i + 1500] for i in range(0, len(predictions_message), 1500)]:
+        await interaction.followup.send(chunk)
+        print(f"Predictions message sent: {chunk}")
 
 @predictions.error
 async def predictions_error(interaction: discord.Interaction, error: app_commands.AppCommandError):
-    await interaction.response.send_message("An error occurred while processing your command.", ephemeral=True)
+    # Ensure to use a follow-up message for errors
+    try:
+        await interaction.followup.send("An error occurred while processing your command.", ephemeral=True)
+    except discord.errors.InteractionResponded:
+        print("Failed to send error message because interaction was already responded to.")
     print(f"Error in predictions command: {error}")
 
 @client.event
