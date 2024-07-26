@@ -18,7 +18,7 @@ questions = [
     {"question": "Who will score more 3 pointers?", "options": ["A: Curry(-0.5)", "B: Bogdanovic(+0.5)"], "tie_breaker": False},
     {"question": "Heat duel, who will play more minutes?", "options": ["A: Bam", "B: Jovic"], "tie_breaker": False},
     {"question": "Point guard vs point forward? Who is the real GOAT, who will have more assists?", "options": ["A: LebronJames", "B: VasilijeMicic"], "tie_breaker": False},
-    {"question": "Davis (+0.5) or Team Serbia? Who will have more blocks?, "options": ["A: AnthonyDavis(+0.5)", "B: Serbia"], "tie_breaker": False},
+    {"question": "Davis (+0.5) or Team Serbia? Who will have more blocks?", "options": ["A: AnthonyDavis(+0.5)", "B: Serbia"], "tie_breaker": False},
     {"question": "Who will be the top scorer in the game? (Tiebreaker less minutes played)", "options": ["A: Jokic", "B: Curry", "C: Lebron", "D: Others"], "tie_breaker": False},
     {"question": "How many points+rebounds+assists will Jokic have?", "options": [], "tie_breaker": True}  # Handle separately
 ]
