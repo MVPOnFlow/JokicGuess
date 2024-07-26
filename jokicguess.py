@@ -20,7 +20,7 @@ questions = [
     {"question": "5. Heat duel, who will play more minutes?", "options": ["A: Bam", "B: Jovic"], "tie_breaker": False},
     {"question": "6. Point guard vs point forward? Who is the real GOAT, who will have more assists?", "options": ["A: LebronJames", "B: VasilijeMicic"], "tie_breaker": False},
     {"question": "7. Davis (+0.5) or Team Serbia? Who will have more blocks?", "options": ["A: AnthonyDavis(+0.5)", "B: Serbia"], "tie_breaker": False},
-    {"question": "8. Who will be the top scorer in the game? (Tiebreaker less minutes played)", "options": ["A: Jokic", "B: Curry", "C: Lebron", "D: Others"], "tie_breaker": False},
+    {"question": "8. Who will be the top scorer in the game? (Tiebreaker less minutes played)", "options": ["A: Jokic", "B: Curry", "C: Lebron", "D: AnyoneElse"], "tie_breaker": False},
     {"question": "9. Is anyone going to foul out in the game?", "options": ["A: Yes", "B: No"], "tie_breaker": False},
     {"question": "Tie Breaker (Type message in chat) - How many points+rebounds+assists will Jokic have?", "options": [], "tie_breaker": True}  # Handle separately
 ]
@@ -146,7 +146,7 @@ async def predictions(interaction: discord.Interaction):
 
     # Gather numeric predictions
     if guild_id in user_numeric_guesses:
-        predictions_message += "\n**How many minutes will Jokic play?**\n"
+        predictions_message += "\n**How many points+rebounds+assists will joked have?**\n"
         for msg_id, guesses in user_numeric_guesses[guild_id].items():
             for user_id, guess in guesses.items():
                 user = await client.fetch_user(user_id)
