@@ -83,6 +83,12 @@ def get_user_predictions_for_contest(user_id, channel_id):
     return cursor.fetchall()
 
 
+# Function to count total predictions
+def count_total_predictions():
+    cursor.execute('SELECT COUNT(*) FROM predictions')
+    return cursor.fetchone()[0]  # Return the count
+
+
 # Register the slash command for starting a contest
 @bot.tree.command(name='start')
 async def start(interaction: discord.Interaction, name: str, start_time: int):
@@ -95,7 +101,8 @@ async def start(interaction: discord.Interaction, name: str, start_time: int):
 
     if existing_contest:
         await interaction.response.send_message(
-            f"A contest '{existing_contest[0]}' is already active in this channel. Please finish it before starting a new one."
+            f"A contest '{existing_contest[0]}' is already active in this channel. Please finish it before starting a new one.",
+            ephemeral=True
         )
         return
 
@@ -104,7 +111,7 @@ async def start(interaction: discord.Interaction, name: str, start_time: int):
 
     # Inform the user that the contest has started
     await interaction.response.send_message(
-        f"Contest '{name}' started in this channel! Game starts at <t:{start_time}:F>.")
+        f"Contest '{name}' started in this channel! Game starts at <t:{start_time}:F>.", ephemeral=True)
 
 
 # Register the slash command for prediction
@@ -123,14 +130,15 @@ async def predict(interaction: discord.Interaction, stats: str, outcome: str):
 
         # Ensure predictions are made before the game starts
         if current_time >= start_time:
-            await interaction.response.send_message("Predictions are closed. The game has already started.")
+            await interaction.response.send_message("Predictions are closed. The game has already started.",
+                                                    ephemeral=True)
             return
 
         # Validate outcome
         try:
             outcome_enum = Outcome[outcome.upper()]
         except KeyError:
-            await interaction.response.send_message("Invalid outcome. Please use 'Win' or 'Loss'.")
+            await interaction.response.send_message("Invalid outcome. Please use 'Win' or 'Loss'.", ephemeral=True)
             return
 
         # Save the prediction in the database tied to the contest
@@ -138,10 +146,48 @@ async def predict(interaction: discord.Interaction, stats: str, outcome: str):
 
         # Inform the user that the prediction has been saved without showing the prediction details
         await interaction.response.send_message(
-            f"Prediction saved for {user.name} in contest '{contest_name}'."
+            f"Prediction saved for {user.name} in contest '{contest_name}'.", ephemeral=True
         )
     else:
-        await interaction.response.send_message("No active contest in this channel. Please start a contest first.")
+        await interaction.response.send_message("No active contest in this channel. Please start a contest first.",
+                                                ephemeral=True)
+
+
+# Register the slash command to remove a prediction
+@bot.tree.command(name='remove_prediction')
+async def remove_prediction(interaction: discord.Interaction, stats: str, outcome: str):
+    user = interaction.user
+    channel = interaction.channel
+
+    # Validate outcome
+    try:
+        outcome_enum = Outcome[outcome.upper()]
+    except KeyError:
+        await interaction.response.send_message("Invalid outcome. Please use 'Win' or 'Loss'.", ephemeral=True)
+        return
+
+    # Check if the prediction exists for the user
+    cursor.execute('''
+        DELETE FROM predictions
+        WHERE user_id = ? AND contest_name = (SELECT contest_name FROM contests WHERE channel_id = ?)
+        AND stats = ? AND outcome = ?
+    ''', (user.id, channel.id, stats, outcome_enum.value))
+    conn.commit()
+
+    # Check if any row was affected
+    if cursor.rowcount > 0:
+        await interaction.response.send_message("Prediction removed successfully.", ephemeral=True)
+    else:
+        # If no entry found, list the user's predictions
+        predictions = get_user_predictions_for_contest(user.id, channel.id)
+        if predictions:
+            response = "No such entry. Here are your current predictions:\n"
+            for contest_name, stats, outcome, timestamp in predictions:
+                response += f"Contest: {contest_name}, Stats: {stats}, Outcome: {outcome}\n"
+        else:
+            response = "No such entry. You have no predictions in this contest."
+
+        await interaction.response.send_message(response, ephemeral=True)
 
 
 # Register the slash command to list all predictions
@@ -159,7 +205,7 @@ async def predictions(interaction: discord.Interaction):
 
         # Allow the creator of the contest to access predictions at any time
         if int(time.time()) < start_time and user.id != creator_id:
-            await interaction.response.send_message("Predictions are hidden until the game starts.")
+            await interaction.response.send_message("Predictions are hidden until the game starts.", ephemeral=True)
             return
 
         # Get all predictions for the active contest (no time filtering)
@@ -173,9 +219,9 @@ async def predictions(interaction: discord.Interaction):
         else:
             response = "No predictions have been made for this contest."
 
-        await interaction.response.send_message(response)
+        await interaction.response.send_message(response, ephemeral=True)
     else:
-        await interaction.response.send_message("No active contest in this channel.")
+        await interaction.response.send_message("No active contest in this channel.", ephemeral=True)
 
 
 # Register the slash command to show user-specific predictions in the current contest
@@ -199,6 +245,13 @@ async def my_predictions(interaction: discord.Interaction):
 
     # Send the embed as an ephemeral message (visible only to the user)
     await interaction.response.send_message(embed=embed, ephemeral=True)
+
+
+# Register the slash command to show the total number of predictions
+@bot.tree.command(name='total_predictions')
+async def total_predictions(interaction: discord.Interaction):
+    total = count_total_predictions()
+    await interaction.response.send_message(f"Total predictions made: {total}", ephemeral=True)
 
 
 # Register slash commands when the bot is ready
