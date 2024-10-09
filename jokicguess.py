@@ -341,6 +341,91 @@ async def total_predictions(interaction: discord.Interaction):
     await interaction.response.send_message(f"Total predictions made: {total}", ephemeral=True)
 
 
+@bot.tree.command(name='winner')
+async def winner(interaction: discord.Interaction, stats: int, outcome: str):
+    channel = interaction.channel
+    user = interaction.user
+
+    # Validate outcome input
+    if outcome not in ['Win', 'Loss']:
+        await interaction.response.send_message("Invalid outcome. Outcome must be 'Win' or 'Loss'.", ephemeral=True)
+        return
+
+    # Fetch contest details (start_time, creator_id) associated with the channel
+    cursor.execute('SELECT start_time, creator_id FROM contests WHERE channel_id = ?', (channel.id,))
+    contest = cursor.fetchone()
+
+    if not contest:
+        await interaction.response.send_message("No active contest found for this channel.", ephemeral=True)
+        return
+
+    start_time, creator_id = contest
+
+    # Check if the user invoking the command is the contest creator
+    if user.id != creator_id:
+        await interaction.response.send_message("Only the contest creator can declare the winner.", ephemeral=True)
+        return
+
+    # Fetch all predictions for the current contest in the channel
+    predictions = get_predictions_for_contest(channel.id)
+
+    if not predictions:
+        await interaction.response.send_message("No predictions found for this contest.", ephemeral=True)
+        return
+
+    # Filter predictions with the correct outcome
+    valid_predictions = [p for p in predictions if p[2] == outcome]  # p[2] is the outcome
+
+    if not valid_predictions:
+        await interaction.response.send_message("No predictions with the correct outcome.", ephemeral=True)
+        return
+
+    # Find the prediction(s) with the smallest difference in stats
+    smallest_diff = float('inf')
+    winners = []
+
+    for user_id, pred_stats, pred_outcome, timestamp in valid_predictions:
+        diff = abs(int(pred_stats) - stats)
+        if diff < smallest_diff:
+            smallest_diff = diff
+            winners = [(user_id, pred_stats, pred_outcome)]
+        elif diff == smallest_diff:
+            winners.append((user_id, pred_stats, pred_outcome))
+
+    if winners:
+        response = f"🎉 **We have a winner** for the contest in **{channel.name}**! 🎉\n"
+        response += f"🏆 Congratulations to the following amazing predictor(s):\n\n"
+
+        for winner in winners:
+            user_id, winner_stats, winner_outcome = winner
+
+            # Fetch the username from the database or Discord
+            cursor.execute('SELECT username FROM user_mapping WHERE user_id = ?', (user_id,))
+            result = cursor.fetchone()
+
+            if result:
+                username = result[0]
+            else:
+                try:
+                    user_obj = await bot.fetch_user(user_id)
+                    username = user_obj.name
+                    # Save username to the database
+                    cursor.execute('INSERT OR REPLACE INTO user_mapping (user_id, username) VALUES (?, ?)',
+                                   (user_id, username))
+                    conn.commit()
+                except Exception as e:
+                    username = f"User {user_id}"
+
+            response += f"**{username}** 🏅 - Predicted Stats: `{winner_stats}`, Outcome: `{winner_outcome}`\n"
+
+        response += "\n🔥 Great job everyone! Let's go for the next round soon! 🔥"
+    else:
+        response = "No winners found."
+
+    # Send the response with the list of winners
+    await interaction.response.send_message(response)
+
+
 # Register slash commands when the bot is ready
 @bot.event
 async def on_ready():
