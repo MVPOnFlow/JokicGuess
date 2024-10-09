@@ -10,8 +10,10 @@ import io
 import discord
 
 
-# Helper function to create a CSV file from predictions
-def create_predictions_csv(predictions):
+import csv
+import io
+
+async def create_predictions_csv(predictions):
     output = io.StringIO()
     writer = csv.writer(output)
 
@@ -20,7 +22,28 @@ def create_predictions_csv(predictions):
 
     # Write each prediction as a row
     for user_id, stats, outcome, timestamp in predictions:
-        writer.writerow([user_id, stats, outcome, timestamp])
+        # Check the local database for the username
+        cursor.execute('SELECT username FROM user_mapping WHERE user_id = ?', (user_id,))
+        result = cursor.fetchone()
+
+        if result:
+            username = result[0]
+        else:
+            try:
+                # If username is not in the database, attempt to fetch from Discord
+                user_obj = await bot.fetch_user(user_id)
+                username = user_obj.name
+
+                # Save the username to the database for future use
+                cursor.execute('INSERT OR REPLACE INTO user_mapping (user_id, username) VALUES (?, ?)',
+                               (user_id, username))
+                conn.commit()
+            except Exception as e:
+                # In case fetching from Discord fails, fallback to user_id
+                username = f"User {user_id}"
+
+        # Write the row with the username, stats, outcome, and timestamp
+        writer.writerow([username, stats, outcome, timestamp])
 
     # Move back to the beginning of the file-like object
     output.seek(0)
@@ -243,12 +266,32 @@ async def predictions(interaction: discord.Interaction):
         if predictions:
             response = ""
             for user_id, stats, outcome, timestamp in predictions:
-                #user = await bot.fetch_user(user_id)  # Get the user object from user_id
-                response += f"{user_id}: Stats: {stats}, Outcome: {outcome}\n"  # Show username without @
+                # Try to fetch the username from the database
+                cursor.execute('SELECT username FROM user_mapping WHERE user_id = ?', (user_id,))
+                result = cursor.fetchone()
+                print(result)
+
+                if result:
+                    username = result[0]  # Fetch from database
+                    print(username)
+                else:
+                    # If the user is not in the local database, fetch from Discord
+                    try:
+                        user_obj = await bot.fetch_user(user_id)
+                        username = user_obj.name
+                        # Save to database for future use
+                        cursor.execute('INSERT OR REPLACE INTO user_mapping (user_id, username) VALUES (?, ?)',
+                                       (user_id, username))
+                        conn.commit()
+                    except Exception as e:
+                        # In case fetching from Discord fails, use user_id as fallback
+                        username = f"User {user_id}"
+
+                response += f"{username}: Stats: {stats}, Outcome: {outcome}\n"  # Use the fetched or fallback username
 
             if len(response) > 2000:
                 # Generate CSV file if the response is too large
-                csv_output = create_predictions_csv(predictions)
+                csv_output = await create_predictions_csv(predictions)
                 csv_filename = f"predictions_{channel.id}.csv"
 
                 # Create Discord file from CSV
@@ -265,6 +308,7 @@ async def predictions(interaction: discord.Interaction):
             await interaction.response.send_message("No predictions have been made for this contest.", ephemeral=True)
     else:
         await interaction.response.send_message("No active contest in this channel.", ephemeral=True)
+
 
 
 # Register the slash command to show user-specific predictions in the current contest
