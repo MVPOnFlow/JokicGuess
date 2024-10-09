@@ -5,6 +5,29 @@ from enum import Enum
 import os
 import time
 
+import csv
+import io
+import discord
+
+
+# Helper function to create a CSV file from predictions
+def create_predictions_csv(predictions):
+    output = io.StringIO()
+    writer = csv.writer(output)
+
+    # Write CSV headers
+    writer.writerow(['Username', 'Stats', 'Outcome', 'Timestamp'])
+
+    # Write each prediction as a row
+    for user_id, stats, outcome, timestamp in predictions:
+        writer.writerow([user_id, stats, outcome, timestamp])
+
+    # Move back to the beginning of the file-like object
+    output.seek(0)
+
+    return output
+
+
 # Define the intents required
 intents = discord.Intents.default()
 intents.message_content = True  # Ensure you can read message content
@@ -46,6 +69,13 @@ cursor.execute('''
 ''')
 conn.commit()
 
+cursor.execute('''
+    CREATE TABLE IF NOT EXISTS user_mapping (
+        user_id BIGINT PRIMARY KEY,
+        username TEXT NOT NULL
+    );
+''')
+conn.commit()
 
 # Function to insert a prediction
 def save_prediction(user_id, contest_name, stats, outcome, timestamp):
@@ -190,7 +220,6 @@ async def remove_prediction(interaction: discord.Interaction, stats: str, outcom
         await interaction.response.send_message(response, ephemeral=True)
 
 
-# Register the slash command to list all predictions
 @bot.tree.command(name='predictions')
 async def predictions(interaction: discord.Interaction):
     user = interaction.user
@@ -212,14 +241,28 @@ async def predictions(interaction: discord.Interaction):
         predictions = get_predictions_for_contest(channel.id)
 
         if predictions:
-            response = "Predictions for this contest:\n"
+            response = ""
             for user_id, stats, outcome, timestamp in predictions:
-                user = await bot.fetch_user(user_id)  # Get the user object from user_id
-                response += f"{user.name}: Stats: {stats}, Outcome: {outcome}\n"  # Show username without @
-        else:
-            response = "No predictions have been made for this contest."
+                #user = await bot.fetch_user(user_id)  # Get the user object from user_id
+                response += f"{user_id}: Stats: {stats}, Outcome: {outcome}\n"  # Show username without @
 
-        await interaction.response.send_message(response, ephemeral=True)
+            if len(response) > 2000:
+                # Generate CSV file if the response is too large
+                csv_output = create_predictions_csv(predictions)
+                csv_filename = f"predictions_{channel.id}.csv"
+
+                # Create Discord file from CSV
+                discord_file = discord.File(fp=csv_output, filename=csv_filename)
+
+                # Send CSV file to user
+                await interaction.response.send_message(
+                    content="The predictions list is too large. Here is the CSV file.", file=discord_file,
+                    ephemeral=True)
+            else:
+                # Send normal response
+                await interaction.response.send_message(response, ephemeral=True)
+        else:
+            await interaction.response.send_message("No predictions have been made for this contest.", ephemeral=True)
     else:
         await interaction.response.send_message("No active contest in this channel.", ephemeral=True)
 
