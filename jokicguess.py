@@ -1,254 +1,277 @@
 import discord
 from discord.ext import commands
-from discord import app_commands
+import sqlite3
+from enum import Enum
 import os
-from datetime import datetime, timedelta
+import time
 
+# Define the intents required
 intents = discord.Intents.default()
-intents.reactions = True
-intents.messages = True
-intents.message_content = True  # To access message content
+intents.message_content = True  # Ensure you can read message content
 
+
+# Define the Outcome Enum
+class Outcome(Enum):
+    WIN = "Win"
+    LOSS = "Loss"
+
+
+# Define the bot
 bot = commands.Bot(command_prefix='/', intents=intents)
 
-# Questions and related data
-questions = [
-    {"question": "1. Real vs fake MVP clash. Who will score more points? Tie goes to Embiid.", "options": ["A: Jokic", "B: Embiid"], "tie_breaker": False},
-    {"question": "2. Who will win the game (Serbia +12.5)?", "options": ["A: Serbia(+12.5)", "B: USA(-12.5)"], "tie_breaker": False},
-    {"question": "3. Real vs fake MVP clash. Who will have more rebounds? Tie goes to Embiid.", "options": ["A: Jokic", "B: Embiid"], "tie_breaker": False},
-    {"question": "4. Who will score more 3 pointers?", "options": ["A: Curry(-0.5)", "B: Bogdanovic(+0.5)"], "tie_breaker": False},
-    {"question": "5. Heat duel, who will play more minutes?", "options": ["A: Bam", "B: Jovic"], "tie_breaker": False},
-    {"question": "6. Point guard vs point forward? Who is the real GOAT, who will have more assists?", "options": ["A: LebronJames", "B: VasilijeMicic"], "tie_breaker": False},
-    {"question": "7. Davis (+0.5) or Team Serbia? Who will have more blocks?", "options": ["A: AnthonyDavis(+0.5)", "B: Serbia"], "tie_breaker": False},
-    {"question": "8. Who will be the top scorer in the game? (Tiebreaker less minutes played)", "options": ["A: Jokic", "B: Curry", "C: Lebron", "D: AnyoneElse"], "tie_breaker": False},
-    {"question": "9. Is anyone going to foul out in the game?", "options": ["A: Yes", "B: No"], "tie_breaker": False},
-    {"question": "Tie Breaker (Type message in chat) - How many points+rebounds+assists will Jokic have?", "options": [], "tie_breaker": True}  # Handle separately
-]
+# Connect to SQLite database (or create it if it doesn't exist)
+conn = sqlite3.connect('predictions.db')
+cursor = conn.cursor()
 
-user_guesses = {}
-user_numeric_guesses = {}
-message_to_question = {}
-emoji_to_letter = {'🇦': 'A', '🇧': 'B', '🇨': 'C', '🇩': 'D'}
+# Create table for predictions if it doesn't exist
+cursor.execute('''
+    CREATE TABLE IF NOT EXISTS predictions (
+        user_id INTEGER,
+        contest_name TEXT,
+        stats TEXT NOT NULL,
+        outcome TEXT NOT NULL CHECK (outcome IN ('Win', 'Loss')),
+        timestamp INTEGER
+    )
+''')
+conn.commit()
 
-cutoff_time = None
-guess_channel = None  # Variable to store the channel ID for guessing
+# Create table for contests if it doesn't exist
+cursor.execute('''
+    CREATE TABLE IF NOT EXISTS contests (
+        channel_id INTEGER PRIMARY KEY,
+        contest_name TEXT NOT NULL,
+        start_time INTEGER NOT NULL,
+        creator_id INTEGER NOT NULL
+    )
+''')
+conn.commit()
 
-def find_question_for_message(msg_id):
-    # Retrieve the question based on the message ID
-    return message_to_question.get(msg_id, "Unknown Question")
 
-class MyClient(discord.Client):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.tree = app_commands.CommandTree(self)
+# Function to insert a prediction
+def save_prediction(user_id, contest_name, stats, outcome, timestamp):
+    cursor.execute('''
+        INSERT INTO predictions (user_id, contest_name, stats, outcome, timestamp)
+        VALUES (?, ?, ?, ?, ?)
+    ''', (user_id, contest_name, stats, outcome.value, timestamp))  # Use outcome.value for storage
+    conn.commit()
 
-    async def on_ready(self):
-        await self.tree.sync()
-        print(f'Bot {self.user} is online!')
 
-client = MyClient(intents=intents)
+# Function to start a contest in a specific channel
+def start_contest(channel_id, contest_name, start_time, creator_id):
+    cursor.execute('''
+        INSERT OR REPLACE INTO contests (channel_id, contest_name, start_time, creator_id)
+        VALUES (?, ?, ?, ?)
+    ''', (channel_id, contest_name, start_time, creator_id))
+    conn.commit()
 
-@client.tree.command(name="guess", description="Start the guessing game")
-@app_commands.checks.has_permissions(administrator=True)
-async def guess(interaction: discord.Interaction):
-    global cutoff_time, guess_channel
-    guild_id = interaction.guild.id
-    user_guesses[guild_id] = {}
-    user_numeric_guesses[guild_id] = {}
-    message_to_question.clear()  # Clear previous mappings
-    
-    # Set the cutoff time to 1 hour from now
-    cutoff_time = datetime(2024, 7, 28, 15, 15, 0)
-    guess_channel = interaction.channel.id  # Store the channel ID where /guess was used
-    
-    await interaction.response.send_message("Starting the guessing game! Make your predictions before the game starts. Predictions made after game start will be ignored.")
-    for question_data in questions:
-        question = question_data["question"]
-        options = question_data["options"]
-        tie_breaker = question_data["tie_breaker"]
-        
-        if options:  # Handle multiple choice questions
-            followup_message = f"{question}\n" + "\n".join(options)
-            msg = await interaction.followup.send(followup_message, wait=True)
-            message_to_question[msg.id] = question
-            for option in options:
-                emoji = list(emoji_to_letter.keys())[options.index(option)]
-                await msg.add_reaction(emoji)
-            user_guesses[guild_id][msg.id] = {}
-        else:  # Handle numeric input question
-            msg = await interaction.followup.send(question, wait=True)
-            message_to_question[msg.id] = question
 
-@client.tree.command(name="results", description="Enter the correct results (admin only)")
-@app_commands.checks.has_permissions(administrator=True)
-async def results(interaction: discord.Interaction, correct_answers: str, correct_tie_breaker: str):
-    try:
-        guild_id = interaction.guild.id
-        score_board = {}
+# Function to get all predictions for the active contest
+def get_predictions_for_contest(channel_id):
+    cursor.execute('''
+        SELECT user_id, stats, outcome, timestamp FROM predictions
+        WHERE contest_name = (SELECT contest_name FROM contests WHERE channel_id = ?)
+    ''', (channel_id,))
+    return cursor.fetchall()
 
-        correct_answers_list = correct_answers.split()
-        print(f"Correct answers: {correct_answers_list}")
 
-        for i, msg_id in enumerate(user_guesses[guild_id]):
-            correct_answer = correct_answers_list[i]
-            for user_id, guess in user_guesses[guild_id][msg_id].items():
-                guess_letter = emoji_to_letter.get(guess)
-                if guess_letter == correct_answer:
-                    if user_id not in score_board:
-                        score_board[user_id] = 0
-                    score_board[user_id] += 1
+# Function to get user predictions for the current contest in a specific channel
+def get_user_predictions_for_contest(user_id, channel_id):
+    cursor.execute('''
+        SELECT contest_name, stats, outcome, timestamp FROM predictions
+        WHERE user_id = ? AND contest_name = (SELECT contest_name FROM contests WHERE channel_id = ?)
+    ''', (user_id, channel_id))
+    return cursor.fetchall()
 
-        # Handle numeric question with a tie-breaker
-        if guild_id in user_numeric_guesses:
-            for msg_id in user_numeric_guesses[guild_id]:
-                user_numeric_guesses_dict = user_numeric_guesses[guild_id][msg_id]
-                tie_breaker_value = int(correct_tie_breaker)
 
-                for user_id, guess_value in user_numeric_guesses_dict.items():
-                    if user_id not in score_board:
-                        score_board[user_id] = 0
-                    # Tie-breaker logic
-                    score_board[user_id] -= abs(guess_value - tie_breaker_value) / 100  # Adjust based on how close the guess is
+# Function to count total predictions
+def count_total_predictions():
+    cursor.execute('SELECT COUNT(*) FROM predictions')
+    return cursor.fetchone()[0]  # Return the count
 
-        sorted_scores = sorted(score_board.items(), key=lambda item: (item[1], -item[0]), reverse=True)
 
-        results_message = "Results:\n"
-        for user_id, score in sorted_scores:
-            user = await client.fetch_user(user_id)
-            results_message += f"{user.name}: {score} points\n"
+# Register the slash command for starting a contest
+@bot.tree.command(name='start')
+async def start(interaction: discord.Interaction, name: str, start_time: int):
+    channel = interaction.channel
+    user = interaction.user
 
-        await interaction.response.send_message(results_message)
-        print(f"Results message sent: {results_message}")
-    except Exception as e:
-        print(f"Error in on_message: {e}")
+    # Check if a contest already exists in this channel
+    cursor.execute('SELECT contest_name FROM contests WHERE channel_id = ?', (channel.id,))
+    existing_contest = cursor.fetchone()
 
-@results.error
-async def results_error(interaction: discord.Interaction, error: app_commands.AppCommandError):
-    if isinstance(error, app_commands.errors.MissingPermissions):
-        await interaction.response.send_message("You do not have the required permissions to use this command.", ephemeral=True)
+    if existing_contest:
+        await interaction.response.send_message(
+            f"A contest '{existing_contest[0]}' is already active in this channel. Please finish it before starting a new one.",
+            ephemeral=True
+        )
+        return
+
+    # Start the contest in the specified channel with a start time and the creator's ID
+    start_contest(channel.id, name, start_time, user.id)
+
+    # Inform the user that the contest has started
+    await interaction.response.send_message(
+        f"Contest '{name}' started in this channel! Game starts at <t:{start_time}:F>.", ephemeral=True)
+
+
+# Register the slash command for prediction
+@bot.tree.command(name='predict')
+async def predict(interaction: discord.Interaction, stats: str, outcome: str):
+    user = interaction.user
+    channel = interaction.channel
+
+    # Get the contest name and start time associated with the channel
+    cursor.execute('SELECT contest_name, start_time FROM contests WHERE channel_id = ?', (channel.id,))
+    contest = cursor.fetchone()
+
+    if contest:
+        contest_name, start_time = contest
+        current_time = int(time.time())
+
+        # Ensure predictions are made before the game starts
+        if current_time >= start_time:
+            await interaction.response.send_message("Predictions are closed. The game has already started.",
+                                                    ephemeral=True)
+            return
+
+        # Validate outcome
+        try:
+            outcome_enum = Outcome[outcome.upper()]
+        except KeyError:
+            await interaction.response.send_message("Invalid outcome. Please use 'Win' or 'Loss'.", ephemeral=True)
+            return
+
+        # Save the prediction in the database tied to the contest
+        save_prediction(user.id, contest_name, stats, outcome_enum, current_time)
+
+        # Inform the user that the prediction has been saved without showing the prediction details
+        await interaction.response.send_message(
+            f"Prediction saved for {user.name} in contest '{contest_name}'.", ephemeral=True
+        )
     else:
-        await interaction.response.send_message("An error occurred while processing your command.", ephemeral=True)
-    print(f"Error in results command: {error}")
+        await interaction.response.send_message("No active contest in this channel. Please start a contest first.",
+                                                ephemeral=True)
 
-@client.tree.command(name="predictions", description="Show all predictions made by all players")
-@app_commands.checks.has_permissions(administrator=True)
+
+# Register the slash command to remove a prediction
+@bot.tree.command(name='remove_prediction')
+async def remove_prediction(interaction: discord.Interaction, stats: str, outcome: str):
+    user = interaction.user
+    channel = interaction.channel
+
+    # Validate outcome
+    try:
+        outcome_enum = Outcome[outcome.upper()]
+    except KeyError:
+        await interaction.response.send_message("Invalid outcome. Please use 'Win' or 'Loss'.", ephemeral=True)
+        return
+
+    # Check if the prediction exists for the user
+    cursor.execute('''
+        DELETE FROM predictions
+        WHERE user_id = ? AND contest_name = (SELECT contest_name FROM contests WHERE channel_id = ?)
+        AND stats = ? AND outcome = ?
+    ''', (user.id, channel.id, stats, outcome_enum.value))
+    conn.commit()
+
+    # Check if any row was affected
+    if cursor.rowcount > 0:
+        await interaction.response.send_message("Prediction removed successfully.", ephemeral=True)
+    else:
+        # If no entry found, list the user's predictions
+        predictions = get_user_predictions_for_contest(user.id, channel.id)
+        if predictions:
+            response = "No such entry. Here are your current predictions:\n"
+            for contest_name, stats, outcome, timestamp in predictions:
+                response += f"Contest: {contest_name}, Stats: {stats}, Outcome: {outcome}\n"
+        else:
+            response = "No such entry. You have no predictions in this contest."
+
+        await interaction.response.send_message(response, ephemeral=True)
+
+
+# Register the slash command to list all predictions
+@bot.tree.command(name='predictions')
 async def predictions(interaction: discord.Interaction):
-    try:
-        guild_id = interaction.guild.id
-        if guild_id not in user_guesses and guild_id not in user_numeric_guesses:
-            await interaction.response.send_message("No predictions have been made yet.")
+    user = interaction.user
+    channel = interaction.channel
+
+    # Get the contest start time and creator ID associated with the channel
+    cursor.execute('SELECT start_time, creator_id FROM contests WHERE channel_id = ?', (channel.id,))
+    contest = cursor.fetchone()
+
+    if contest:
+        start_time, creator_id = contest
+
+        # Allow the creator of the contest to access predictions at any time
+        if int(time.time()) < start_time and user.id != creator_id:
+            await interaction.response.send_message("Predictions are hidden until the game starts.", ephemeral=True)
             return
 
-        predictions_message = "Player Predictions:\n"
+        # Get all predictions for the active contest (no time filtering)
+        predictions = get_predictions_for_contest(channel.id)
 
-        # Gather multiple choice predictions
-        for msg_id, guesses in user_guesses.get(guild_id, {}).items():
-            question = find_question_for_message(msg_id)
-            predictions_message += f"\n**{question}**\n"
-            for user_id, emoji in guesses.items():
-                user = await client.fetch_user(user_id)
-                letter = emoji_to_letter.get(emoji, emoji)
-                predictions_message += f"{user.name}: {letter}\n"
+        if predictions:
+            response = "Predictions for this contest:\n"
+            for user_id, stats, outcome, timestamp in predictions:
+                user = await bot.fetch_user(user_id)  # Get the user object from user_id
+                response += f"{user.name}: Stats: {stats}, Outcome: {outcome}\n"  # Show username without @
+        else:
+            response = "No predictions have been made for this contest."
 
-        # Gather numeric predictions
-        if guild_id in user_numeric_guesses:
-            predictions_message += "\n**How many points+rebounds+assists will joked have?**\n"
-            for msg_id, guesses in user_numeric_guesses[guild_id].items():
-                for user_id, guess in guesses.items():
-                    user = await client.fetch_user(user_id)
-                    predictions_message += f"{user.name}: {guess}\n"
-
-        # Send the initial response
-        await interaction.response.send_message("Here are the current predictions:")
-
-        # Send the predictions message in chunks if it exceeds Discord's limit
-        for chunk in [predictions_message[i:i + 1500] for i in range(0, len(predictions_message), 1500)]:
-            await interaction.followup.send(chunk)
-            print(f"Predictions message sent: {chunk}")
-    except Exception as e:
-        print(f"Error in on_message: {e}")
-
-@predictions.error
-async def predictions_error(interaction: discord.Interaction, error: app_commands.AppCommandError):
-    # Ensure to use a follow-up message for errors
-    try:
-        await interaction.followup.send("An error occurred while processing your command.", ephemeral=True)
-    except discord.errors.InteractionResponded:
-        print("Failed to send error message because interaction was already responded to.")
-    print(f"Error in predictions command: {error}")
-
-@client.event
-async def on_reaction_add(reaction, user):
-    try:
-        if user.bot:
-            return
-
-        if datetime.utcnow() > cutoff_time:
-            return
-
-        msg_id = reaction.message.id
-        guild_id = reaction.message.guild.id
-
-        if msg_id in user_guesses.get(guild_id, {}):
-            user_guesses[guild_id][msg_id][user.id] = reaction.emoji
-            try:
-                await reaction.message.remove_reaction(reaction.emoji, user)
-            except discord.Forbidden:
-                print("The bot does not have permission to remove reactions. Please enable the 'Manage Messages' permission.")
-    except Exception as e:
-        print(f"Error in on_message: {e}")
-
-@client.event
-async def on_message(message):
-    try:
-        if message.author.bot:
-            return
-        guild_id = message.guild.id
-        if guild_id in user_numeric_guesses and message.channel.id == guess_channel:
-            try:
-                minutes = int(message.content)
-                if message.id not in user_numeric_guesses[guild_id]:
-                    user_numeric_guesses[guild_id][message.id] = {message.author.id: minutes}
-                else:
-                    user_numeric_guesses[guild_id][message.id][message.author.id] = minutes
-                await message.delete()
-            except ValueError:
-                await message.delete()        
-    except Exception as e:
-        print(f"Error in on_message: {e}")
-
-@client.event
-async def on_message(message):
-    try:
-        if message.author.bot:
-            return
-
-        guild_id = message.guild.id
-        if guild_id in user_numeric_guesses and message.channel.id == guess_channel:
-            try:
-                # Attempt to parse the message content as an integer
-                minutes = int(message.content)
-                
-                # Check if message ID is in the numeric guesses
-                if message.id not in user_numeric_guesses[guild_id]:
-                    user_numeric_guesses[guild_id][message.id] = {}
-
-                # Update the prediction with the latest value
-                user_numeric_guesses[guild_id][message.id][message.author.id] = minutes
-                
-                # Delete the message to prevent clutter
-                await message.delete()
-            except ValueError:
-                # If the message content is not an integer, delete the message
-                await message.delete()
-    except Exception as e:
-        print(f"Error in on_message: {e}")
+        await interaction.response.send_message(response, ephemeral=True)
+    else:
+        await interaction.response.send_message("No active contest in this channel.", ephemeral=True)
 
 
-# Read the token from secret.txt
+# Register the slash command to show user-specific predictions in the current contest
+@bot.tree.command(name='my_predictions')
+async def my_predictions(interaction: discord.Interaction):
+    user = interaction.user
+    channel = interaction.channel
+
+    # Get user predictions for the current contest in the channel
+    predictions = get_user_predictions_for_contest(user.id, channel.id)
+
+    if predictions:
+        # Create an embed message to show the user's predictions
+        embed = discord.Embed(title=f"{user.name}'s Predictions in Current Contest", color=discord.Color.blue())
+        for contest_name, stats, outcome, timestamp in predictions:
+            embed.add_field(name=contest_name, value=f"Stats: {stats}, Outcome: {outcome}", inline=False)
+    else:
+        embed = discord.Embed(title="No Predictions",
+                              description="You haven't made any predictions for the current contest.",
+                              color=discord.Color.red())
+
+    # Send the embed as an ephemeral message (visible only to the user)
+    await interaction.response.send_message(embed=embed, ephemeral=True)
+
+
+# Register the slash command to show the total number of predictions
+@bot.tree.command(name='total_predictions')
+async def total_predictions(interaction: discord.Interaction):
+    total = count_total_predictions()
+    await interaction.response.send_message(f"Total predictions made: {total}", ephemeral=True)
+
+
+# Register slash commands when the bot is ready
+@bot.event
+async def on_ready():
+    await bot.tree.sync()  # Sync commands with Discord
+    print(f'Logged in as {bot.user}! Commands synced.')
+
+
+# Close the database connection when the bot stops
+@bot.event
+async def on_close():
+    conn.close()
+
+
+# Read the token from secret.txt or environment variable
 token = os.getenv('DISCORD_TOKEN')
-if not token: 
+if not token:
     with open('secret.txt', 'r') as file:
         token = file.read().strip()
 
-client.run(token)
+# Run the bot
+bot.run(token)
