@@ -274,25 +274,220 @@ async def predictions(interaction: discord.Interaction):
     user = interaction.user
     channel = interaction.channel
 
-    # Fetch all predictions for the current contest in the channel
-    predictions = get_predictions_for_contest(channel.id)
+    # Get the contest start time and creator ID associated with the channel
+    query = 'SELECT start_time, creator_id FROM contests WHERE channel_id = ?'
+    query = prepare_query(query)
+    cursor.execute(query, (channel.id,))
+    contest = cursor.fetchone()
 
-    # Create a CSV file from the predictions
-    csv_output = await create_predictions_csv(predictions)
+    if contest:
+        start_time, creator_id = contest
 
-    # Send the CSV file as an attachment
-    await interaction.response.send_message(
-        content="Here are the predictions for the contest.",
-        file=discord.File(fp=csv_output, filename="predictions.csv"),
-        ephemeral=True
-    )
+        # Allow the creator of the contest to access predictions at any time
+        if int(time.time()) < start_time and user.id != creator_id:
+            await interaction.response.send_message("Predictions are hidden until the game starts.", ephemeral=True)
+            return
 
-# Register the command to count total predictions
+        # Get all predictions for the active contest (no time filtering)
+        predictions = get_predictions_for_contest(channel.id)
+
+        if predictions:
+            response = ""
+            for user_id, stats, outcome, timestamp in predictions:
+                # Try to fetch the username from the database
+                query = 'SELECT username FROM user_mapping WHERE user_id = ?'
+                query = prepare_query(query)
+                cursor.execute(query, (user_id,))
+                result = cursor.fetchone()
+
+                if result:
+                    username = result[0]  # Fetch from database
+                else:
+                    # If the user is not in the local database, fetch from Discord
+                    try:
+                        user_obj = await bot.fetch_user(user_id)
+                        username = user_obj.name
+                        # Save to database for future use
+                        if db_type == 'postgresql':
+                            query = '''INSERT INTO user_mapping (user_id, username) 
+                                       VALUES (%s, %s) 
+                                       ON CONFLICT (user_id) DO UPDATE SET username = EXCLUDED.username'''
+                        else:
+                            query = 'INSERT OR REPLACE INTO user_mapping (user_id, username) VALUES (?, ?)'
+
+                        query = prepare_query(query)
+                        cursor.execute(query, (user_id, username))
+                        conn.commit()
+                    except Exception as e:
+                        # In case fetching from Discord fails, use user_id as fallback
+                        username = f"User {user_id}"
+
+                response += f"{username}: Stats: {stats}, Outcome: {outcome}\n"  # Use the fetched or fallback username
+
+            if len(response) > 2000:
+                # Generate CSV file if the response is too large
+                csv_output = await create_predictions_csv(predictions)
+                csv_filename = f"predictions_{channel.id}.csv"
+
+                # Create Discord file from CSV
+                discord_file = discord.File(fp=csv_output, filename=csv_filename)
+
+                # Send CSV file to user
+                await interaction.response.send_message(
+                    content="The predictions list is too large. Here is the CSV file.", file=discord_file,
+                    ephemeral=True)
+            else:
+                # Send normal response
+                await interaction.response.send_message(response, ephemeral=True)
+        else:
+            await interaction.response.send_message("No predictions have been made for this contest.", ephemeral=True)
+    else:
+        await interaction.response.send_message("No active contest in this channel.", ephemeral=True)
+
+
+# Register the slash command to show user-specific predictions in the current contest
+@bot.tree.command(name='my_predictions')
+async def my_predictions(interaction: discord.Interaction):
+    user = interaction.user
+    channel = interaction.channel
+
+    # Get user predictions for the current contest in the channel
+    predictions = get_user_predictions_for_contest(user.id, channel.id)
+
+    if predictions:
+        # Create an embed message to show the user's predictions
+        embed = discord.Embed(title=f"{user.name}'s Predictions in Current Contest", color=discord.Color.blue())
+        for contest_name, stats, outcome, timestamp in predictions:
+            embed.add_field(name=contest_name, value=f"Stats: {stats}, Outcome: {outcome}", inline=False)
+    else:
+        embed = discord.Embed(title="No Predictions",
+                              description="You haven't made any predictions for the current contest.",
+                              color=discord.Color.red())
+
+    # Send the embed as an ephemeral message (visible only to the user)
+    await interaction.response.send_message(embed=embed, ephemeral=True)
+
+
+# Register the slash command to show the total number of predictions
 @bot.tree.command(name='total_predictions')
 async def total_predictions(interaction: discord.Interaction):
     total = count_total_predictions()
-    await interaction.response.send_message(f"Total predictions made: {total}")
+    await interaction.response.send_message(f"Total predictions made: {total}", ephemeral=True)
 
+
+@bot.tree.command(name='winner')
+async def winner(interaction: discord.Interaction, stats: int, outcome: str):
+    channel = interaction.channel
+    user = interaction.user
+
+    # Validate outcome input
+    if outcome not in ['Win', 'Loss']:
+        await interaction.response.send_message("Invalid outcome. Outcome must be 'Win' or 'Loss'.", ephemeral=True)
+        return
+
+    # Fetch contest details (start_time, creator_id) associated with the channel
+    query = 'SELECT start_time, creator_id FROM contests WHERE channel_id = ?'
+    query = prepare_query(query)
+    cursor.execute(query, (channel.id,))
+    contest = cursor.fetchone()
+
+    if not contest:
+        await interaction.response.send_message("No active contest found for this channel.", ephemeral=True)
+        return
+
+    start_time, creator_id = contest
+
+    # Check if the user invoking the command is the contest creator
+    if user.id != creator_id:
+        await interaction.response.send_message("Only the contest creator can declare the winner.", ephemeral=True)
+        return
+
+    # Fetch all predictions for the current contest in the channel
+    predictions = get_predictions_for_contest(channel.id)
+
+    if not predictions:
+        await interaction.response.send_message("No predictions found for this contest.", ephemeral=True)
+        return
+
+    # Filter predictions with the correct outcome
+    valid_predictions = [p for p in predictions if p[2] == outcome]  # p[2] is the outcome
+
+    if not valid_predictions:
+        await interaction.response.send_message("No predictions with the correct outcome.", ephemeral=True)
+        return
+
+    # Find the prediction(s) with the smallest difference in stats
+    smallest_diff = float('inf')
+    winners = []
+
+    for user_id, pred_stats, pred_outcome, timestamp in valid_predictions:
+        diff = abs(int(pred_stats) - stats)
+        if diff < smallest_diff:
+            smallest_diff = diff
+            winners = [(user_id, pred_stats, pred_outcome)]
+        elif diff == smallest_diff:
+            winners.append((user_id, pred_stats, pred_outcome))
+
+    if winners:
+        response = f"🎉 **We have a winner** for the contest in **{channel.name}**! 🎉\n"
+        response += f"🏆 Congratulations to the following amazing predictor(s):\n\n"
+
+        for winner in winners:
+            user_id, winner_stats, winner_outcome = winner
+
+            # Fetch the username from the database or Discord
+            query = 'SELECT username FROM user_mapping WHERE user_id = ?'
+            query = prepare_query(query)
+            cursor.execute(query, (user_id,))
+            result = cursor.fetchone()
+
+            if result:
+                username = result[0]
+            else:
+                try:
+                    user_obj = await bot.fetch_user(user_id)
+                    username = user_obj.name
+                    # Save username to the database
+                    if db_type == 'postgresql':
+                        query = '''INSERT INTO user_mapping (user_id, username) 
+                                   VALUES (%s, %s) 
+                                   ON CONFLICT (user_id) DO UPDATE SET username = EXCLUDED.username'''
+                    else:
+                        query = 'INSERT OR REPLACE INTO user_mapping (user_id, username) VALUES (?, ?)'
+
+                    query = prepare_query(query)
+                    cursor.execute(query, (user_id, username))
+                    conn.commit()
+                except Exception as e:
+                    username = f"User {user_id}"
+
+            response += f"**{username}** 🏅 - Predicted Stats: `{winner_stats}`, Outcome: `{winner_outcome}`\n"
+
+        response += "\n🔥 Great job everyone! Let's go for the next round soon! 🔥"
+    else:
+        response = "No winners found."
+
+    # Send the response with the list of winners
+    await interaction.response.send_message(response)
+
+# Register slash commands when the bot is ready
+@bot.event
+async def on_ready():
+    await bot.tree.sync()  # Sync commands with Discord
+    print(f'Logged in as {bot.user}! Commands synced.')
+
+
+# Close the database connection when the bot stops
+@bot.event
+async def on_close():
+    conn.close()
+
+
+# Read the token from secret.txt or environment variable
+token = os.getenv('DISCORD_TOKEN')
+if not token:
+    with open('secret.txt', 'r') as file:
+        token = file.read().strip()
 
 # Run the bot
-bot.run(os.getenv('DISCORD_TOKEN'))
+bot.run(token)
