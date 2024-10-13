@@ -127,12 +127,22 @@ def save_prediction(user_id, contest_name, stats, outcome, timestamp):
 
 # Function to start a contest in a specific channel
 def start_contest(channel_id, contest_name, start_time, creator_id):
-    cursor.execute(prepare_query('''
-        INSERT OR REPLACE INTO contests (channel_id, contest_name, start_time, creator_id)
-        VALUES (?, ?, ?, ?)
-    '''), (channel_id, contest_name, start_time, creator_id))
-    conn.commit()
+    if db_type == 'postgresql':
+        # For PostgreSQL, we use ON CONFLICT to handle upserts
+        cursor.execute(prepare_query('''
+            INSERT INTO contests (channel_id, contest_name, start_time, creator_id)
+            VALUES (?, ?, ?, ?)
+            ON CONFLICT (channel_id)
+            DO UPDATE SET contest_name = EXCLUDED.contest_name, start_time = EXCLUDED.start_time, creator_id = EXCLUDED.creator_id
+        '''), (channel_id, contest_name, start_time, creator_id))
+    else:
+        # For SQLite, we can continue using INSERT OR REPLACE
+        cursor.execute(prepare_query('''
+            INSERT OR REPLACE INTO contests (channel_id, contest_name, start_time, creator_id)
+            VALUES (?, ?, ?, ?)
+        '''), (channel_id, contest_name, start_time, creator_id))
 
+    conn.commit()
 
 # Function to get all predictions for the active contest
 def get_predictions_for_contest(channel_id):
