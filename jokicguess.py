@@ -134,7 +134,7 @@ def start_contest(channel_id, contest_name, start_time, creator_id):
             VALUES (?, ?, ?, ?)
             ON CONFLICT (channel_id)
             DO UPDATE SET contest_name = EXCLUDED.contest_name, start_time = EXCLUDED.start_time, creator_id = EXCLUDED.creator_id
-        '''), (channel_id, contest_name, start_time, creator_id))
+        '''), (channel_id, contest_name, str(start_time), creator_id))
     else:
         # For SQLite, we can continue using INSERT OR REPLACE
         cursor.execute(prepare_query('''
@@ -208,7 +208,7 @@ async def predict(interaction: discord.Interaction, stats: str, outcome: str):
         current_time = int(time.time())
 
         # Ensure predictions are made before the game starts
-        if current_time >= start_time:
+        if current_time >= int(start_time):
             await interaction.response.send_message("Predictions are closed. The game has already started.",
                                                     ephemeral=True)
             return
@@ -284,7 +284,7 @@ async def predictions(interaction: discord.Interaction):
         start_time, creator_id = contest
 
         # Allow the creator of the contest to access predictions at any time
-        if int(time.time()) < start_time and user.id != creator_id:
+        if int(time.time()) < int(start_time) and user.id != creator_id:
             await interaction.response.send_message("Predictions are hidden until the game starts.", ephemeral=True)
             return
 
