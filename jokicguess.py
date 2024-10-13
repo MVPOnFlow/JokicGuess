@@ -163,11 +163,20 @@ def get_user_predictions_for_contest(user_id, channel_id):
     return cursor.fetchall()
 
 
-# Function to count total predictions
-def count_total_predictions():
-    cursor.execute(prepare_query('SELECT COUNT(*) FROM predictions'))
+# Function to count total predictions for a specific contest channel
+def count_total_predictions(channel_id):
+    query = '''
+        SELECT COUNT(*) 
+        FROM predictions 
+        WHERE contest_name IN (
+            SELECT contest_name 
+            FROM contests 
+            WHERE channel_id = ?
+        )
+    '''
+    # Prepare the query using the channel_id as a parameter
+    cursor.execute(prepare_query(query), (channel_id,))
     return cursor.fetchone()[0]  # Return the count
-
 
 # Register the slash command for starting a contest
 @bot.tree.command(name='start')
