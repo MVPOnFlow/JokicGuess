@@ -134,7 +134,9 @@ def start_contest(channel_id, contest_name, start_time, creator_id):
             VALUES (?, ?, ?, ?)
             ON CONFLICT (channel_id)
             DO UPDATE SET contest_name = EXCLUDED.contest_name, start_time = EXCLUDED.start_time, creator_id = EXCLUDED.creator_id
-        '''), (channel_id, contest_name, str(start_time), creator_id))
+        '''), (channel_id, contest_name, start_time, creator_id))
+        cursor.execute("""ALTER TABLE contests
+        ALTER COLUMN start_time TYPE BIGINT;""")
     else:
         # For SQLite, we can continue using INSERT OR REPLACE
         cursor.execute(prepare_query('''
