@@ -171,12 +171,14 @@ def count_total_predictions(channel_id):
         WHERE contest_name IN (
             SELECT contest_name 
             FROM contests 
-            WHERE channel_id = ?
+            WHERE channel_id = %s
         )
     '''
     # Prepare the query using the channel_id as a parameter
     cursor.execute(prepare_query(query), (channel_id,))
     return cursor.fetchone()[0]  # Return the count
+
+
 
 # Register the slash command for starting a contest
 @bot.tree.command(name='start')
@@ -381,7 +383,8 @@ async def my_predictions(interaction: discord.Interaction):
 # Register the slash command to show the total number of predictions
 @bot.tree.command(name='total_predictions')
 async def total_predictions(interaction: discord.Interaction):
-    total = count_total_predictions()
+    channel = interaction.channel
+    total = count_total_predictions(channel.id)
     await interaction.response.send_message(f"Total predictions made: {total}", ephemeral=True)
 
 
