@@ -88,11 +88,11 @@ def prepare_query(query):
 # Create table for predictions if it doesn't exist
 cursor.execute(prepare_query('''
     CREATE TABLE IF NOT EXISTS predictions (
-        user_id INTEGER,
+        user_id BIGINT,  -- Use BIGINT for user_id
         contest_name TEXT,
         stats TEXT NOT NULL,
         outcome TEXT NOT NULL CHECK (outcome IN ('Win', 'Loss')),
-        timestamp INTEGER
+        timestamp BIGINT NOT NULL  -- Use BIGINT for timestamp
     )
 '''))
 conn.commit()
@@ -100,14 +100,15 @@ conn.commit()
 # Create table for contests if it doesn't exist
 cursor.execute(prepare_query('''
     CREATE TABLE IF NOT EXISTS contests (
-        channel_id INTEGER PRIMARY KEY,
+        channel_id BIGINT PRIMARY KEY,  -- Use BIGINT for channel_id
         contest_name TEXT NOT NULL,
-        start_time INTEGER NOT NULL,
-        creator_id INTEGER NOT NULL
+        start_time BIGINT NOT NULL,  -- Use BIGINT for start_time
+        creator_id BIGINT NOT NULL  -- Use BIGINT for creator_id
     )
 '''))
 conn.commit()
 
+# Create table for user mapping if it doesn't exist
 cursor.execute(prepare_query('''
     CREATE TABLE IF NOT EXISTS user_mapping (
         user_id BIGINT PRIMARY KEY,
@@ -135,8 +136,6 @@ def start_contest(channel_id, contest_name, start_time, creator_id):
             ON CONFLICT (channel_id)
             DO UPDATE SET contest_name = EXCLUDED.contest_name, start_time = EXCLUDED.start_time, creator_id = EXCLUDED.creator_id
         '''), (channel_id, contest_name, start_time, creator_id))
-        cursor.execute("""ALTER TABLE contests
-        ALTER COLUMN start_time TYPE BIGINT;""")
     else:
         # For SQLite, we can continue using INSERT OR REPLACE
         cursor.execute(prepare_query('''
