@@ -4,14 +4,13 @@ import sqlite3
 from enum import Enum
 import os
 import time
-
-import csv
-import io
 import discord
-
-
 import csv
 import io
+import os
+import sqlite3
+import psycopg2
+from psycopg2 import sql
 
 async def create_predictions_csv(predictions):
     output = io.StringIO()
@@ -65,9 +64,26 @@ class Outcome(Enum):
 # Define the bot
 bot = commands.Bot(command_prefix='/', intents=intents)
 
-# Connect to SQLite database (or create it if it doesn't exist)
-conn = sqlite3.connect('predictions.db')
-cursor = conn.cursor()
+# Detect if running on Heroku by checking if DATABASE_URL is set
+DATABASE_URL = os.getenv('DATABASE_URL')  # Heroku PostgreSQL URL
+
+if DATABASE_URL:
+    # On Heroku, use PostgreSQL
+    conn = psycopg2.connect(DATABASE_URL, sslmode='require')
+    cursor = conn.cursor()
+else:
+    # Locally, use SQLite
+    conn = sqlite3.connect('predictions.db')
+    cursor = conn.cursor()
+
+# Example query to create the user mapping table
+cursor.execute('''
+    CREATE TABLE IF NOT EXISTS user_mapping (
+        user_id BIGINT PRIMARY KEY,
+        username TEXT
+    )
+''')
+conn.commit()
 
 # Create table for predictions if it doesn't exist
 cursor.execute('''
