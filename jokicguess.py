@@ -3,6 +3,8 @@ from discord.ext import commands
 import time
 import discord
 from utils.helpers import *
+from discord import app_commands
+from typing import Literal
 
 # Define the intents required
 intents = discord.Intents.default()
@@ -85,7 +87,11 @@ async def start(interaction: discord.Interaction, name: str, start_time: int):
 
 # Register the slash command for prediction
 @bot.tree.command(name='predict', description='Predict stats total and game outcome')
-async def predict(interaction: discord.Interaction, stats: str, outcome: str):
+@app_commands.describe(
+    stats='Total of 2xPts+3xReb+5xAs+7xStl+9xBlk for the player',
+    outcome="Player's team wins or loses the game?",
+)
+async def predict(interaction: discord.Interaction, stats: str, outcome: Literal['Win', 'Loss']):
     user = interaction.user
     channel = interaction.channel
 

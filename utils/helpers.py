@@ -115,7 +115,7 @@ def count_total_predictions(channel_id):
         WHERE contest_name IN (
             SELECT contest_name 
             FROM contests 
-            WHERE channel_id = %s
+            WHERE channel_id = ?
         )
     '''
     # Prepare the query using the channel_id as a parameter
