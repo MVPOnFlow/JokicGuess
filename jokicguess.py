@@ -5,6 +5,14 @@ import discord
 from utils.helpers import *
 from discord import app_commands
 from typing import Literal
+import datetime
+import random
+from datetime import date
+
+PETTING_ALLOWED_CHANNEL_ID = 1333948717824475187  # Petting allowed channel ID or thread ID
+DEFAULT_FREE_DAILY_PETS = 1 # Daily free pets for each user
+SPECIAL_REWARD_NAME = "Grail seeker pack" # Special rewards
+SPECIAL_REWARD_ODDS = 1 / 200
 
 # Define the intents required
 intents = discord.Intents.default()
@@ -56,6 +64,17 @@ cursor.execute(prepare_query('''
         user_id BIGINT PRIMARY KEY,
         username TEXT NOT NULL
     );
+'''))
+conn.commit()
+
+# Create table for user rewards
+cursor.execute(prepare_query('''
+    CREATE TABLE IF NOT EXISTS user_rewards (
+        user_id BIGINT PRIMARY KEY,  -- Unique identifier for each user
+        balance REAL NOT NULL DEFAULT 0,  -- $MVP balance for unclaimed rewards
+        daily_pets_remaining INTEGER NOT NULL DEFAULT 1,  -- Number of pets left for the day
+        last_pet_date TEXT  -- Last date the user performed a pet action (as YYYY-MM-DD string)
+    )
 '''))
 conn.commit()
 
@@ -374,11 +393,143 @@ async def on_ready():
     print(f'Logged in as {bot.user}! Commands synced.')
 
 
+# Pet command for $MVP rewards
+@bot.tree.command(name="pet", description="Perform a daily pet and earn random $MVP rewards!")
+async def pet(interaction: discord.Interaction):
+    if interaction.channel_id != PETTING_ALLOWED_CHANNEL_ID:
+        return await interaction.response.send_message(
+            "You can only pet your horse in the petting zoo.", ephemeral=True
+        )
+
+    user_id = interaction.user.id  # Get the user's ID
+    today = datetime.datetime.utcnow().strftime("%Y-%m-%d")  # Current date (UTC)
+
+    def custom_reward():
+        #Generate reward value
+        random_choice = random.random()  # Random number to determine which range to sample from
+
+        if random_choice < 0.5:
+            reward = random.uniform(0.01, 0.1)
+        elif random_choice < 0.9:
+            reward = random.uniform(0.1, 0.5)
+        else:
+            reward = random.uniform(0.5, 1)
+        return round(reward, 2)
+
+    # Fetch user data from the database
+    cursor.execute(prepare_query(
+        "SELECT balance, daily_pets_remaining, last_pet_date FROM user_rewards WHERE user_id = ?"
+    ), (user_id,))
+    user_data = cursor.fetchone()
+
+    if not user_data:
+        # Initialize user in the database if not found
+        cursor.execute(prepare_query(
+            "INSERT INTO user_rewards (user_id, balance, daily_pets_remaining, last_pet_date) VALUES (?, ?, ?, ?)"
+        ), (user_id, 0, 1, None))
+        conn.commit()
+        user_data = (0, 1, None)
+
+    balance, daily_pets_remaining, last_pet_date = user_data
+
+    # Check if the user has already used their pets for the day
+    if last_pet_date != today:
+        # Reset pets if it's a new day
+        daily_pets_remaining = DEFAULT_FREE_DAILY_PETS
+
+    if daily_pets_remaining <= 0:
+        await interaction.response.send_message(
+            "You've used all your pets for today! Try again tomorrow.", ephemeral=True
+        )
+        return
+
+    # Generate the random reward
+    reward = custom_reward()
+
+    # Special reward logic
+    special_reward_name = SPECIAL_REWARD_NAME
+    special_reward_odds = SPECIAL_REWARD_ODDS
+    is_special_reward = random.random() < special_reward_odds
+    special_reward_message = ""
+
+    if is_special_reward:
+        special_reward_message = f"🎉 Congratulations <@{interaction.user.id}>! You won a special reward **{special_reward_name}**! 🎉"
+        # Respond to the user
+        await interaction.response.send_message(
+            f"{special_reward_message}\n"
+            f"<@1261935277753241653> will follow up with the reward shortly"
+            ,
+            ephemeral=False # If special reward is won, everyone will see
+        )
+
+    else:
+        # Update user data
+        new_balance = balance + reward
+        new_daily_pets_remaining = daily_pets_remaining - 1
+
+        cursor.execute(prepare_query(
+            "UPDATE user_rewards SET balance = ?, daily_pets_remaining = ?, last_pet_date = ? WHERE user_id = ?"
+        ), (new_balance, new_daily_pets_remaining, today, user_id))
+        conn.commit()
+
+        await interaction.response.send_message(
+            f"You earned **{reward} $MVP** from petting your horse! 🐴\n"
+            f"Your new balance is **{new_balance} $MVP**.\n"
+            f"{special_reward_message}",
+            ephemeral=True
+        )
+
+@bot.tree.command(name="my_rewards", description="View your unclaimed $MVP rewards.")
+async def my_rewards(interaction: discord.Interaction):
+    if interaction.channel_id != PETTING_ALLOWED_CHANNEL_ID:
+        return await interaction.response.send_message(
+            "You can check your rewards in the petting zoo.", ephemeral=True
+        )
+
+    user_id = interaction.user.id
+
+    cursor.execute(prepare_query("SELECT balance FROM user_rewards WHERE user_id = ?"), (user_id,))
+    user_data = cursor.fetchone()
+
+    if not user_data or user_data[0] == 0:
+        await interaction.response.send_message(
+            "You have no unclaimed rewards. Start petting to earn rewards!", ephemeral=True
+        )
+    else:
+        await interaction.response.send_message(
+            f"Your unclaimed rewards: **{user_data[0]:.2f} $MVP**", ephemeral=True
+        )
+
+@bot.tree.command(name="claim", description="Claim your accumulated $MVP rewards.")
+async def claim(interaction: discord.Interaction):
+    if interaction.channel_id != PETTING_ALLOWED_CHANNEL_ID:
+        return await interaction.response.send_message(
+            "You can claim your rewards in the petting zoo in the petting zoo.", ephemeral=True
+        )
+
+    user_id = interaction.user.id
+
+    cursor.execute(prepare_query("SELECT balance FROM user_rewards WHERE user_id = ?"), (user_id,))
+    user_data = cursor.fetchone()
+
+    if not user_data or user_data[0] < 1:
+        await interaction.response.send_message(
+            "You need at least 1 $MVP to claim.", ephemeral=True
+        )
+        return
+
+    balance = user_data[0]
+    cursor.execute(prepare_query("UPDATE user_rewards SET balance = 0 WHERE user_id = ?"), (user_id,))
+    conn.commit()
+
+    await interaction.response.send_message(
+        f"{interaction.user.mention} has claimed **{balance:.2f} $MVP**! 🐴\n<@1261935277753241653>, please process the claim."
+    )
+
 # Close the database connection when the bot stops
 @bot.event
 async def on_close():
     conn.close()
-
 
 # Read the token from secret.txt or environment variable
 token = os.getenv('DISCORD_TOKEN')
