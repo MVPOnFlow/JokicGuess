@@ -386,7 +386,7 @@ async def winner(interaction: discord.Interaction, stats: int, outcome: str):
     # Send the response with the list of winners
     await interaction.response.send_message(response)
 
-#Register slash commands when the bot is ready
+# Register slash commands when the bot is ready
 @bot.event
 async def on_ready():
     await bot.tree.sync()  # Sync commands with Discord
@@ -476,7 +476,7 @@ async def pet(interaction: discord.Interaction):
             f"You earned **{reward} $MVP** from petting your horse! 🐴\n"
             f"Your new balance is **{new_balance} $MVP**.\n"
             f"{special_reward_message}",
-            ephemeral=True  # If special reward is won, everyone will see
+            ephemeral=True
         )
 
 @bot.tree.command(name="my_rewards", description="View your unclaimed $MVP rewards.")
