@@ -561,6 +561,10 @@ async def claim(interaction: discord.Interaction):
 @bot.tree.command(name="add_pets", description="Admin command to grant extra pets to a user.")
 @commands.has_permissions(administrator=True)
 async def add_pets(interaction: discord.Interaction, user: discord.Member, pets: int):
+    # Check if the user running the command is an admin
+    if not interaction.user.guild_permissions.administrator:
+        await interaction.response.send_message("You need admin permissions to run this command.", ephemeral=True)
+        return
     if pets <= 0:
         await interaction.response.send_message("Number of pets must be greater than 0.", ephemeral=True)
         return
@@ -595,6 +599,10 @@ async def add_pets(interaction: discord.Interaction, user: discord.Member, pets:
 @bot.tree.command(name="petting_stats", description="View petting statistics (Admin only)")
 @commands.has_permissions(administrator=True)
 async def petting_stats(interaction: discord.Interaction):
+    # Check if the user running the command is an admin
+    if not interaction.user.guild_permissions.administrator:
+        await interaction.response.send_message("You need admin permissions to run this command.", ephemeral=True)
+        return
     today = datetime.datetime.utcnow().strftime("%Y-%m-%d")
 
     # Fetch the number of unique users who petted today
@@ -630,9 +638,13 @@ async def petting_stats(interaction: discord.Interaction):
     await interaction.response.send_message(stats_message, ephemeral=True)
 
 
-@bot.tree.command(name="add_petting_reward", description="Add a special petting reward.")
+@bot.tree.command(name="add_petting_reward", description="(Admin) Add a special petting reward.")
 @app_commands.checks.has_permissions(administrator=True)
 async def add_petting_reward(interaction: discord.Interaction, name: str, probability: float, amount: int):
+    # Check if the user running the command is an admin
+    if not interaction.user.guild_permissions.administrator:
+        await interaction.response.send_message("You need admin permissions to run this command.", ephemeral=True)
+        return
     if probability <= 0 or probability > 1:
         await interaction.response.send_message("Probability must be between 0 and 1.", ephemeral=True)
         return
@@ -650,9 +662,13 @@ async def add_petting_reward(interaction: discord.Interaction, name: str, probab
         ephemeral=True
     )
 
-@bot.tree.command(name="list_petting_rewards", description="List all active special petting rewards.")
+@bot.tree.command(name="list_petting_rewards", description="(Admin) List all active special petting rewards.")
 @app_commands.checks.has_permissions(administrator=True)
 async def list_petting_rewards(interaction: discord.Interaction):
+    # Check if the user running the command is an admin
+    if not interaction.user.guild_permissions.administrator:
+        await interaction.response.send_message("You need admin permissions to run this command.", ephemeral=True)
+        return
     # Fetch all special rewards from the database
     cursor.execute(prepare_query("SELECT name, probability, amount FROM special_rewards"))
     rewards = cursor.fetchall()
