@@ -560,6 +560,44 @@ async def add_pets(interaction: discord.Interaction, user: discord.Member, pets:
         ephemeral=False
     )
 
+@bot.tree.command(name="petting_stats", description="View petting statistics (Admin only)")
+@commands.has_permissions(administrator=True)
+async def petting_stats(interaction: discord.Interaction):
+    today = datetime.datetime.utcnow().strftime("%Y-%m-%d")
+
+    # Fetch the number of unique users who petted today
+    cursor.execute(prepare_query(
+        "SELECT COUNT(DISTINCT user_id) FROM user_rewards WHERE last_pet_date = ?"
+    ), (today,))
+    daily_active_users = cursor.fetchone()[0]
+
+    # Fetch total unclaimed rewards (sum of all balances)
+    cursor.execute(prepare_query(
+        "SELECT SUM(balance) FROM user_rewards"
+    ))
+    total_unclaimed_rewards = cursor.fetchone()[0] or 0  # Default to 0 if None
+
+    # Fetch top 10 users by balance
+    cursor.execute(prepare_query(
+        "SELECT user_id, balance FROM user_rewards ORDER BY balance DESC LIMIT 10"
+    ))
+    top_users = cursor.fetchall()
+
+    # Format top users list
+    top_users_text = "\n".join([f"<@{user_id}> : {balance} $MVP" for user_id, balance in top_users])
+
+    # Build response message
+    stats_message = (
+        f"📊 **Petting Stats** 📊\n"
+        f"**Daily active petting users today:** {daily_active_users}\n"
+        f"**Total active unclaimed rewards:** {total_unclaimed_rewards} $MVP\n\n"
+        f"🏆 **Top 10 User Balances:**\n{top_users_text if top_users else 'No users yet.'}"
+    )
+
+    # Send response
+    await interaction.response.send_message(stats_message, ephemeral=True)
+
+
 # Close the database connection when the bot stops
 @bot.event
 async def on_close():
