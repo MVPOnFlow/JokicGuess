@@ -492,7 +492,7 @@ async def pet(interaction: discord.Interaction):
             f"{special_reward_message}\n"
             f"<@1261935277753241653> will follow up with the reward shortly\n"
             f"Daily pets remaining: **{new_daily_pets_remaining}**.\n",
-            ephemeral=True # If special reward is won, everyone will see
+            ephemeral=False # If special reward is won, everyone will see
         )
 
     else:
