@@ -78,6 +78,16 @@ cursor.execute(prepare_query('''
 '''))
 conn.commit()
 
+cursor.execute(prepare_query('''
+    CREATE TABLE IF NOT EXISTS special_rewards (
+        id SERIAL PRIMARY KEY,  
+        name TEXT NOT NULL,       -- Name of the special reward
+        probability REAL NOT NULL, -- Probability (e.g., 0.002 for 0.2%)
+        amount INTEGER   -- Amount remaining before it runs out
+    )
+'''))
+conn.commit()
+
 # Register the slash command for starting a contest
 @bot.tree.command(name='start', description='Start a contest (Admin only)')
 @commands.has_permissions(administrator=True)
@@ -408,13 +418,37 @@ async def pet(interaction: discord.Interaction):
         #Generate reward value
         random_choice = random.random()  # Random number to determine which range to sample from
 
-        if random_choice < 0.5:
+        if random_choice < 0.8:
             reward = random.uniform(0.01, 0.1)
-        elif random_choice < 0.9:
+        elif random_choice < 0.95:
             reward = random.uniform(0.1, 0.5)
         else:
             reward = random.uniform(0.5, 1)
         return round(reward, 2)
+
+    # Function to check for special reward
+    def check_special_reward():
+        cursor.execute(prepare_query("SELECT id, name, probability, amount FROM special_rewards"))
+        rewards = cursor.fetchall()
+
+        for reward_id, name, probability, amount in rewards:
+            if random.random() < probability:  # Hit probability
+                if amount > 0:
+
+                    # Reduce the amount remaining
+                    cursor.execute(prepare_query(
+                        f"UPDATE special_rewards SET amount = {amount - 1} WHERE id = ?"
+                    ), (reward_id,))
+                    conn.commit()
+                    # If amount is now zero, remove from tracking
+                    if amount - 1 == 0:
+                        cursor.execute(prepare_query(
+                            "DELETE FROM special_rewards WHERE name = ?"
+                        ), (name,))
+                        conn.commit()
+                    return name  # Return the reward name if won
+
+        return None  # No special reward won
 
     # Fetch user data from the database
     cursor.execute(prepare_query(
@@ -426,9 +460,9 @@ async def pet(interaction: discord.Interaction):
         # Initialize user in the database if not found
         cursor.execute(prepare_query(
             "INSERT INTO user_rewards (user_id, balance, daily_pets_remaining, last_pet_date) VALUES (?, ?, ?, ?)"
-        ), (user_id, 0, 1, None))
+        ), (user_id, 0, 0, None))
         conn.commit()
-        user_data = (0, 1, None)
+        user_data = (0, 0, None)
 
     balance, daily_pets_remaining, last_pet_date = user_data
 
@@ -439,7 +473,7 @@ async def pet(interaction: discord.Interaction):
 
     if daily_pets_remaining <= 0:
         await interaction.response.send_message(
-            "You've used all your pets for today! Try again tomorrow.", ephemeral=True
+            "Hold your horses! You've used all your pets for today! Try again tomorrow.", ephemeral=True
         )
         return
 
@@ -447,37 +481,35 @@ async def pet(interaction: discord.Interaction):
     reward = custom_reward()
 
     # Special reward logic
-    special_reward_name = SPECIAL_REWARD_NAME
-    special_reward_odds = SPECIAL_REWARD_ODDS
-    is_special_reward = random.random() < special_reward_odds
+    special_reward = check_special_reward()
     special_reward_message = ""
-
-    if is_special_reward:
-        special_reward_message = f"🎉 Congratulations <@{interaction.user.id}>! You won a special reward **{special_reward_name}**! 🎉"
+    new_daily_pets_remaining = daily_pets_remaining - 1
+    if special_reward:
+        new_balance = balance
+        special_reward_message = f"🎉 Congratulations <@{interaction.user.id}>! You won a special reward **{special_reward}**! 🎉"
         # Respond to the user
         await interaction.response.send_message(
             f"{special_reward_message}\n"
-            f"<@1261935277753241653> will follow up with the reward shortly"
-            ,
+            f"<@1261935277753241653> will follow up with the reward shortly\n"
+            f"Daily pets remaining: **{new_daily_pets_remaining}**.\n",
             ephemeral=False # If special reward is won, everyone will see
         )
 
     else:
         # Update user data
         new_balance = balance + reward
-        new_daily_pets_remaining = daily_pets_remaining - 1
-
-        cursor.execute(prepare_query(
-            "UPDATE user_rewards SET balance = ?, daily_pets_remaining = ?, last_pet_date = ? WHERE user_id = ?"
-        ), (new_balance, new_daily_pets_remaining, today, user_id))
-        conn.commit()
-
         await interaction.response.send_message(
             f"You earned **{reward} $MVP** from petting your horse! 🐴\n"
             f"Your new balance is **{new_balance} $MVP**.\n"
-            f"{special_reward_message}",
+            f"{special_reward_message}\n"
+            f"Daily pets remaining: **{new_daily_pets_remaining}**.\n",
             ephemeral=True
         )
+
+    cursor.execute(prepare_query(
+        "UPDATE user_rewards SET balance = ?, daily_pets_remaining = ?, last_pet_date = ? WHERE user_id = ?"
+    ), (new_balance, new_daily_pets_remaining, today, user_id))
+    conn.commit()
 
 @bot.tree.command(name="my_rewards", description="View your unclaimed $MVP rewards.")
 async def my_rewards(interaction: discord.Interaction):
@@ -597,6 +629,46 @@ async def petting_stats(interaction: discord.Interaction):
     # Send response
     await interaction.response.send_message(stats_message, ephemeral=True)
 
+
+@bot.tree.command(name="add_petting_reward", description="Add a special petting reward.")
+@app_commands.checks.has_permissions(administrator=True)
+async def add_petting_reward(interaction: discord.Interaction, name: str, probability: float, amount: int):
+    if probability <= 0 or probability > 1:
+        await interaction.response.send_message("Probability must be between 0 and 1.", ephemeral=True)
+        return
+    if amount <= 0:
+        await interaction.response.send_message("Amount must be greater than 0.", ephemeral=True)
+        return
+
+    cursor.execute(prepare_query(
+        "INSERT INTO special_rewards (name, probability, amount) VALUES (?, ?, ?)"
+    ), (name, probability, amount))
+    conn.commit()
+
+    await interaction.response.send_message(
+        f"✅ Added special reward **{name}** with {amount} available and {probability * 100}% hit chance per pet.",
+        ephemeral=True
+    )
+
+@bot.tree.command(name="list_petting_rewards", description="List all active special petting rewards.")
+@app_commands.checks.has_permissions(administrator=True)
+async def list_petting_rewards(interaction: discord.Interaction):
+    # Fetch all special rewards from the database
+    cursor.execute(prepare_query("SELECT name, probability, amount FROM special_rewards"))
+    rewards = cursor.fetchall()
+
+    if not rewards:
+        await interaction.response.send_message("There are no active special petting rewards.", ephemeral=True)
+        return
+
+    # Format the rewards into a list
+    reward_list = "\n".join([f"**{name}** - {probability * 100:.3f}% chance - {amount} left" for name, probability, amount in rewards])
+
+    # Send the formatted list
+    await interaction.response.send_message(
+        f"📜 **Active Special Petting Rewards:**\n{reward_list}",
+        ephemeral=True
+    )
 
 # Close the database connection when the bot stops
 @bot.event
