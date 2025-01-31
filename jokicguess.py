@@ -440,15 +440,12 @@ async def pet(interaction: discord.Interaction):
                         f"UPDATE special_rewards SET amount = {amount - 1} WHERE id = ?"
                     ), (reward_id,))
                     conn.commit()
-                    print(f"reward {reward_id} granted {amount}")
                     # If amount is now zero, remove from tracking
                     if amount - 1 == 0:
                         cursor.execute(prepare_query(
                             "DELETE FROM special_rewards WHERE name = ?"
                         ), (name,))
                         conn.commit()
-                        print("reward deleted")
-
                     return name  # Return the reward name if won
 
         return None  # No special reward won
