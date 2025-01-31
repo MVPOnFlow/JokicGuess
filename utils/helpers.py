@@ -4,7 +4,6 @@ import io
 import os
 import sqlite3
 import psycopg2
-import random
 
 # Detect if running on Heroku by checking if DATABASE_URL is set
 DATABASE_URL = os.getenv('DATABASE_URL')  # Heroku PostgreSQL URL
@@ -130,4 +129,3 @@ def prepare_query(query):
         # Replace SQLite-style `?` with PostgreSQL-style `%s`
         return query.replace('?', '%s')
     return query  # SQLite uses `?`, so no replacement needed
-
