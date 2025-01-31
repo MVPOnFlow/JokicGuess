@@ -435,7 +435,7 @@ async def pet(interaction: discord.Interaction):
     # Check if the user has already used their pets for the day
     if last_pet_date != today:
         # Reset pets if it's a new day
-        daily_pets_remaining = DEFAULT_FREE_DAILY_PETS
+        daily_pets_remaining += DEFAULT_FREE_DAILY_PETS
 
     if daily_pets_remaining <= 0:
         await interaction.response.send_message(
@@ -525,6 +525,78 @@ async def claim(interaction: discord.Interaction):
     await interaction.response.send_message(
         f"{interaction.user.mention} has claimed **{balance:.2f} $MVP**! 🐴\n<@1261935277753241653>, please process the claim."
     )
+
+@bot.tree.command(name="add_pets", description="Admin command to grant extra pets to a user.")
+@commands.has_permissions(administrator=True)
+async def add_pets(interaction: discord.Interaction, user: discord.Member, pets: int):
+    if pets <= 0:
+        await interaction.response.send_message("Number of pets must be greater than 0.", ephemeral=True)
+        return
+
+    user_id = user.id
+
+    # Fetch current daily pets remaining for the user
+    cursor.execute(prepare_query(
+        "SELECT daily_pets_remaining FROM user_rewards WHERE user_id = ?"
+    ), (user_id,))
+    user_data = cursor.fetchone()
+
+    if user_data:
+        new_pets_remaining = user_data[0] + pets
+        cursor.execute(prepare_query(
+            "UPDATE user_rewards SET daily_pets_remaining = ? WHERE user_id = ?"
+        ), (new_pets_remaining, user_id))
+    else:
+        new_pets_remaining = pets + 1
+        # If the user does not exist, initialize them with the extra pets
+        cursor.execute(prepare_query(
+            "INSERT INTO user_rewards (user_id, balance, daily_pets_remaining, last_pet_date) VALUES (?, ?, ?, ?)"
+        ), (user_id, 0, pets, None))
+
+    conn.commit()
+
+    await interaction.response.send_message(
+        f"Added {pets} extra pets for {user.mention}. They now have {new_pets_remaining} pets remaining.",
+        ephemeral=False
+    )
+
+@bot.tree.command(name="petting_stats", description="View petting statistics (Admin only)")
+@commands.has_permissions(administrator=True)
+async def petting_stats(interaction: discord.Interaction):
+    today = datetime.datetime.utcnow().strftime("%Y-%m-%d")
+
+    # Fetch the number of unique users who petted today
+    cursor.execute(prepare_query(
+        "SELECT COUNT(DISTINCT user_id) FROM user_rewards WHERE last_pet_date = ?"
+    ), (today,))
+    daily_active_users = cursor.fetchone()[0]
+
+    # Fetch total unclaimed rewards (sum of all balances)
+    cursor.execute(prepare_query(
+        "SELECT SUM(balance) FROM user_rewards"
+    ))
+    total_unclaimed_rewards = cursor.fetchone()[0] or 0  # Default to 0 if None
+
+    # Fetch top 10 users by balance
+    cursor.execute(prepare_query(
+        "SELECT user_id, balance FROM user_rewards ORDER BY balance DESC LIMIT 10"
+    ))
+    top_users = cursor.fetchall()
+
+    # Format top users list
+    top_users_text = "\n".join([f"<@{user_id}> : {balance} $MVP" for user_id, balance in top_users])
+
+    # Build response message
+    stats_message = (
+        f"📊 **Petting Stats** 📊\n"
+        f"**Daily active petting users today:** {daily_active_users}\n"
+        f"**Total active unclaimed rewards:** {total_unclaimed_rewards} $MVP\n\n"
+        f"🏆 **Top 10 User Balances:**\n{top_users_text if top_users else 'No users yet.'}"
+    )
+
+    # Send response
+    await interaction.response.send_message(stats_message, ephemeral=True)
+
 
 # Close the database connection when the bot stops
 @bot.event
