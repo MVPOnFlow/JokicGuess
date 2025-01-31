@@ -129,3 +129,12 @@ def prepare_query(query):
         # Replace SQLite-style `?` with PostgreSQL-style `%s`
         return query.replace('?', '%s')
     return query  # SQLite uses `?`, so no replacement needed
+
+def is_admin(interaction):
+    # Fetch the member object if the user is not a member
+    member = interaction.guild.get_member(interaction.user.id)
+
+    # Check if the user running the command has admin permissions
+    if not member or not member.guild_permissions.administrator:
+        return False
+    return True

@@ -561,8 +561,8 @@ async def claim(interaction: discord.Interaction):
 @bot.tree.command(name="add_pets", description="Admin command to grant extra pets to a user.")
 @commands.has_permissions(administrator=True)
 async def add_pets(interaction: discord.Interaction, user: discord.Member, pets: int):
-    # Check if the user running the command is an admin
-    if not interaction.user.guild_permissions.administrator:
+    # Check if the user running the command has admin permissions
+    if not is_admin(interaction):
         await interaction.response.send_message("You need admin permissions to run this command.", ephemeral=True)
         return
     if pets <= 0:
@@ -600,7 +600,7 @@ async def add_pets(interaction: discord.Interaction, user: discord.Member, pets:
 @commands.has_permissions(administrator=True)
 async def petting_stats(interaction: discord.Interaction):
     # Check if the user running the command is an admin
-    if not interaction.user.guild_permissions.administrator:
+    if not is_admin(interaction):
         await interaction.response.send_message("You need admin permissions to run this command.", ephemeral=True)
         return
     today = datetime.datetime.utcnow().strftime("%Y-%m-%d")
@@ -639,10 +639,10 @@ async def petting_stats(interaction: discord.Interaction):
 
 
 @bot.tree.command(name="add_petting_reward", description="(Admin) Add a special petting reward.")
-@app_commands.checks.has_permissions(administrator=True)
+@commands.has_permissions(administrator=True)
 async def add_petting_reward(interaction: discord.Interaction, name: str, probability: float, amount: int):
     # Check if the user running the command is an admin
-    if not interaction.user.guild_permissions.administrator:
+    if not is_admin(interaction):
         await interaction.response.send_message("You need admin permissions to run this command.", ephemeral=True)
         return
     if probability <= 0 or probability > 1:
@@ -663,10 +663,10 @@ async def add_petting_reward(interaction: discord.Interaction, name: str, probab
     )
 
 @bot.tree.command(name="list_petting_rewards", description="(Admin) List all active special petting rewards.")
-@app_commands.checks.has_permissions(administrator=True)
+@commands.has_permissions(administrator=True)
 async def list_petting_rewards(interaction: discord.Interaction):
     # Check if the user running the command is an admin
-    if not interaction.user.guild_permissions.administrator:
+    if not is_admin(interaction):
         await interaction.response.send_message("You need admin permissions to run this command.", ephemeral=True)
         return
     # Fetch all special rewards from the database
