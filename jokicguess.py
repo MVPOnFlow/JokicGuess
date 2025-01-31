@@ -435,7 +435,7 @@ async def pet(interaction: discord.Interaction):
     # Check if the user has already used their pets for the day
     if last_pet_date != today:
         # Reset pets if it's a new day
-        daily_pets_remaining = DEFAULT_FREE_DAILY_PETS
+        daily_pets_remaining += DEFAULT_FREE_DAILY_PETS
 
     if daily_pets_remaining <= 0:
         await interaction.response.send_message(
@@ -524,6 +524,40 @@ async def claim(interaction: discord.Interaction):
 
     await interaction.response.send_message(
         f"{interaction.user.mention} has claimed **{balance:.2f} $MVP**! 🐴\n<@1261935277753241653>, please process the claim."
+    )
+
+@bot.tree.command(name="add_pets", description="Admin command to grant extra pets to a user.")
+@commands.has_permissions(administrator=True)
+async def add_pets(interaction: discord.Interaction, user: discord.Member, pets: int):
+    if pets <= 0:
+        await interaction.response.send_message("Number of pets must be greater than 0.", ephemeral=True)
+        return
+
+    user_id = user.id
+
+    # Fetch current daily pets remaining for the user
+    cursor.execute(prepare_query(
+        "SELECT daily_pets_remaining FROM user_rewards WHERE user_id = ?"
+    ), (user_id,))
+    user_data = cursor.fetchone()
+
+    if user_data:
+        new_pets_remaining = user_data[0] + pets
+        cursor.execute(prepare_query(
+            "UPDATE user_rewards SET daily_pets_remaining = ? WHERE user_id = ?"
+        ), (new_pets_remaining, user_id))
+    else:
+        new_pets_remaining = pets + 1
+        # If the user does not exist, initialize them with the extra pets
+        cursor.execute(prepare_query(
+            "INSERT INTO user_rewards (user_id, balance, daily_pets_remaining, last_pet_date) VALUES (?, ?, ?, ?)"
+        ), (user_id, 0, pets, None))
+
+    conn.commit()
+
+    await interaction.response.send_message(
+        f"Added {pets} extra pets for {user.mention}. They now have {new_pets_remaining} pets remaining.",
+        ephemeral=False
     )
 
 # Close the database connection when the bot stops
