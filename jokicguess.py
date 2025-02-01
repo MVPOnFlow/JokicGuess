@@ -16,6 +16,7 @@ SPECIAL_REWARD_ODDS = 1 / 200
 
 # Define the intents required
 intents = discord.Intents.default()
+intents.members = True
 intents.message_content = True  # Ensure you can read message content
 
 # Define the bot
