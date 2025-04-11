@@ -7,7 +7,15 @@ from discord import app_commands
 from typing import Literal
 import datetime
 import random
+from flask import Flask
+import threading
 from datetime import date
+
+# Run mock on port 8000 for Azure
+app = Flask(__name__)
+def run_flask():
+    app.run(host="0.0.0.0", port=8000)
+threading.Thread(target=run_flask).start()
 
 PETTING_ALLOWED_CHANNEL_ID = 1333948717824475187  # Petting allowed channel ID or thread ID
 DEFAULT_FREE_DAILY_PETS = 1 # Daily free pets for each user
