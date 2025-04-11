@@ -182,7 +182,7 @@ def get_basic_pet_response(amount):
         f"Your horse snuck into a validator meeting and came back with **{amount} $MVP** in hush money.",
         f"Your horse whispered 'hodl' and hoofed over **{amount} $MVP** with a smirk.",
         f"You pet your horse. Somewhere, an algorithm rewarded you with **{amount} $MVP**.",
-        f"Your horse turned water into $MVP. You get *{amount} $MVP**. Call it a miracle.",
+        f"Your horse turned water into $MVP. You get **{amount} $MVP**. Call it a miracle.",
         f"Your horse cracked a cold one with the boys and found **{amount} $MVP** in the cooler.",
         f"Your horse rubbed a blockchain lamp. A genie gave it **{amount} $MVP** — and you, too."
     ]
