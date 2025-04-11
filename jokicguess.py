@@ -13,6 +13,8 @@ PETTING_ALLOWED_CHANNEL_ID = 1333948717824475187  # Petting allowed channel ID o
 DEFAULT_FREE_DAILY_PETS = 1 # Daily free pets for each user
 SPECIAL_REWARD_NAME = "Grail seeker pack" # Special rewards
 SPECIAL_REWARD_ODDS = 1 / 200
+# Detect if running on Heroku by checking if DATABASE_URL is set
+DATABASE_URL = os.getenv('DATABASE_URL')  # Heroku PostgreSQL URL
 
 # Define the intents required
 intents = discord.Intents.default()
@@ -21,9 +23,6 @@ intents.message_content = True  # Ensure you can read message content
 
 # Define the bot
 bot = commands.Bot(command_prefix='/', intents=intents)
-
-# Detect if running on Heroku by checking if DATABASE_URL is set
-DATABASE_URL = os.getenv('DATABASE_URL')  # Heroku PostgreSQL URL
 
 if DATABASE_URL:
     # On Heroku, use PostgreSQL
@@ -403,7 +402,6 @@ async def on_ready():
     await bot.tree.sync()  # Sync commands with Discord
     print(f'Logged in as {bot.user}! Commands synced.')
 
-
 # Pet command for $MVP rewards
 @bot.tree.command(name="pet", description="Perform a daily pet and earn random $MVP rewards!")
 async def pet(interaction: discord.Interaction):
@@ -414,18 +412,6 @@ async def pet(interaction: discord.Interaction):
 
     user_id = interaction.user.id  # Get the user's ID
     today = datetime.datetime.utcnow().strftime("%Y-%m-%d")  # Current date (UTC)
-
-    def custom_reward():
-        #Generate reward value
-        random_choice = random.random()  # Random number to determine which range to sample from
-
-        if random_choice < 0.8:
-            reward = random.uniform(0.01, 0.1)
-        elif random_choice < 0.95:
-            reward = random.uniform(0.1, 0.5)
-        else:
-            reward = random.uniform(0.5, 1)
-        return round(reward, 2)
 
     # Function to check for special reward
     def check_special_reward():
@@ -500,8 +486,8 @@ async def pet(interaction: discord.Interaction):
         # Update user data
         new_balance = balance + reward
         await interaction.response.send_message(
-            f"You earned **{reward} $MVP** from petting your horse! 🐴\n"
-            f"Your new balance is **{new_balance} $MVP**.\n"
+            get_basic_pet_response(reward) +
+            f"\nYour new balance is **{new_balance} $MVP**.\n"
             f"{special_reward_message}\n"
             f"Daily pets remaining: **{new_daily_pets_remaining}**.\n",
             ephemeral=True
@@ -637,7 +623,6 @@ async def petting_stats(interaction: discord.Interaction):
 
     # Send response
     await interaction.response.send_message(stats_message, ephemeral=True)
-
 
 @bot.tree.command(name="add_petting_reward", description="(Admin) Add a special petting reward.")
 @commands.has_permissions(administrator=True)
