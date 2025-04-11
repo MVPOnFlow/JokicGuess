@@ -13,6 +13,11 @@ from datetime import date
 
 # Run mock on port 8000 for Azure
 app = Flask(__name__)
+
+@app.route("/")
+def home():
+    return "Bot is running!"
+
 def run_flask():
     app.run(host="0.0.0.0", port=8000)
 threading.Thread(target=run_flask).start()
