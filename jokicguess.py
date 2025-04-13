@@ -38,7 +38,7 @@ intents.message_content = True  # Ensure you can read message content
 bot = commands.Bot(command_prefix='/', intents=intents)
 
 if DATABASE_URL:
-    # On Heroku, use PostgreSQL
+    # On Heroku/Azure, use PostgreSQL
     conn = psycopg2.connect(DATABASE_URL, sslmode='require')
     cursor = conn.cursor()
     db_type = 'postgresql'
