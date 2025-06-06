@@ -9,7 +9,8 @@ fcl.config({
   "app.detail.icon": "https://placekitten.com/g/200/200",
   "accessNode.api": "https://rest-mainnet.onflow.org",
   "discovery.wallet": "https://fcl-discovery.onflow.org/authn",
-  "flow.network": "mainnet"
+  "flow.network": "mainnet",
+  "walletconnect.projectId": "2f5a2c1b8e4d3a9c7f1e6b8d4a2c9e7f"
 });
 
 function App() {
