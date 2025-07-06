@@ -740,7 +740,8 @@ async def gift_leaderboard(interaction: discord.Interaction):
     # Format leaderboard
     leaderboard_lines = ["🎁 **Swapfest Gift Leaderboard** 🎁\n"]
     for i, (from_address, total_points) in enumerate(rows, start=1):
-        leaderboard_lines.append(f"{i}. `{from_address}` : **{total_points} points**")
+        username = map_wallet_to_username(from_address)
+        leaderboard_lines.append(f"{i}. `{username}` : **{total_points} points**")
 
     message = "\n".join(leaderboard_lines)
 
