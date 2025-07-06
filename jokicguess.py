@@ -7,16 +7,23 @@ from discord import app_commands
 from typing import Literal
 import datetime
 import random
-from flask import Flask
+from flask import Flask, render_template
 import threading
 from datetime import date
 
 # Run mock on port 8000 for Azure
 app = Flask(__name__)
 
+# Example leaderboard data
+leaderboard_data = [
+    {"username": "Waximus", "points": 5},
+    {"username": "SingaBas", "points": 2},
+    {"username": "bobobobo", "points": 1},
+]
+
 @app.route("/")
-def home():
-    return "Bot is running!"
+def leaderboard():
+    return render_template("leaderboard.html", leaderboard=leaderboard_data)
 
 def run_flask():
     app.run(host="0.0.0.0", port=8000)
