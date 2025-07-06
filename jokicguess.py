@@ -709,43 +709,42 @@ async def list_petting_rewards(interaction: discord.Interaction):
         ephemeral=True
     )
 
-@bot.tree.command(name="gift_leaderboard", description="Show Swapfest leaderboard by total gifted points (Admin only)")
-@commands.has_permissions(administrator=True)
+@bot.tree.command(
+    name="gift_leaderboard",
+    description="Show Swapfest leaderboard by total gifted points in event period"
+)
 async def gift_leaderboard(interaction: discord.Interaction):
-    # Check if the user running the command is an admin
-    if not is_admin(interaction):
-        await interaction.response.send_message(
-            "You need admin permissions to run this command.",
-            ephemeral=True
-        )
-        return
+    # Define the event window in UTC
+    start_time = '2025-07-01 21:00:00'
+    end_time = '2025-07-11 21:00:00'
 
-    # Query: sum of points per from_address
+    # Query with time filter
     cursor.execute(prepare_query('''
         SELECT from_address, SUM(points) AS total_points
         FROM gifts
+        WHERE timestamp BETWEEN ? AND ?
         GROUP BY from_address
         ORDER BY total_points DESC
         LIMIT 20
-    '''))
+    '''), (start_time, end_time))
     rows = cursor.fetchall()
 
     if not rows:
         await interaction.response.send_message(
-            "No gift records found.",
+            "No gift records found in the event period.",
             ephemeral=True
         )
         return
 
-    # Format leaderboard
-    leaderboard_lines = ["🎁 **Swapfest Gift Leaderboard** 🎁\n"]
+    # Format leaderboard with wallet-to-username mapping
+    leaderboard_lines = ["🎁 **Swapfest Gift Leaderboard** 🎁"]
+    leaderboard_lines.append(f"_Between {start_time} UTC and {end_time} UTC_\n")
     for i, (from_address, total_points) in enumerate(rows, start=1):
         username = map_wallet_to_username(from_address)
         leaderboard_lines.append(f"{i}. `{username}` : **{total_points} points**")
 
     message = "\n".join(leaderboard_lines)
 
-    # Send response
     await interaction.response.send_message(message, ephemeral=True)
 
 # Close the database connection when the bot stops
