@@ -2,7 +2,6 @@
 # IMPORTS
 # ==============================
 import requests
-import time
 import random
 import asyncio
 import json
@@ -10,7 +9,6 @@ import json
 from json import JSONDecodeError
 from flow_py_sdk import flow_client
 from flow_py_sdk.cadence import Address, UInt64
-import utils.helpers
 from utils.helpers import get_last_processed_block, save_last_processed_block, save_gift
 
 # ==============================
@@ -60,7 +58,7 @@ access(all) fun main(address: Address, momentId: UInt64): UInt32 {
 # ==============================
 # RETRYING GET REQUEST
 # ==============================
-def get_with_retries(url, max_retries=5, backoff_factor=1.5, **kwargs):
+async def get_with_retries(url, max_retries=5, backoff_factor=1.5, **kwargs):
     attempt = 0
     wait_time = 1
 
@@ -80,13 +78,13 @@ def get_with_retries(url, max_retries=5, backoff_factor=1.5, **kwargs):
                 print(f"Server error {response.status_code}. Retrying...")
                 wait_time *= backoff_factor
             else:
-                response.raise_for_status()
+                await response.raise_for_status()
 
         except requests.exceptions.RequestException as e:
             print(f"Request error: {e}. Retrying...")
             wait_time *= backoff_factor
 
-        time.sleep(wait_time + random.uniform(0, 0.5))
+        await asyncio.sleep(wait_time + random.uniform(0, 0.5))
         attempt += 1
 
     raise Exception(f"Failed to get {url} after {max_retries} retries")
@@ -127,18 +125,18 @@ async def get_moment_points(account_address: str, moment_id: int) -> int:
 # ==============================
 # FETCH FLOW EVENTS
 # ==============================
-def get_block_gifts(block_height, offset):
+async def get_block_gifts(block_height, offset):
     gifts = []
     gift_txns = []
 
-    response = get_with_retries(f"{BASE_URL}/blocks?height={block_height}")
+    response = await get_with_retries(f"{BASE_URL}/blocks?height={block_height}")
     blocks = response.json()
     if blocks['blocks'][0]['height'] != block_height:
         print('Waiting for more blocks')
-        time.sleep(10)
+        await asyncio.sleep(10)
         return []
 
-    response = get_with_retries(
+    response = await get_with_retries(
         f"{BASE_URL}/events?from_height={block_height}&to_height={block_height + offset}&name=A.0b2a3299cc857e29.TopShot.Deposit"
     )
     eventsjson = response.json()
@@ -150,7 +148,7 @@ def get_block_gifts(block_height, offset):
     #print(f"Block {block_height}: Found gift transactions {gift_txns}")
 
     for txn in gift_txns:
-        response = get_with_retries(f"{BASE_URL}/transaction?id={txn}")
+        response = await get_with_retries(f"{BASE_URL}/transaction?id={txn}")
         try:
             txn_content = response.json()
             if txn_content['transactions'][0]['status'] != 'SEALED':
@@ -180,7 +178,7 @@ async def main():
     block_height = get_last_processed_block()
 
     while True:
-        new_gifts = get_block_gifts(block_height, OFFSET)
+        new_gifts = await get_block_gifts(block_height, OFFSET)
         for gift in new_gifts:
             moment_id = int(gift['moment_id'])
             #print(f"Checking moment ID {moment_id} for points...")
@@ -197,8 +195,8 @@ async def main():
             )
         save_last_processed_block(block_height + OFFSET)
         block_height += OFFSET + 1
-        time.sleep(0.01)
-        #print(f"Next block_height: {block_height}")
+        await asyncio.sleep(0.01)
+        print(f"Next block_height: {block_height}")
 
         # Optional stop condition
         # if block_height > STARTING_HEIGHT + 1000:
