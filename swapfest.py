@@ -9,7 +9,7 @@ import json
 from json import JSONDecodeError
 from flow_py_sdk import flow_client
 from flow_py_sdk.cadence import Address, UInt64
-from utils.helpers import get_last_processed_block, save_last_processed_block, save_gift
+from utils.helpers import get_last_processed_block, save_last_processed_block, save_gift, reset_last_processed_block
 
 # ==============================
 # CONFIG
@@ -176,7 +176,7 @@ async def get_block_gifts(block_height, offset):
 async def main():
     all_gifts = []
     block_height = get_last_processed_block()
-    #save_last_processed_block(118784028)
+    reset_last_processed_block("118784028")
 
     while True:
         new_gifts = await get_block_gifts(block_height, OFFSET)

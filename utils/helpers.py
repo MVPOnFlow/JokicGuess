@@ -232,6 +232,29 @@ def save_last_processed_block(block_height):
         '''), ('last_block', str(block_height)))
     conn.commit()
 
+def reset_last_processed_block(block_height):
+    if db_type == 'postgresql':
+        # Delete all existing state
+        cursor.execute(prepare_query('DELETE FROM scraper_state'))
+
+        # Insert the new last_block value
+        cursor.execute(prepare_query('''
+            INSERT INTO scraper_state (key, value)
+            VALUES (?, ?)
+        '''), ('last_block', str(block_height)))
+
+    else:
+        # Same for SQLite
+        cursor.execute(prepare_query('DELETE FROM scraper_state'))
+
+        cursor.execute(prepare_query('''
+            INSERT INTO scraper_state (key, value)
+            VALUES (?, ?)
+        '''), ('last_block', str(block_height)))
+
+    conn.commit()
+
+
 def save_gift(txn_id, moment_id, from_address, points, timestamp):
     if db_type == 'postgresql':
         cursor.execute(prepare_query('''
