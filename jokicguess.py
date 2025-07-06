@@ -448,7 +448,7 @@ async def pet(interaction: discord.Interaction):
         )
 
     user_id = interaction.user.id  # Get the user's ID
-    today = datetime.datetime.utcnow().strftime("%Y-%m-%d")  # Current date (UTC)
+    today = datetime.datetime.now(datetime.UTC).strftime("%Y-%m-%d")  # Current date (UTC)
 
     # Function to check for special reward
     def check_special_reward():
@@ -708,6 +708,44 @@ async def list_petting_rewards(interaction: discord.Interaction):
         f"📜 **Active Special Petting Rewards:**\n{reward_list}",
         ephemeral=True
     )
+
+@bot.tree.command(name="gift_leaderboard", description="Show Swapfest leaderboard by total gifted points (Admin only)")
+@commands.has_permissions(administrator=True)
+async def gift_leaderboard(interaction: discord.Interaction):
+    # Check if the user running the command is an admin
+    if not is_admin(interaction):
+        await interaction.response.send_message(
+            "You need admin permissions to run this command.",
+            ephemeral=True
+        )
+        return
+
+    # Query: sum of points per from_address
+    cursor.execute(prepare_query('''
+        SELECT from_address, SUM(points) AS total_points
+        FROM gifts
+        GROUP BY from_address
+        ORDER BY total_points DESC
+        LIMIT 20
+    '''))
+    rows = cursor.fetchall()
+
+    if not rows:
+        await interaction.response.send_message(
+            "No gift records found.",
+            ephemeral=True
+        )
+        return
+
+    # Format leaderboard
+    leaderboard_lines = ["🎁 **Swapfest Gift Leaderboard** 🎁\n"]
+    for i, (from_address, total_points) in enumerate(rows, start=1):
+        leaderboard_lines.append(f"{i}. `{from_address}` : **{total_points} points**")
+
+    message = "\n".join(leaderboard_lines)
+
+    # Send response
+    await interaction.response.send_message(message, ephemeral=True)
 
 # Close the database connection when the bot stops
 @bot.event

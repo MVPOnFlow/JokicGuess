@@ -196,7 +196,7 @@ async def main():
         save_last_processed_block(block_height + OFFSET)
         block_height += OFFSET + 1
         await asyncio.sleep(0.01)
-        print(f"Next block_height: {block_height}")
+        #print(f"Next block_height: {block_height}")
 
         # Optional stop condition
         # if block_height > STARTING_HEIGHT + 1000:
