@@ -437,7 +437,7 @@ async def winner(interaction: discord.Interaction, stats: int, outcome: str):
 async def on_ready():
     await bot.tree.sync()  # Sync commands with Discord
     print(f'Logged in as {bot.user}! Commands synced.')
-    bot.loop.create_task(swapfest.main())
+    #bot.loop.create_task(swapfest.main())
 
 # Pet command for $MVP rewards
 @bot.tree.command(name="pet", description="Perform a daily pet and earn random $MVP rewards!")
