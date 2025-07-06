@@ -747,6 +747,34 @@ async def gift_leaderboard(interaction: discord.Interaction):
 
     await interaction.response.send_message(message, ephemeral=True)
 
+@bot.tree.command(name="swapfest_latest_block", description="Check the last processed blockchain block scraping swapfest gifts (Admin only)")
+@commands.has_permissions(administrator=True)
+async def latest_block(interaction: discord.Interaction):
+    # Check if the user is an admin
+    if not is_admin(interaction):
+        await interaction.response.send_message(
+            "You need admin permissions to run this command.",
+            ephemeral=True
+        )
+        return
+
+    # Call your helper function
+    last_block = get_last_processed_block()
+
+    if last_block is None:
+        await interaction.response.send_message(
+            "⚠️ No processed block found.",
+            ephemeral=True
+        )
+        return
+
+    # Respond with the block number
+    await interaction.response.send_message(
+        f"🧱 **Last processed block:** {last_block}",
+        ephemeral=True
+    )
+
+
 # Close the database connection when the bot stops
 @bot.event
 async def on_close():
