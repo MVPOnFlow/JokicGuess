@@ -134,7 +134,7 @@ async def get_block_gifts(block_height, offset):
     if blocks['blocks'][0]['height'] != block_height:
         print('Waiting for more blocks')
         await asyncio.sleep(10)
-        return []
+        return False
 
     response = await get_with_retries(
         f"{BASE_URL}/events?from_height={block_height}&to_height={block_height + offset}&name=A.0b2a3299cc857e29.TopShot.Deposit"
@@ -176,9 +176,13 @@ async def get_block_gifts(block_height, offset):
 async def main():
     all_gifts = []
     block_height = get_last_processed_block()
+    save_last_processed_block(118784028)
 
     while True:
         new_gifts = await get_block_gifts(block_height, OFFSET)
+
+        if new_gifts is False:
+            continue  # Do NOT advance block_height
         for gift in new_gifts:
             moment_id = int(gift['moment_id'])
             #print(f"Checking moment ID {moment_id} for points...")
