@@ -10,6 +10,8 @@ import json
 from json import JSONDecodeError
 from flow_py_sdk import flow_client
 from flow_py_sdk.cadence import Address, UInt64
+import utils.helpers
+from utils.helpers import get_last_processed_block, save_last_processed_block, save_gift
 
 # ==============================
 # CONFIG
@@ -145,7 +147,7 @@ def get_block_gifts(block_height, offset):
         if event['fields']['to'] == FLOW_ACCOUNT:
             gift_txns.append(event['transaction_hash'])
 
-    print(f"Block {block_height}: Found gift transactions {gift_txns}")
+    #print(f"Block {block_height}: Found gift transactions {gift_txns}")
 
     for txn in gift_txns:
         response = get_with_retries(f"{BASE_URL}/transaction?id={txn}")
@@ -175,30 +177,29 @@ def get_block_gifts(block_height, offset):
 # ==============================
 async def main():
     all_gifts = []
-    block_height = STARTING_HEIGHT
+    block_height = get_last_processed_block()
 
     while True:
         new_gifts = get_block_gifts(block_height, OFFSET)
         for gift in new_gifts:
             moment_id = int(gift['moment_id'])
-            print(f"Checking moment ID {moment_id} for points...")
+            #print(f"Checking moment ID {moment_id} for points...")
             points = await get_moment_points(FLOW_ACCOUNT, moment_id)
-            print(f"🎁 Transaction {gift['txn_id']} - Awarded {points} points")
+            #print(f"Transaction {gift['txn_id']} - Awarded {points} points")
             # Here you can save to DB, file, etc.
             all_gifts.append((gift, points))
-
-        block_height += OFFSET
+            save_gift(
+                txn_id=gift['txn_id'],
+                moment_id=int(gift['moment_id']),
+                from_address=gift.get('from', 'unknown'),
+                points=points,
+                timestamp=gift.get('timestamp', '')
+            )
+        save_last_processed_block(block_height + OFFSET)
+        block_height += OFFSET + 1
         time.sleep(0.01)
         print(f"Next block_height: {block_height}")
 
         # Optional stop condition
-        if block_height > STARTING_HEIGHT + 1000:
-            break
-
-# ==============================
-# ENTRY POINT
-# ==============================
-if __name__ == "__main__":
-    import nest_asyncio
-    nest_asyncio.apply()
-    asyncio.run(main())
+        # if block_height > STARTING_HEIGHT + 1000:
+        #     break

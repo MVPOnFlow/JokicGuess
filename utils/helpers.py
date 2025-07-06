@@ -207,3 +207,41 @@ def get_basic_pet_response(amount):
         f"You pet your horse. It stared off into the distance... then casually dropped **{amount} $MVP**.",
     ]
     return random.choice(responses)
+
+def get_last_processed_block():
+    cursor.execute(prepare_query("SELECT value FROM scraper_state WHERE key = ?"), ('last_block',))
+    row = cursor.fetchone()
+    if row:
+        return int(row[0])
+    else:
+        return 118542742
+
+def save_last_processed_block(block_height):
+    if db_type == 'postgresql':
+        cursor.execute(prepare_query('''
+            INSERT INTO scraper_state (key, value)
+            VALUES (?, ?)
+            ON CONFLICT (key)
+            DO UPDATE SET value = EXCLUDED.value
+        '''), ('last_block', str(block_height)))
+    else:
+
+        cursor.execute(prepare_query('''
+            INSERT OR REPLACE INTO scraper_state (key, value)
+            VALUES (?, ?)
+        '''), ('last_block', str(block_height)))
+    conn.commit()
+
+def save_gift(txn_id, moment_id, from_address, points, timestamp):
+    if db_type == 'postgresql':
+        cursor.execute(prepare_query('''
+            INSERT INTO gifts (txn_id, moment_id, from_address, points, timestamp)
+            VALUES (?, ?, ?, ?, ?)
+            ON CONFLICT (txn_id) DO NOTHING
+        '''), (txn_id, moment_id, from_address, points, timestamp))
+    else:
+        cursor.execute(prepare_query('''
+            INSERT OR IGNORE INTO gifts (txn_id, moment_id, from_address, points, timestamp)
+            VALUES (?, ?, ?, ?, ?)
+        '''), (txn_id, moment_id, from_address, points, timestamp))
+    conn.commit()

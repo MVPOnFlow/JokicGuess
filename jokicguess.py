@@ -10,6 +10,7 @@ import random
 from flask import Flask
 import threading
 from datetime import date
+import swapfest
 
 # Run mock on port 8000 for Azure
 app = Flask(__name__)
@@ -44,7 +45,7 @@ if DATABASE_URL:
     db_type = 'postgresql'
 else:
     # Locally, use SQLite
-    conn = sqlite3.connect('local.db')
+    conn = sqlite3.connect('local.db', check_same_thread=False)
     cursor = conn.cursor()
     db_type = 'sqlite'
 
@@ -67,6 +68,28 @@ cursor.execute(prepare_query('''
         contest_name TEXT NOT NULL,
         start_time BIGINT NOT NULL,  -- Use BIGINT for start_time
         creator_id BIGINT NOT NULL  -- Use BIGINT for creator_id
+    )
+'''))
+conn.commit()
+
+# Create gifts table
+cursor.execute(prepare_query('''
+    CREATE TABLE IF NOT EXISTS gifts (
+        id SERIAL PRIMARY KEY,
+        txn_id TEXT UNIQUE,
+        moment_id BIGINT,
+        from_address TEXT,
+        points BIGINT,
+        timestamp TEXT
+    )
+'''))
+conn.commit()
+
+# Create scraper_state table to track last processed block
+cursor.execute(prepare_query('''
+    CREATE TABLE IF NOT EXISTS scraper_state (
+        key TEXT PRIMARY KEY,
+        value TEXT
     )
 '''))
 conn.commit()
@@ -414,6 +437,7 @@ async def winner(interaction: discord.Interaction, stats: int, outcome: str):
 async def on_ready():
     await bot.tree.sync()  # Sync commands with Discord
     print(f'Logged in as {bot.user}! Commands synced.')
+    bot.loop.create_task(swapfest.main())
 
 # Pet command for $MVP rewards
 @bot.tree.command(name="pet", description="Perform a daily pet and earn random $MVP rewards!")
