@@ -480,6 +480,7 @@ async def on_ready():
     await bot.tree.sync()  # Sync commands with Discord
     print(f'Logged in as {bot.user}! Commands synced.')
     bot.loop.create_task(swapfest.main())
+    reset_last_processed_block("118853776")
 
 # Pet command for $MVP rewards
 @bot.tree.command(name="pet", description="Perform a daily pet and earn random $MVP rewards!")
