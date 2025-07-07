@@ -31,6 +31,10 @@ def close_db(error):
         db.close()
 
 @app.route("/")
+def home():
+    return render_template("home.html")
+
+@app.route("/swapfest")
 def leaderboard():
     # Define event period in UTC
     start_time = '2025-07-01 21:00:00'
