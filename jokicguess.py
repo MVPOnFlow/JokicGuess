@@ -818,6 +818,57 @@ async def latest_block(interaction: discord.Interaction):
     )
 
 
+@bot.tree.command(
+    name="latest_gifts_csv",
+    description="(Admin only) List the latest 20 gifts in CSV format"
+)
+@commands.has_permissions(administrator=True)
+async def latest_gifts_csv(interaction: discord.Interaction):
+    # Check admin permissions
+    if not is_admin(interaction):
+        await interaction.response.send_message(
+            "You need admin permissions to run this command.",
+            ephemeral=True
+        )
+        return
+
+    # Get DB connection
+    db = get_db()
+    cursor = db.cursor()
+
+    # Query latest 20 gifts
+    cursor.execute(prepare_query('''
+        SELECT txn_id, moment_id, from_address, points, timestamp
+        FROM gifts
+        ORDER BY timestamp DESC
+        LIMIT 20
+    '''))
+    rows = cursor.fetchall()
+
+    if not rows:
+        await interaction.response.send_message(
+            "No gifts found in the database.",
+            ephemeral=True
+        )
+        return
+
+    # Build CSV header
+    csv_lines = ["txn_id,moment_id,from_address,points,timestamp"]
+    
+    # Add rows
+    for txn_id, moment_id, from_address, points, timestamp in rows:
+        username = map_wallet_to_username(from_address)
+        csv_line = f"{txn_id},{moment_id},{username},{points},{timestamp}"
+        csv_lines.append(csv_line)
+
+    # Combine into single code block
+    csv_text = "\n".join(csv_lines)
+    message_content = f"```csv\n{csv_text}\n```"
+
+    # Send response
+    await interaction.response.send_message(message_content, ephemeral=True)
+
+
 # Close the database connection when the bot stops
 @bot.event
 async def on_close():
