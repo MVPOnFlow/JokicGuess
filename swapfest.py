@@ -42,7 +42,7 @@ access(all) fun main(address: Address, momentId: UInt64): UInt32 {
 
     let firstName = playMetadata["FirstName"] ?? panic("FirstName not found")
     let lastName = playMetadata["LastName"] ?? panic("LastName not found")
-
+`
     if firstName != "Nikola" {
         panic("FirstName does not match Nikola")
     }
@@ -176,7 +176,7 @@ async def get_block_gifts(block_height, offset):
 async def main():
     all_gifts = []
     block_height = get_last_processed_block()
-    #reset_last_processed_block("118784028")
+    reset_last_processed_block("118852776")
 
     while True:
         new_gifts = await get_block_gifts(block_height, OFFSET)
