@@ -887,7 +887,7 @@ async def swapfest_refresh_points(interaction: discord.Interaction):
     cursor.execute(prepare_query('''
         SELECT txn_id, moment_id, from_address
         FROM gifts
-        WHERE points = 0
+    WHERE COALESCE(points, 0) = 0
     '''))
     rows = cursor.fetchall()
 
