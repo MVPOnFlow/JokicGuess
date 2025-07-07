@@ -207,3 +207,137 @@ def get_basic_pet_response(amount):
         f"You pet your horse. It stared off into the distance... then casually dropped **{amount} $MVP**.",
     ]
     return random.choice(responses)
+
+def get_last_processed_block():
+    cursor.execute(prepare_query("SELECT value FROM scraper_state WHERE key = ?"), ('last_block',))
+    row = cursor.fetchone()
+    if row:
+        return int(row[0])
+    else:
+        return 118542742
+
+def save_last_processed_block(block_height):
+    if db_type == 'postgresql':
+        cursor.execute(prepare_query('''
+            INSERT INTO scraper_state (key, value)
+            VALUES (?, ?)
+            ON CONFLICT (key)
+            DO UPDATE SET value = EXCLUDED.value
+        '''), ('last_block', str(block_height)))
+    else:
+
+        cursor.execute(prepare_query('''
+            INSERT OR REPLACE INTO scraper_state (key, value)
+            VALUES (?, ?)
+        '''), ('last_block', str(block_height)))
+    conn.commit()
+
+def reset_last_processed_block(block_height):
+    if db_type == 'postgresql':
+        # Delete all existing state
+        cursor.execute(prepare_query('DELETE FROM scraper_state'))
+
+        # Insert the new last_block value
+        cursor.execute(prepare_query('''
+            INSERT INTO scraper_state (key, value)
+            VALUES (?, ?)
+        '''), ('last_block', str(block_height)))
+
+    else:
+        # Same for SQLite
+        cursor.execute(prepare_query('DELETE FROM scraper_state'))
+
+        cursor.execute(prepare_query('''
+            INSERT INTO scraper_state (key, value)
+            VALUES (?, ?)
+        '''), ('last_block', str(block_height)))
+
+    conn.commit()
+
+
+def save_gift(txn_id, moment_id, from_address, points, timestamp):
+    if db_type == 'postgresql':
+        cursor.execute(prepare_query('''
+            INSERT INTO gifts (txn_id, moment_id, from_address, points, timestamp)
+            VALUES (?, ?, ?, ?, ?)
+            ON CONFLICT (txn_id) DO NOTHING
+        '''), (txn_id, moment_id, from_address, points, timestamp))
+    else:
+        cursor.execute(prepare_query('''
+            INSERT OR IGNORE INTO gifts (txn_id, moment_id, from_address, points, timestamp)
+            VALUES (?, ?, ?, ?, ?)
+        '''), (txn_id, moment_id, from_address, points, timestamp))
+    conn.commit()
+
+
+WALLET_USERNAME_MAP = {
+    '0xc246d05ba775362e': 'KnotBean',
+    '0xbf3286046c76cf86': 'wildrick',
+    '0x6877b9930f77d002': 'lframpton',
+    '0xdad344d00b889de2': 'td808486',
+    '0x334a20bbaa7f2801': 'bobobobo',
+    '0x9139bb1a42df770b': 'funguy626',
+    '0x63872cb44c7774ae': 'Nolan11',
+    '0xd0a5910478602d19': 'ChewieWoolf',
+    '0x84387b2cd4617bf3': 'sutych',
+    '0x536319d7c0a35e41': 'DCMG',
+    '0x2cba71ed9d39be5e': 'Ghost',
+    '0x301707d6688771b3': 'jared3',
+    '0x1381915616f894fb': 'Jammerz',
+    '0xbf47fb44c6cbb622': 'CryptoSteve',
+    '0xc1b3a6504566a1bd': 'WaXimus',
+    '0x70c0cb528d3bfaed': 'waybeyondthearchive',
+    '0x9a620aac275d4ba6': 'massdog23',
+    '0x52ab4596ce0a9e71': 'RichDMC',
+    '0xf9050403ac603c0f': 'HEART1982',
+    '0xe78f452b498da264': 'Liveon2legs',
+    '0xf5bc0f596b1b4832': 'Eagleputt',
+    '0x31007f0d4dc6f5fc': 'Yolodawg',
+    '0xde669e0351f4d7b7': 'thatguywithboba',
+    '0xecffd6718379ba44': 'JayBKMB',
+    '0xd1aa122dad3571f1': 'besuzee',
+    '0x26ef73b65a4289e0': 'geebear',
+    '0x6822e275997c7132': 'superherbe',
+    '0xf47cbab86671a23d': 'rb_duke',
+    '0xd0c35e8c3a0a55d8': 'J2jaunty',
+    '0xfe5007fe4ddf8f1f': 'AlexEnglish',
+    '0xfb17f3345ae0f266': 'Bbristle05',
+    '0x1e14b8a08b6c9615': 'kidbamboo73',
+    '0x32c66e4278279976': 'mxtthxw',
+    '0x525bbc8ea4a0943e': 'Coach_P0625',
+    '0xd4100270a1a94ee1': 'schokobub',
+    '0x4974f6a62def220c': 'BrendanMcDonnell',
+    '0x1c9d5e0c22f96c16': 'Rightmow',
+    '0x5557ee9826c54f6b': 'steviewonder88',
+    '0x507df728a5d2e605': 'heffery',
+    '0x78b51f4b7ccfd55c': 'bumsterNFT',
+    '0x17d63446b1e38e09': 'EXCITED_MEERKAT',
+    '0xfab01b00f2fab997': 'JTadashi',
+    '0xcd80f4ce7a7c6000': 'NamePrime',
+    '0x81bd218152d277dd': 'FlyingNinja',
+    '0xe8d73b51dc45f497': 'wolfdizzle',
+    '0x2da11e06e379fcf4': 'tfire',
+    '0x3845ab9cbd7f4e4b': 'Psyduck27',
+    '0x20183de3f208bf34': 'CrazyAndy',
+    '0xff272db64671ce5f': 'Codester_3',
+    '0x3c06e34f5cff1b66': 'Candek',
+    '0xf7220734e22dd14a': 'RBL',
+    '0x1537f0c54ebe4aa1': 'mileah09',
+    '0x0d6ab229aa569864': 'BrodeKY2955',
+    '0xb5a2d654b28dcf76': 'SingaBas',
+    '0xf20dea544888cdc7': 'purebull',
+    '0xcaff3188e88683dc': 'stephenlaywon',
+    '0xc1c8d9a1bbb4e296': 'thomasmmm',
+    '0x678a8a0126d3516b': 'Alix49',
+    '0x452be065d1ed663c': 'Kiel17',
+    '0xb4da21808155485d': 'crazyzeus',
+    '0xca87efe2e0da6297': 'Agent00',
+    '0xd6641d89e6372ee1': 'leet3',
+}
+
+def map_wallet_to_username(wallet_address: str) -> str:
+    """
+    Maps a Dapper wallet address to a username if known.
+    Otherwise, returns the wallet itself.
+    """
+    return WALLET_USERNAME_MAP.get(wallet_address.lower(), wallet_address)

@@ -10,6 +10,7 @@ import random
 from flask import Flask, render_template
 import threading
 from datetime import date
+import swapfest
 
 # Run mock on port 8000 for Azure
 app = Flask(__name__)
@@ -51,7 +52,7 @@ if DATABASE_URL:
     db_type = 'postgresql'
 else:
     # Locally, use SQLite
-    conn = sqlite3.connect('local.db')
+    conn = sqlite3.connect('local.db', check_same_thread=False)
     cursor = conn.cursor()
     db_type = 'sqlite'
 
@@ -74,6 +75,28 @@ cursor.execute(prepare_query('''
         contest_name TEXT NOT NULL,
         start_time BIGINT NOT NULL,  -- Use BIGINT for start_time
         creator_id BIGINT NOT NULL  -- Use BIGINT for creator_id
+    )
+'''))
+conn.commit()
+
+# Create gifts table
+cursor.execute(prepare_query('''
+    CREATE TABLE IF NOT EXISTS gifts (
+        id SERIAL PRIMARY KEY,
+        txn_id TEXT UNIQUE,
+        moment_id BIGINT,
+        from_address TEXT,
+        points BIGINT,
+        timestamp TEXT
+    )
+'''))
+conn.commit()
+
+# Create scraper_state table to track last processed block
+cursor.execute(prepare_query('''
+    CREATE TABLE IF NOT EXISTS scraper_state (
+        key TEXT PRIMARY KEY,
+        value TEXT
     )
 '''))
 conn.commit()
@@ -421,6 +444,7 @@ async def winner(interaction: discord.Interaction, stats: int, outcome: str):
 async def on_ready():
     await bot.tree.sync()  # Sync commands with Discord
     print(f'Logged in as {bot.user}! Commands synced.')
+    bot.loop.create_task(swapfest.main())
 
 # Pet command for $MVP rewards
 @bot.tree.command(name="pet", description="Perform a daily pet and earn random $MVP rewards!")
@@ -431,7 +455,7 @@ async def pet(interaction: discord.Interaction):
         )
 
     user_id = interaction.user.id  # Get the user's ID
-    today = datetime.datetime.utcnow().strftime("%Y-%m-%d")  # Current date (UTC)
+    today = datetime.datetime.now(datetime.UTC).strftime("%Y-%m-%d")  # Current date (UTC)
 
     # Function to check for special reward
     def check_special_reward():
@@ -691,6 +715,72 @@ async def list_petting_rewards(interaction: discord.Interaction):
         f"📜 **Active Special Petting Rewards:**\n{reward_list}",
         ephemeral=True
     )
+
+@bot.tree.command(
+    name="gift_leaderboard",
+    description="Show Swapfest leaderboard by total gifted points in event period"
+)
+async def gift_leaderboard(interaction: discord.Interaction):
+    # Define the event window in UTC
+    start_time = '2025-07-01 21:00:00'
+    end_time = '2025-07-11 21:00:00'
+
+    # Query with time filter
+    cursor.execute(prepare_query('''
+        SELECT from_address, SUM(points) AS total_points
+        FROM gifts
+        WHERE timestamp BETWEEN ? AND ?
+        GROUP BY from_address
+        ORDER BY total_points DESC
+        LIMIT 20
+    '''), (start_time, end_time))
+    rows = cursor.fetchall()
+
+    if not rows:
+        await interaction.response.send_message(
+            "No gift records found in the event period.",
+            ephemeral=True
+        )
+        return
+
+    # Format leaderboard with wallet-to-username mapping
+    leaderboard_lines = ["🎁 **Swapfest Gift Leaderboard** 🎁"]
+    leaderboard_lines.append(f"_Between {start_time} UTC and {end_time} UTC_\n")
+    for i, (from_address, total_points) in enumerate(rows, start=1):
+        username = map_wallet_to_username(from_address)
+        leaderboard_lines.append(f"{i}. `{username}` : **{total_points} points**")
+
+    message = "\n".join(leaderboard_lines)
+
+    await interaction.response.send_message(message, ephemeral=True)
+
+@bot.tree.command(name="swapfest_latest_block", description="Check the last processed blockchain block scraping swapfest gifts (Admin only)")
+@commands.has_permissions(administrator=True)
+async def latest_block(interaction: discord.Interaction):
+    # Check if the user is an admin
+    if not is_admin(interaction):
+        await interaction.response.send_message(
+            "You need admin permissions to run this command.",
+            ephemeral=True
+        )
+        return
+
+    # Call your helper function
+    last_block = get_last_processed_block()
+
+    if last_block is None:
+        await interaction.response.send_message(
+            "⚠️ No processed block found.",
+            ephemeral=True
+        )
+        return
+
+    # Respond with the block number
+    await interaction.response.send_message(
+        f"🧱 **Last processed block:** {last_block}",
+        ephemeral=True
+    )
+
 
 # Close the database connection when the bot stops
 @bot.event

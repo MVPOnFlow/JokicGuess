@@ -2,3 +2,6 @@ discord.py==2.4.0
 psycopg2-binary
 audioop-lts; python_version>='3.13'
 flask
+flow_py_sdk
+requests
+nest-asyncio
