@@ -904,8 +904,8 @@ async def swapfest_refresh_points(interaction: discord.Interaction):
     
     # 2️⃣ Process each gift
     for txn_id, moment_id, from_address in rows:
-    await interaction.followup.send(
-        f"✅ Refreshing points for {moment_id}.",
+        await interaction.followup.send(
+            f"✅ Refreshing points for {moment_id}.",
         ephemeral=True
     )
         new_points = await swapfest.get_moment_points(FLOW_ACCOUNT, moment_id)
