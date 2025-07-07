@@ -7,7 +7,7 @@ from discord import app_commands
 from typing import Literal
 import datetime
 import random
-from flask import Flask, render_template
+from flask import Flask, render_template, g
 import threading
 from datetime import date
 import swapfest
@@ -15,15 +15,50 @@ import swapfest
 # Run mock on port 8000 for Azure
 app = Flask(__name__)
 
-# Example leaderboard data
-leaderboard_data = [
-    {"username": "Waximus", "points": 5},
-    {"username": "SingaBas", "points": 2},
-    {"username": "bobobobo", "points": 1},
-]
+def get_db():
+    if 'db' not in g:
+        if db_type == 'postgresql':
+            g.db = psycopg2.connect(DATABASE_URL, sslmode='require')
+        else:
+            g.db = sqlite3.connect('local.db', detect_types=sqlite3.PARSE_DECLTYPES)
+            g.db.row_factory = sqlite3.Row
+    return g.db
+
+@app.teardown_appcontext
+def close_db(error):
+    db = g.pop('db', None)
+    if db is not None:
+        db.close()
 
 @app.route("/")
 def leaderboard():
+    # Define event period in UTC
+    start_time = '2025-07-01 21:00:00'
+    end_time = '2025-07-11 21:00:00'
+
+    db = get_db()
+    cursor = db.cursor()
+
+    cursor.execute(prepare_query('''
+        SELECT from_address, SUM(points) AS total_points
+        FROM gifts
+        WHERE timestamp BETWEEN ? AND ?
+        GROUP BY from_address
+        ORDER BY total_points DESC
+    '''), (start_time, end_time))
+
+    rows = cursor.fetchall()
+
+
+    # Map wallets to usernames
+    leaderboard_data = [
+        {
+            "username": map_wallet_to_username(from_address),
+            "points": total_points
+        }
+        for from_address, total_points in rows
+    ]
+
     return render_template("leaderboard.html", leaderboard=leaderboard_data)
 
 def run_flask():
