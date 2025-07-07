@@ -5,6 +5,7 @@ import requests
 import random
 import asyncio
 import json
+import sys
 
 from json import JSONDecodeError
 from flow_py_sdk import flow_client
@@ -116,11 +117,12 @@ def get_points_for_set_id(set_id: int) -> int:
 async def get_moment_points(account_address: str, moment_id: int) -> int:
     try:
         set_id = await query_set_id(account_address, moment_id)
-        points = get_points_for_set_id(int(set_id))
-        return points
+        print(f"Got moment from set {set_id}")
     except Exception as e:
-        print(f"Failed to get points for moment ID {moment_id}: {e}")
+        print(f"Failed to get points for moment ID {moment_id}: {e}", file=sys.stderr, flush=True)
         return 0
+    points = get_points_for_set_id(int(set_id))
+    return points
 
 # ==============================
 # FETCH FLOW EVENTS
