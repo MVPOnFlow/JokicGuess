@@ -482,6 +482,7 @@ async def on_ready():
     bot.loop.create_task(swapfest.main())
     reset_last_processed_block("118852000")
 
+
 # Pet command for $MVP rewards
 @bot.tree.command(name="pet", description="Perform a daily pet and earn random $MVP rewards!")
 async def pet(interaction: discord.Interaction):
