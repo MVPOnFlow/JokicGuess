@@ -177,7 +177,7 @@ async def get_block_gifts(block_height, offset):
 # ==============================
 async def main():
     all_gifts = []
-    reset_last_processed_block("118855400")
+    #reset_last_processed_block("118853777")
     block_height = get_last_processed_block()
 
     while True:
@@ -189,6 +189,8 @@ async def main():
             moment_id = int(gift['moment_id'])
             #print(f"Checking moment ID {moment_id} for points...")
             points = await get_moment_points(FLOW_ACCOUNT, moment_id)
+            if points == 0:
+                points = await get_moment_points(gift['from'], moment_id)
             #print(f"Transaction {gift['txn_id']} - Awarded {points} points")
             # Here you can save to DB, file, etc.
             all_gifts.append((gift, points))

@@ -864,6 +864,63 @@ async def latest_gifts_csv(interaction: discord.Interaction):
     # Send response
     await interaction.response.send_message(message_content, ephemeral=True)
 
+@bot.tree.command(
+    name="swapfest_refresh_points",
+    description="(Admin only) Re-scan gifts with 0 points and refresh their scoring"
+)
+@commands.has_permissions(administrator=True)
+async def swapfest_refresh_points(interaction: discord.Interaction):
+    # Admin check
+    if not is_admin(interaction):
+        await interaction.response.send_message(
+            "You need admin permissions to run this command.",
+            ephemeral=True
+        )
+        return
+
+    await interaction.response.send_message(
+        "🔄 Refreshing points for gifts with 0 points. This may take a while...", 
+        ephemeral=True
+    )
+
+    # 1️⃣ Find all gifts with 0 points
+    cursor.execute(prepare_query('''
+        SELECT txn_id, moment_id, from_address
+        FROM gifts
+        WHERE points = 0
+    '''))
+    rows = cursor.fetchall()
+
+    if not rows:
+        await interaction.followup.send(
+            "✅ No gifts with 0 points found.",
+            ephemeral=True
+        )
+        return
+
+    updated_count = 0
+
+    # 2️⃣ Process each gift
+    for txn_id, moment_id, from_address in rows:
+        new_points = await swapfest.get_moment_points(from_address, moment_id)
+        if new_points > 0:
+            # Update the points in DB
+            cursor.execute(prepare_query('''
+                UPDATE gifts
+                SET points = ?
+                WHERE txn_id = ?
+            '''), (new_points, txn_id))
+            updated_count += 1
+
+    db.commit()
+
+    # 3️⃣ Report result
+    await interaction.followup.send(
+        f"✅ Refreshed points for {updated_count} gifts.",
+        ephemeral=True
+    )
+
+
 
 # Close the database connection when the bot stops
 @bot.event
