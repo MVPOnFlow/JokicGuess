@@ -832,10 +832,6 @@ async def latest_gifts_csv(interaction: discord.Interaction):
         )
         return
 
-    # Get DB connection
-    db = get_db()
-    cursor = db.cursor()
-
     # Query latest 20 gifts
     cursor.execute(prepare_query('''
         SELECT txn_id, moment_id, from_address, points, timestamp
