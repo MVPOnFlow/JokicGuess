@@ -131,7 +131,7 @@ async def get_block_gifts(block_height, offset):
     gifts = []
     gift_txns = []
 
-    delay = 480 # add few min delay for block info to get populated
+    delay = 30 # add few min delay for block info to get populated
     response = await get_with_retries(f"{BASE_URL}/blocks?height={block_height + offset + delay}")
     blocks = response.json()
     
