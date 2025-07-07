@@ -43,7 +43,7 @@ access(all) fun main(address: Address, momentId: UInt64): UInt32 {
 
     let firstName = playMetadata["FirstName"] ?? panic("FirstName not found")
     let lastName = playMetadata["LastName"] ?? panic("LastName not found")
-`
+
     if firstName != "Nikola" {
         panic("FirstName does not match Nikola")
     }
