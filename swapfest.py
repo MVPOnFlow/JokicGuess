@@ -177,7 +177,7 @@ async def get_block_gifts(block_height, offset):
 # ==============================
 async def main():
     all_gifts = []
-    reset_last_processed_block("118855876")
+    reset_last_processed_block("118855400")
     block_height = get_last_processed_block()
 
     while True:
