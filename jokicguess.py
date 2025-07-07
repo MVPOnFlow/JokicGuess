@@ -882,6 +882,7 @@ async def swapfest_refresh_points(interaction: discord.Interaction):
         "🔄 Refreshing points for gifts with 0 points. This may take a while...", 
         ephemeral=True
     )
+    FLOW_ACCOUNT = "0xf853bd09d46e7db6"
 
     # 1️⃣ Find all gifts with 0 points
     cursor.execute(prepare_query('''
@@ -899,11 +900,19 @@ async def swapfest_refresh_points(interaction: discord.Interaction):
         return
 
     updated_count = 0
-
+    
+    
     # 2️⃣ Process each gift
     for txn_id, moment_id, from_address in rows:
-        new_points = await swapfest.get_moment_points(from_address, moment_id)
+    await interaction.followup.send(
+        f"✅ Refreshing points for {moment_id}.",
+        ephemeral=True
+    )
+        new_points = await swapfest.get_moment_points(FLOW_ACCOUNT, moment_id)
         if new_points > 0:
+        f"✅ Refreshing points for {moment_id}: {new_points}.",
+        ephemeral=True
+    )
             # Update the points in DB
             cursor.execute(prepare_query('''
                 UPDATE gifts
@@ -911,8 +920,8 @@ async def swapfest_refresh_points(interaction: discord.Interaction):
                 WHERE txn_id = ?
             '''), (new_points, txn_id))
             updated_count += 1
-
-    conn.commit()
+      conn.commit()  
+    
 
     # 3️⃣ Report result
     await interaction.followup.send(
