@@ -131,7 +131,7 @@ async def get_block_gifts(block_height, offset):
 
     response = await get_with_retries(f"{BASE_URL}/blocks?height={block_height}")
     blocks = response.json()
-    if blocks['blocks'][0]['height'] != block_height:
+    if blocks['blocks'][0]['height'] < block_height + offset:
         print('Waiting for more blocks')
         await asyncio.sleep(10)
         return False
