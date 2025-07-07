@@ -912,7 +912,7 @@ async def swapfest_refresh_points(interaction: discord.Interaction):
             '''), (new_points, txn_id))
             updated_count += 1
 
-    db.commit()
+    conn.commit()
 
     # 3️⃣ Report result
     await interaction.followup.send(
