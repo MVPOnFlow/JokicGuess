@@ -2,32 +2,28 @@
 {% block title %}Home - MVP on Flow{% endblock %}
 
 {% block content %}
-<div class="card shadow mb-4">
-    <div class="card-body">
-        <h1 class="card-title text-center mb-3">🏀 Welcome to MVP on Flow 🏆</h1>
-        <p class="card-text">
-            MVP on Flow is a <strong>fan-powered project</strong> celebrating Nikola Jokić and his NBA TopShot moments on the Flow blockchain.
-        </p>
-        <p class="card-text">
-            Join our <a href="https://discord.gg/3p3ff9PHqW" target="_blank">Discord community <i class="bi bi-discord"></i></a> for Jokic-themed fun, prediction contests, raffles, giveaways, and more!
-        </p>
-        <p class="card-text">
-            Earn and use <strong>$MVP</strong> tokens in community games, swap them for Jokic moments, or trade them on Flow exchanges. Whether you're a collector or a fan, there's something for everyone.
-        </p>
-    </div>
+<div class="hero">
+    <h1>🏀 MVP on Flow</h1>
+    <p>
+        Join the ultimate Nikola Jokić fan experience on the Flow blockchain.
+        Trade moments, earn $MVP tokens, and climb the leaderboard!
+    </p>
+    <a href="https://discord.gg/3p3ff9PHqW" target="_blank" class="btn btn-discord">
+        <i class="bi bi-discord"></i> Join Our Discord
+    </a>
 </div>
 
 <div class="card shadow mb-4">
     <div class="card-body">
         <h2 class="card-title text-center mb-3">💰 $MVP Tokenomics</h2>
-        <div class="text-center">
+        <p class="card-text text-center">
+            Learn how $MVP works: swap Jokic moments, earn rewards, and power community events.
+        </p>
+        <div class="text-center mt-3">
             <img src="{{ url_for('static', filename='images/tokenomics.png') }}"
                  alt="MVP Tokenomics"
                  class="img-fluid rounded shadow">
         </div>
-        <p class="card-text text-center mt-3">
-            Explore how $MVP works in our swap system, with clear rules for exchanging and upgrading Jokic moments.
-        </p>
     </div>
 </div>
 {% endblock %}
