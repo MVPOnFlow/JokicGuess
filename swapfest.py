@@ -129,9 +129,10 @@ async def get_block_gifts(block_height, offset):
     gifts = []
     gift_txns = []
 
-    response = await get_with_retries(f"{BASE_URL}/blocks?height={block_height}")
+    response = await get_with_retries(f"{BASE_URL}/blocks?height={block_height + offset}")
     blocks = response.json()
-    if blocks['blocks'][0]['height'] < block_height + offset:
+    
+    if blocks['blocks'][0]['height'] != block_height + offset:
         print('Waiting for more blocks')
         await asyncio.sleep(10)
         return False
@@ -176,7 +177,7 @@ async def get_block_gifts(block_height, offset):
 async def main():
     all_gifts = []
     block_height = get_last_processed_block()
-    reset_last_processed_block("118852776")
+    #reset_last_processed_block("118852776")
 
     while True:
         new_gifts = await get_block_gifts(block_height, OFFSET)
