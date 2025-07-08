@@ -65,6 +65,35 @@ def leaderboard():
 
     return render_template("leaderboard.html", leaderboard=leaderboard_data)
 
+@app.route("/treasury")
+def treasury():
+    # Hard-coded example data
+    treasury_data = {
+        "tokens_in_wild": 15319,
+        "common_count": 2114,
+        "rare_count": 123,
+        "tsd_count": 0,
+        "lego_count": 3,
+    }
+
+    # Calculating backed supply
+    backed_supply = (
+        treasury_data["common_count"] * 2
+        + treasury_data["rare_count"] * 100
+        + treasury_data["tsd_count"] * 500
+        + treasury_data["lego_count"] * 2000
+    )
+
+    surplus = backed_supply - treasury_data["tokens_in_wild"]
+
+    treasury_data["backed_supply"] = backed_supply
+    treasury_data["surplus"] = surplus
+
+    # 🗓️ Manually updated last_updated text
+    last_updated = "2025-07-08 15:00 UTC"
+    return render_template("treasury.html", treasury=treasury_data, last_updated=last_updated)
+
+
 def run_flask():
     app.run(host="0.0.0.0", port=8000)
 threading.Thread(target=run_flask).start()

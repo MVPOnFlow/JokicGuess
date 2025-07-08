@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+{% block title %}Treasury Overview{% endblock %}
+
+{% block content %}
+<div class="card shadow mb-4">
+  <div class="card-body">
+    <h2 class="mb-3 text-center">🏦 $MVP Treasury Overview</h2>
+    <p class="text-center text-muted mb-2">
+      See the current state of the treasury and the $MVP token economy.
+    </p>
+    <p class="text-center text-muted mb-4">
+      Last Updated: {{ last_updated }}
+    </p>
+    <div class="row">
+      <div class="col-md-6 mb-3">
+        <div class="card bg-light h-100">
+          <div class="card-body">
+            <h5 class="fw-bold mb-3">🔢 Tokens in the Wild</h5>
+            <p class="display-6">{{ treasury.tokens_in_wild }}</p>
+            <p class="text-muted">Total $MVP tokens released into circulation, not owned by the treasury.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-md-6 mb-3">
+        <div class="card bg-light h-100">
+          <div class="card-body">
+            <h5 class="fw-bold mb-3">📦 Treasury Holdings</h5>
+            <ul class="list-group list-group-flush">
+              <li class="list-group-item">Common Moments: <strong>{{ treasury.common_count }}</strong></li>
+              <li class="list-group-item">Rare Moments: <strong>{{ treasury.rare_count }}</strong></li>
+              <li class="list-group-item">Top Shot Debut: <strong>{{ treasury.tsd_count }}</strong></li>
+              <li class="list-group-item">Legendary Moments: <strong>{{ treasury.lego_count }}</strong></li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-md-6 mb-3">
+        <div class="card bg-light h-100">
+          <div class="card-body">
+            <h5 class="fw-bold mb-3">💰 Backed Supply</h5>
+            <p class="display-6">{{ treasury.backed_supply }}</p>
+            <p class="text-muted">
+              Calculated as:<br>
+              2x Common + 100x Rare + 500x TSD + 2000x Legendary
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-md-6 mb-3">
+        <div class="card bg-light h-100">
+          <div class="card-body">
+            <h5 class="fw-bold mb-3">✨ Treasury Surplus</h5>
+            <p class="display-6">{{ treasury.surplus }}</p>
+            <p class="text-muted">
+              Backed Supply minus Tokens in the Wild.
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
