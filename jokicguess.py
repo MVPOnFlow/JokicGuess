@@ -11,6 +11,7 @@ from flask import Flask, render_template, g
 import threading
 from datetime import date
 import swapfest
+import math
 
 # Run mock on port 8000 for Azure
 app = Flask(__name__)
@@ -53,7 +54,6 @@ def leaderboard():
 
     rows = cursor.fetchall()
 
-
     # Map wallets to usernames
     leaderboard_data = [
         {
@@ -62,8 +62,33 @@ def leaderboard():
         }
         for from_address, total_points in rows
     ]
+    # 1️⃣ Calculate total prize pool
+    prize_pool = sum(entry["points"] for entry in leaderboard_data)
 
-    return render_template("leaderboard.html", leaderboard=leaderboard_data)
+    # 2️⃣ Prize percentage mapping by rank
+    prize_percentages = {
+        1: 25,
+        2: 20,
+        3: 15,
+        4: 11,
+        5: 8,
+        6: 6,
+        7: 5,
+        8: 4,
+        9: 3,
+        10: 2
+    }
+
+    # 3️⃣ Add prize info to each leaderboard entry
+    for index, entry in enumerate(leaderboard_data, start=1):
+        if index in prize_percentages:
+            percent = prize_percentages[index]
+            pet_count = math.ceil(prize_pool * (percent / 100))
+            entry["prize"] = f"1st pick + Pet your horse {pet_count} times"
+        else:
+            entry["prize"] = "-"
+
+    return render_template("leaderboard.html", leaderboard=leaderboard_data, prize_pool=prize_pool)
 
 @app.route("/treasury")
 def treasury():

@@ -11,7 +11,10 @@
            alt="Swap Fest Rules"
            class="img-fluid rounded shadow">
     </div>
-
+  
+    <p class="text-center text-muted mb-3">
+      Prize Pool: {{ prize_pool }} points
+    </p>
     <div class="table-responsive">
       <table class="table table-striped table-bordered table-hover">
         <thead>
@@ -19,6 +22,7 @@
             <th>#</th>
             <th>TopShot Username</th>
             <th>Points</th>
+            <th>Prize</th>
           </tr>
         </thead>
         <tbody>
@@ -27,6 +31,7 @@
             <td>{{ loop.index }}</td>
             <td>{{ entry.username }}</td>
             <td>{{ entry.points }}</td>
+            <td>{{ entry.prize }}</td>
           </tr>
           {% endfor %}
         </tbody>
