@@ -341,3 +341,11 @@ def map_wallet_to_username(wallet_address: str) -> str:
     Otherwise, returns the wallet itself.
     """
     return WALLET_USERNAME_MAP.get(wallet_address.lower(), wallet_address)
+
+
+def ordinal(n):
+    if 10 <= n % 100 <= 20:
+        suffix = 'th'
+    else:
+        suffix = {1: 'st', 2: 'nd', 3: 'rd'}.get(n % 10, 'th')
+    return f"{n}{suffix}"
