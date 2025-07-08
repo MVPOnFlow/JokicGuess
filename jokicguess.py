@@ -62,6 +62,8 @@ def leaderboard():
         }
         for from_address, total_points in rows
     ]
+    #leaderboard_data = [{"username": "Alice", "points": 300}, {"username": "Bob", "points": 250}]
+
     # 1️⃣ Calculate total prize pool
     prize_pool = sum(entry["points"] for entry in leaderboard_data)
 
@@ -83,7 +85,7 @@ def leaderboard():
     for index, entry in enumerate(leaderboard_data, start=1):
         if index in prize_percentages:
             percent = prize_percentages[index]
-            pet_count = math.ceil(prize_pool * (percent / 100))
+            pet_count = math.ceil(float(prize_pool) * (percent / 100))
             entry["prize"] = f"1st pick + Pet your horse {pet_count} times"
         else:
             entry["prize"] = "-"
