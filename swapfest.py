@@ -83,6 +83,9 @@ async def query_moment_metadata(moment_id: int) -> dict:
           set {
             flowId
           }
+          play {
+            headline
+          }
         }
       }
     }
@@ -120,12 +123,15 @@ async def get_moment_points(moment_id: int) -> int:
     # Special rule: if set.flowId == 2, award 250 points
     flow_id = metadata.get("set", {}).get("flowId")
     if flow_id == 2:
-        print(f"Moment ID {moment_id} has set.flowId 2 → 250 points.")
+        # print(f"Moment ID {moment_id} has set.flowId 2 → 250 points.")
         return 250
+
+    if not metadata.get("play", {}).get("headline", "").startswith("Nikola Joki"):
+        return 0
 
     tier = metadata.get("tier")
     points = get_points_for_tier(tier)
-    print(f"Moment ID {moment_id} is tier {tier}, awarded {points} points.")
+    # print(f"Moment ID {moment_id} is tier {tier}, awarded {points} points.")
     return points
 
 # ==============================
