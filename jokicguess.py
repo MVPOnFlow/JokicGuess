@@ -897,7 +897,7 @@ async def latest_gifts_csv(interaction: discord.Interaction):
         SELECT txn_id, moment_id, from_address, points, timestamp
         FROM gifts
         ORDER BY timestamp DESC
-        LIMIT 20
+        LIMIT 10
     '''))
     rows = cursor.fetchall()
 
