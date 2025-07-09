@@ -559,7 +559,7 @@ async def pet(interaction: discord.Interaction):
         rewards = cursor.fetchall()
 
         for reward_id, name, probability, amount in rewards:
-            if random.random() < probability:  # Hit probability
+            if random.random() <= probability:  # Hit probability
                 if amount > 0:
 
                     # Reduce the amount remaining

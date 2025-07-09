@@ -21,42 +21,6 @@ STARTING_HEIGHT = 118542742
 OFFSET = 100
 
 # ==============================
-# CADENCE SCRIPT
-# ==============================
-CADENCE_SCRIPT = """
-import TopShot from 0x0b2a3299cc857e29
-
-access(all) fun main(address: Address, momentId: UInt64): UInt32 {
-    let acct = getAccount(address)
-
-    let collectionRef = acct.capabilities
-        .borrow<&TopShot.Collection>(/public/MomentCollection)
-        ?? panic("Player does not have Top Shot collection")
-
-    let momentRef = collectionRef.borrowMoment(id: momentId)
-        ?? panic("Could not borrow the Moment")
-
-    let playID = momentRef.data.playID
-
-    let playMetadata = TopShot.getPlayMetaData(playID: playID)
-        ?? panic("No play metadata for this playID")
-
-    let firstName = playMetadata["FirstName"] ?? panic("FirstName not found")
-    let lastName = playMetadata["LastName"] ?? panic("LastName not found")
-
-    if firstName != "Nikola" {
-        panic("FirstName does not match Nikola")
-    }
-
-    if lastName.length < 4 || lastName.slice(from: 0, upTo: 4) != "Joki" {
-        panic("LastName does not start with Joki")
-    }
-
-    return momentRef.data.setID
-}
-"""
-
-# ==============================
 # RETRYING GET REQUEST
 # ==============================
 async def get_with_retries(url, max_retries=5, backoff_factor=1.5, **kwargs):
@@ -90,38 +54,78 @@ async def get_with_retries(url, max_retries=5, backoff_factor=1.5, **kwargs):
 
     raise Exception(f"Failed to get {url} after {max_retries} retries")
 
-# ==============================
-# FLOW SCRIPT CALL
-# ==============================
-async def query_set_id(account_address: str, moment_id: int) -> int:
-    async with flow_client(host="access.mainnet.nodes.onflow.org", port=9000) as client:
-        result = await client.execute_script_at_latest_block(
-            script=CADENCE_SCRIPT.encode("utf-8"),
-            arguments=[
-                json.dumps(Address.from_hex(account_address).encode()).encode("utf-8"),
-                json.dumps(UInt64(moment_id).encode()).encode("utf-8")
-            ]
-        )
-        return json.loads(result.decode("utf-8"))['value']
 
-def get_points_for_set_id(set_id: int) -> int:
-    if set_id in (63, 142, 97, 149, 54, 99, 115, 36, 166):
-        return 50
-    elif set_id == 153:
-        return 1000
-    elif set_id == 2:
-        return 250
-    else:
-        return 1
+# ==============================
+# TIER → POINTS
+# ==============================
+def get_points_for_tier(tier: str) -> int:
+    mapping = {
+        "MOMENT_TIER_COMMON": 1,
+        "MOMENT_TIER_FANDOM": 1,
+        "MOMENT_TIER_RARE": 50,
+        "MOMENT_TIER_LEGENDARY": 1000,
+        "MOMENT_TIER_ULTIMATE": 1000,
+        "MOMENT_TIER_ANTHOLOGY": 1000,
+    }
+    return mapping.get(tier, 0)
 
-async def get_moment_points(account_address: str, moment_id: int) -> int:
-    try:
-        set_id = await query_set_id(account_address, moment_id)
-        print(f"Got moment from set {set_id}")
-    except Exception as e:
-        print(f"Failed to get points for moment ID {moment_id}: {e}", file=sys.stderr, flush=True)
+# ==============================
+# GRAPHQL CALL
+# ==============================
+async def query_moment_metadata(moment_id: int) -> dict:
+    url = "https://public-api.nbatopshot.com/graphql"
+    query = """
+    query getMintedMoment($momentId: ID!) {
+      getMintedMoment(momentId: $momentId) {
+        data {
+          id
+          tier
+          set {
+            flowId
+          }
+        }
+      }
+    }
+    """
+    variables = {"momentId": str(moment_id)}
+    payload = {"query": query, "variables": variables}
+    headers = {
+        "User-Agent": "PetJokicsHorses",
+        "Content-Type": "application/json"
+    }
+
+    for attempt in range(5):
+        try:
+            response = requests.post(url, json=payload, headers=headers, timeout=10)
+            response.raise_for_status()
+            data = response.json()
+            return data["data"]["getMintedMoment"]["data"]
+        except (requests.RequestException, KeyError, TypeError) as e:
+            print(f"Error querying GraphQL (attempt {attempt + 1}): {e}")
+            await asyncio.sleep(1.5 * (attempt + 1))
+
+    print(f"Failed to get metadata for moment ID {moment_id} after retries.")
+    return None
+
+
+# ==============================
+# FINAL GET MOMENT POINTS
+# ==============================
+async def get_moment_points(moment_id: int) -> int:
+    metadata = await query_moment_metadata(moment_id)
+    if metadata is None:
+        print(f"Failed to get metadata for moment {moment_id}", file=sys.stderr, flush=True)
         return 0
-    points = get_points_for_set_id(int(set_id))
+    
+    # Special rule: if set.flowId == 2, award 250 points
+    flow_id = metadata.get("set", {}).get("flowId")
+    if flow_id == 2:
+        print(f"Moment ID {moment_id} has set.flowId 2 → 250 points.")
+        return 250
+
+    tier = metadata.get("tier")
+    points = get_points_for_tier(tier)
+    print(f"Moment ID {moment_id} is tier {tier}, awarded {points} points.")
     return points
 
 # ==============================
