@@ -116,7 +116,7 @@ async def get_moment_points(moment_id: int) -> int:
     if metadata is None:
         print(f"Failed to get metadata for moment {moment_id}", file=sys.stderr, flush=True)
         return 0
-    
+
     # Special rule: if set.flowId == 2, award 250 points
     flow_id = metadata.get("set", {}).get("flowId")
     if flow_id == 2:
@@ -194,9 +194,9 @@ async def main():
         for gift in new_gifts:
             moment_id = int(gift['moment_id'])
             #print(f"Checking moment ID {moment_id} for points...")
-            points = await get_moment_points(FLOW_ACCOUNT, moment_id)
+            points = await get_moment_points(moment_id)
             if points == 0:
-                points = await get_moment_points(gift['from'], moment_id)
+                points = await get_moment_points(moment_id)
             #print(f"Transaction {gift['txn_id']} - Awarded {points} points")
             # Here you can save to DB, file, etc.
             all_gifts.append((gift, points))
