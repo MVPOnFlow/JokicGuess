@@ -120,6 +120,9 @@ def treasury():
     last_updated = "2025-07-08 15:00 UTC"
     return render_template("treasury.html", treasury=treasury_data, last_updated=last_updated)
 
+@app.route("/vote")
+def vote():
+    return render_template("vote.html")
 
 def run_flask():
     app.run(host="0.0.0.0", port=8000)
