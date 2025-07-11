@@ -7,6 +7,7 @@ import './App.css';
 
 // The FCL config import ensures your Flow settings load
 import "./flow/config";
+import { Navbar, Nav, Container } from 'react-bootstrap';
 
 export default function Layout() {
   const [user, setUser] = useState({ loggedIn: null });
@@ -84,7 +85,7 @@ export default function Layout() {
         </div>
       </nav>
 
-      {/* Main content */}
+      {/* Main Content */}
       <div className="container-fluid mt-4 flex-grow-1">
         <Outlet />
       </div>

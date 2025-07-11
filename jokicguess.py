@@ -46,7 +46,7 @@ def serve_react(path):
 def api_leaderboard():
     # Define event period in UTC
     start_time = '2025-07-01 21:00:00'
-    end_time = '2025-07-11 21:00:00'
+    end_time = '2025-07-12 01:00:00'
 
     db = get_db()
     cursor = db.cursor()
@@ -1173,14 +1173,20 @@ async def latest_block(interaction: discord.Interaction):
         ephemeral=True
     )
 
-
 @bot.tree.command(
-    name="latest_gifts_csv",
-    description="(Admin only) List the latest 20 gifts in CSV format"
+    name="add_gift_swapfest",
+    description="(Admin only) Manually add a swapfest gift to the database"
 )
 @commands.has_permissions(administrator=True)
-async def latest_gifts_csv(interaction: discord.Interaction):
-    # Check admin permissions
+async def add_gift(
+    interaction: discord.Interaction,
+    txn_id: str,
+    moment_id: int,
+    from_address: str,
+    points: int,
+    timestamp: str
+):
+    # ✅ Check admin (if you have a custom checker)
     if not is_admin(interaction):
         await interaction.response.send_message(
             "You need admin permissions to run this command.",
@@ -1188,13 +1194,60 @@ async def latest_gifts_csv(interaction: discord.Interaction):
         )
         return
 
-    # Query latest 20 gifts
-    cursor.execute(prepare_query('''
-        SELECT txn_id, moment_id, from_address, points, timestamp
-        FROM gifts
-        ORDER BY timestamp DESC
-        LIMIT 10
-    '''))
+    try:
+        # ✅ Call your helpers.py function
+        save_gift(txn_id, moment_id, from_address, points, timestamp)
+
+        # ✅ Respond with success
+        await interaction.response.send_message(
+            f"✅ Gift added:\n- txn_id: {txn_id}\n- moment_id: {moment_id}\n- from: {from_address}\n- points: {points}\n- timestamp: {timestamp}",
+            ephemeral=True
+        )
+
+    except Exception as e:
+        # ✅ Error handling
+        await interaction.response.send_message(
+            f"❌ Failed to add gift: {e}",
+            ephemeral=True
+        )
+
+
+@bot.tree.command(
+    name="latest_gifts_csv",
+    description="(Admin only) List the latest gifts in CSV format (optionally filter by username)"
+)
+@commands.has_permissions(administrator=True)
+async def latest_gifts_csv(
+    interaction: discord.Interaction,
+    from_address: str | None = None
+):
+    # ✅ Check admin
+    if not is_admin(interaction):
+        await interaction.response.send_message(
+            "You need admin permissions to run this command.",
+            ephemeral=True
+        )
+        return
+
+    # ✅ Build query dynamically
+    if from_address:
+        query = prepare_query('''
+            SELECT txn_id, moment_id, from_address, points, timestamp
+            FROM gifts
+            WHERE from_address = ?
+            ORDER BY timestamp DESC
+            LIMIT 20
+        ''')
+        cursor.execute(query, (from_address,))
+    else:
+        query = prepare_query('''
+            SELECT txn_id, moment_id, from_address, points, timestamp
+            FROM gifts
+            ORDER BY timestamp DESC
+            LIMIT 20
+        ''')
+        cursor.execute(query)
+
     rows = cursor.fetchall()
 
     if not rows:
@@ -1204,20 +1257,17 @@ async def latest_gifts_csv(interaction: discord.Interaction):
         )
         return
 
-    # Build CSV header
+    # ✅ Build CSV
     csv_lines = ["txn_id,moment_id,from_address,points,timestamp"]
-    
-    # Add rows
+
     for txn_id, moment_id, from_address, points, timestamp in rows:
-        username = map_wallet_to_username(from_address)
-        csv_line = f"{txn_id},{moment_id},{username},{points},{timestamp}"
+        display_name = map_wallet_to_username(from_address)
+        csv_line = f"{txn_id},{moment_id},{display_name},{points},{timestamp}"
         csv_lines.append(csv_line)
 
-    # Combine into single code block
     csv_text = "\n".join(csv_lines)
     message_content = f"```csv\n{csv_text}\n```"
 
-    # Send response
     await interaction.response.send_message(message_content, ephemeral=True)
 
 @bot.tree.command(
