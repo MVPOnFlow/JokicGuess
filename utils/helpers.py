@@ -5,6 +5,8 @@ import os
 import sqlite3
 import psycopg2
 import random
+import json
+import requests
 
 # Detect if running on Heroku by checking if DATABASE_URL is set
 DATABASE_URL = os.getenv('DATABASE_URL')  # Heroku PostgreSQL URL
@@ -349,3 +351,141 @@ def ordinal(n):
     else:
         suffix = {1: 'st', 2: 'nd', 3: 'rd'}.get(n % 10, 'th')
     return f"{n}{suffix}"
+
+
+def get_rank_and_lineup_for_user(username, fastbreak_id):
+    # ✅ Official NBA Top Shot public GraphQL endpoint
+    url = "https://public-api.nbatopshot.com/graphql"
+    # ✅ GraphQL query with fragment
+    query = """
+    query GetFastBreakLeadersByFastBreakId($input: GetFastBreakLeadersRequestV2!) {
+      getFastBreakLeadersV2(input: $input) {
+        leaders {
+          ...FastBreakLeaderFragment
+        }
+        rightCursor
+        totalCount
+      }
+    }
+
+    fragment FastBreakLeaderFragment on FastBreakLeader {
+      rank
+      dapperId
+      submissionId
+      points
+      user {
+        dapperID
+        username
+        profileImageUrl
+        email
+      }
+      winStatus
+      players {
+        playerId
+        fullName
+        points
+        teamId
+        stats {
+          points
+          stat {
+            id
+            stat
+            valueNeeded
+            valueType
+          }
+        }
+      }
+      onboardingStatus
+    }
+    """
+
+    # ✅ Variables for this request
+    variables = {
+        "input": {
+            "fastBreakId": fastbreak_id,
+            "pagination": {
+                "cursor": "",
+                "limit": 10
+            },
+            "filters": {
+                "byUsername": username
+            }
+        }
+    }
+
+    # ✅ Complete payload
+    payload = {
+        "operationName": "GetFastBreakLeadersByFastBreakId",
+        "query": query,
+        "variables": variables
+    }
+
+    # ✅ Headers
+    headers = {
+        "User-Agent": "PetJokicsHorses",
+        "Content-Type": "application/json"
+    }
+
+    # ✅ POST request
+    response = requests.post(url, json=payload, headers=headers)
+
+    # ✅ Print nicely formatted JSON response
+    # print(json.dumps(response.json(), indent=2))
+    out = dict()
+    if response.json()['data']['getFastBreakLeadersV2']['leaders']:
+        out['rank'] = response.json()['data']['getFastBreakLeadersV2']['leaders'][0]['rank']
+        out['players'] = [p['fullName'] for p in
+                          response.json()['data']['getFastBreakLeadersV2']['leaders'][0]['players']]
+    return out
+
+
+def extract_fastbreak_runs():
+    url = "https://public-api.nbatopshot.com/graphql"
+
+    query = """
+    query SearchFastBreakRuns($input: SearchFastBreakRunsRequest!) {
+      searchFastBreakRuns(input: $input) {
+        fastBreakRuns {
+          ...FastBreakRunFragment
+        }
+      }
+    }
+
+    fragment FastBreakRunFragment on FastBreakRun {
+      id
+      runName
+      fastBreaks {
+        ...FastBreakFragment
+      }
+    }
+
+    fragment FastBreakFragment on FastBreak {
+      id
+      runId
+      gameDate
+      gamesStartAt
+      status
+    }
+    """
+
+    variables = {
+        "input": {
+            "filters": {
+                "byStatus": ["FAST_BREAK_RUN_RUNNING"]
+            }
+        }
+    }
+
+    payload = {
+        "operationName": "SearchFastBreakRuns",
+        "query": query,
+        "variables": variables
+    }
+
+    headers = {
+        "User-Agent": "PetJokicsHorses",
+        "Content-Type": "application/json"
+    }
+
+    response = requests.post(url, json=payload, headers=headers)
+    return response.json()['data']['searchFastBreakRuns']['fastBreakRuns']
