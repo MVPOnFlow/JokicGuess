@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+{% block title %}$MVP Vote{% endblock %}
+
+{% block content %}
+<div class="card shadow mb-4">
+  <div class="card-body text-center">
+    <h2 class="mb-4">Who is the only real $MVP of the past 5 seasons in the NBA?</h2>
+    <p class="text-muted mb-4">
+      Result of this vote will decide which player's moments the project will collect in the following period.
+    </p>
+
+    <div id="vote-section">
+      <button id="jokic-btn" class="btn btn-success btn-lg mb-3">Jokić</button>
+      <button id="embiid-btn" class="btn btn-outline-secondary btn-lg mb-3">Embiid</button>
+      <button id="sga-btn" class="btn btn-outline-secondary btn-lg mb-3">SGA</button>
+    </div>
+
+    <div id="result-section" class="mt-4" style="display: none;">
+      <h3 class="mb-3">🏆 Voting Results:</h3>
+      <div class="list-group w-50 mx-auto">
+        <div class="list-group-item d-flex justify-content-between">
+          <span>Jokić</span><span>100%</span>
+        </div>
+        <div class="list-group-item d-flex justify-content-between">
+          <span>Embiid</span><span>0%</span>
+        </div>
+        <div class="list-group-item d-flex justify-content-between">
+          <span>SGA</span><span>0%</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<style>
+  #embiid-btn, #sga-btn {
+    position: relative;
+    transition: transform 0.3s ease;
+  }
+</style>
+
+<script>
+  const jokicBtn = document.getElementById('jokic-btn');
+  const embiidBtn = document.getElementById('embiid-btn');
+  const sgaBtn = document.getElementById('sga-btn');
+  const voteSection = document.getElementById('vote-section');
+  const resultSection = document.getElementById('result-section');
+
+  jokicBtn.addEventListener('click', () => {
+    voteSection.style.display = 'none';
+    resultSection.style.display = 'block';
+  });
+
+  function dodgeButton(btn) {
+    btn.addEventListener('mouseenter', () => {
+      const offsetX = Math.floor(Math.random() * 200) - 100;
+      const offsetY = Math.floor(Math.random() * 200) - 100;
+      btn.style.transform = `translate(${offsetX}px, ${offsetY}px)`;
+    });
+  }
+
+  dodgeButton(embiidBtn);
+  dodgeButton(sgaBtn);
+</script>
+{% endblock %}

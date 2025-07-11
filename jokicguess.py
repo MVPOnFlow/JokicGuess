@@ -15,7 +15,6 @@ import math
 from flask_cors import CORS
 from flask import send_from_directory
 
-
 # Run mock on port 8000 for Azure
 app = Flask(__name__)
 CORS(app)
