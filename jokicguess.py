@@ -751,7 +751,7 @@ async def create_fastbreak_contest(
     display_name: str,
     lock_timestamp: str,
     buy_in_currency: str = '$MVP',
-    buy_in_amount: float = 5
+    buy_in_amount: float = 5.0
 ):
     # Admin check
     if not is_admin(interaction):
@@ -792,42 +792,42 @@ async def create_fastbreak_contest(
             ephemeral=True
         )
 
-        @bot.tree.command(
-            name="close_fastbreak_contest",
-            description="Admin only: Close a FastBreak contest."
+@bot.tree.command(
+    name="close_fastbreak_contest",
+    description="Admin only: Close a FastBreak contest."
+)
+@commands.has_permissions(administrator=True)
+async def close_fastbreak_contest(
+        interaction: discord.Interaction,
+        contest_id: int
+):
+    # Check admin
+    if not is_admin(interaction):
+        await interaction.response.send_message(
+            "You need admin permissions to run this command.",
+            ephemeral=True
         )
-        @commands.has_permissions(administrator=True)
-        async def close_fastbreak_contest(
-                interaction: discord.Interaction,
-                contest_id: int
-        ):
-            # Check admin
-            if not is_admin(interaction):
-                await interaction.response.send_message(
-                    "You need admin permissions to run this command.",
-                    ephemeral=True
-                )
-                return
+        return
 
-            # Update DB
-            try:
-                cursor.execute(prepare_query('''
-                                             UPDATE fastbreakContests
-                                             SET status = 'CLOSED'
-                                             WHERE id = ?
-                                             '''), (contest_id,))
-                conn.commit()
+    # Update DB
+    try:
+        cursor.execute(prepare_query('''
+                                     UPDATE fastbreakContests
+                                     SET status = 'CLOSED'
+                                     WHERE id = ?
+                                     '''), (contest_id,))
+        conn.commit()
 
-                await interaction.response.send_message(
-                    f"✅ Contest {contest_id} has been closed.",
-                    ephemeral=True
-                )
-            except Exception as e:
-                print(f"Error closing contest: {e}")
-                await interaction.response.send_message(
-                    "❌ Failed to close contest. Please try again.",
-                    ephemeral=True
-                )
+        await interaction.response.send_message(
+            f"✅ Contest {contest_id} has been closed.",
+            ephemeral=True
+        )
+    except Exception as e:
+        print(f"Error closing contest: {e}")
+        await interaction.response.send_message(
+            "❌ Failed to close contest. Please try again.",
+            ephemeral=True
+        )
 
 
 # Register slash commands when the bot is ready
