@@ -7,14 +7,18 @@ from discord import app_commands
 from typing import Literal
 import datetime
 import random
-from flask import Flask, render_template, g
+from flask import Flask, render_template, g, jsonify
 import threading
 from datetime import date
 import swapfest
 import math
+from flask_cors import CORS
+from flask import send_from_directory
+
 
 # Run mock on port 8000 for Azure
 app = Flask(__name__)
+CORS(app)
 
 def get_db():
     if 'db' not in g:
@@ -31,69 +35,166 @@ def close_db(error):
     if db is not None:
         db.close()
 
-@app.route("/")
-def home():
-    return render_template("home.html")
 
-@app.route("/swapfest")
-def leaderboard():
-    # Define event period in UTC
-    start_time = '2025-07-01 21:00:00'
-    end_time = '2025-07-11 21:00:00'
 
-    db = get_db()
-    cursor = db.cursor()
+@app.route('/', defaults={'path': ''})
+@app.route('/<path:path>')
+def serve_react(path):
+    if path != "" and os.path.exists(f"react-build/{path}"):
+        return send_from_directory('react-build', path)
+    else:
+        return send_from_directory('react-build', 'index.html')
+# @app.route("/")
+# def home():
+#     return render_template("home.html")
+#
+# @app.route("/swapfest")
+# def leaderboard():
+#     # Define event period in UTC
+#     start_time = '2025-07-01 21:00:00'
+#     end_time = '2025-07-11 21:00:00'
+#
+#     db = get_db()
+#     cursor = db.cursor()
+#
+#     cursor.execute(prepare_query('''
+#         SELECT from_address, SUM(points) AS total_points
+#         FROM gifts
+#         WHERE timestamp BETWEEN ? AND ?
+#         GROUP BY from_address
+#         ORDER BY total_points DESC
+#     '''), (start_time, end_time))
+#
+#     rows = cursor.fetchall()
+#
+#     # Map wallets to usernames
+#     leaderboard_data = [
+#         {
+#             "username": map_wallet_to_username(from_address),
+#             "points": total_points
+#         }
+#         for from_address, total_points in rows
+#     ]
+#     #leaderboard_data = [{"username": "Alice", "points": 300}, {"username": "Bob", "points": 250}]
+#
+#     # 1️⃣ Calculate total prize pool
+#     prize_pool = sum(entry["points"] for entry in leaderboard_data)
+#
+#     # 2️⃣ Prize percentage mapping by rank
+#     prize_percentages = {
+#         1: 25,
+#         2: 20,
+#         3: 15,
+#         4: 11,
+#         5: 8,
+#         6: 6,
+#         7: 5,
+#         8: 4,
+#         9: 3,
+#         10: 2
+#     }
+#
+#     # 3️⃣ Add prize info to each leaderboard entry
+#     for index, entry in enumerate(leaderboard_data, start=1):
+#         if index in prize_percentages:
+#             percent = prize_percentages[index]
+#             pet_count = math.ceil(float(prize_pool) * (percent / 100))
+#             entry["prize"] = f"{ordinal(index)} pick + Pet your horse {pet_count} times"
+#         else:
+#             entry["prize"] = "-"
+#
+#     return render_template("leaderboard.html", leaderboard=leaderboard_data, prize_pool=prize_pool)
+#
+# @app.route("/treasury")
+# def treasury():
+#     # Hard-coded example data
+#     treasury_data = {
+#         "tokens_in_wild": 15319,
+#         "common_count": 2114,
+#         "rare_count": 123,
+#         "tsd_count": 0,
+#         "lego_count": 3,
+#     }
+#
+#     # Calculating backed supply
+#     backed_supply = (
+#         treasury_data["common_count"] * 2
+#         + treasury_data["rare_count"] * 100
+#         + treasury_data["tsd_count"] * 500
+#         + treasury_data["lego_count"] * 2000
+#     )
+#
+#     surplus = backed_supply - treasury_data["tokens_in_wild"]
+#
+#     treasury_data["backed_supply"] = backed_supply
+#     treasury_data["surplus"] = surplus
+#
+#     # 🗓️ Manually updated last_updated text
+#     last_updated = "2025-07-08 15:00 UTC"
+#     return render_template("treasury.html", treasury=treasury_data, last_updated=last_updated)
+#
+# @app.route("/api/leaderboard")
+# def api_leaderboard():
+#     # Define event period in UTC
+#     start_time = '2025-07-01 21:00:00'
+#     end_time = '2025-07-11 21:00:00'
+#
+#     db = get_db()
+#     cursor = db.cursor()
+#
+#     cursor.execute(prepare_query('''
+#         SELECT from_address, SUM(points) AS total_points
+#         FROM gifts
+#         WHERE timestamp BETWEEN ? AND ?
+#         GROUP BY from_address
+#         ORDER BY total_points DESC
+#     '''), (start_time, end_time))
+#
+#     rows = cursor.fetchall()
+#
+#     # Map wallets to usernames
+#     leaderboard_data = [
+#         {
+#             "username": map_wallet_to_username(from_address),
+#             "points": total_points
+#         }
+#         for from_address, total_points in rows
+#     ]
+#
+#     # 1️⃣ Calculate total prize pool
+#     prize_pool = sum(entry["points"] for entry in leaderboard_data)
+#
+#     # 2️⃣ Prize percentage mapping by rank
+#     prize_percentages = {
+#         1: 25,
+#         2: 20,
+#         3: 15,
+#         4: 11,
+#         5: 8,
+#         6: 6,
+#         7: 5,
+#         8: 4,
+#         9: 3,
+#         10: 2
+#     }
+#
+#     # 3️⃣ Add prize info to each leaderboard entry
+#     for index, entry in enumerate(leaderboard_data, start=1):
+#         if index in prize_percentages:
+#             percent = prize_percentages[index]
+#             pet_count = math.ceil(float(prize_pool) * (percent / 100))
+#             entry["prize"] = f"{ordinal(index)} pick + Pet your horse {pet_count} times"
+#         else:
+#             entry["prize"] = "-"
+#
+#     # ✅ Return JSON
+#     return jsonify({
+#         "prize_pool": prize_pool,
+#         "leaderboard": leaderboard_data
+#     })
 
-    cursor.execute(prepare_query('''
-        SELECT from_address, SUM(points) AS total_points
-        FROM gifts
-        WHERE timestamp BETWEEN ? AND ?
-        GROUP BY from_address
-        ORDER BY total_points DESC
-    '''), (start_time, end_time))
-
-    rows = cursor.fetchall()
-
-    # Map wallets to usernames
-    leaderboard_data = [
-        {
-            "username": map_wallet_to_username(from_address),
-            "points": total_points
-        }
-        for from_address, total_points in rows
-    ]
-    #leaderboard_data = [{"username": "Alice", "points": 300}, {"username": "Bob", "points": 250}]
-
-    # 1️⃣ Calculate total prize pool
-    prize_pool = sum(entry["points"] for entry in leaderboard_data)
-
-    # 2️⃣ Prize percentage mapping by rank
-    prize_percentages = {
-        1: 25,
-        2: 20,
-        3: 15,
-        4: 11,
-        5: 8,
-        6: 6,
-        7: 5,
-        8: 4,
-        9: 3,
-        10: 2
-    }
-
-    # 3️⃣ Add prize info to each leaderboard entry
-    for index, entry in enumerate(leaderboard_data, start=1):
-        if index in prize_percentages:
-            percent = prize_percentages[index]
-            pet_count = math.ceil(float(prize_pool) * (percent / 100))
-            entry["prize"] = f"{ordinal(index)} pick + Pet your horse {pet_count} times"
-        else:
-            entry["prize"] = "-"
-
-    return render_template("leaderboard.html", leaderboard=leaderboard_data, prize_pool=prize_pool)
-
-@app.route("/treasury")
-def treasury():
+@app.route('/api/treasury')
+def api_treasury():
     # Hard-coded example data
     treasury_data = {
         "tokens_in_wild": 15319,
@@ -117,9 +218,8 @@ def treasury():
     treasury_data["surplus"] = surplus
 
     # 🗓️ Manually updated last_updated text
-    last_updated = "2025-07-08 15:00 UTC"
-    return render_template("treasury.html", treasury=treasury_data, last_updated=last_updated)
-
+    treasury_data['last_updated'] = "2025-07-08 15:00 UTC"
+    return jsonify(treasury_data)
 
 def run_flask():
     app.run(host="0.0.0.0", port=8000)

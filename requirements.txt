@@ -5,3 +5,4 @@ flask
 flow_py_sdk
 requests
 nest-asyncio
+flask-cors
