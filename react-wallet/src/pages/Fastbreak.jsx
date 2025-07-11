@@ -59,7 +59,7 @@ export default function Fastbreak() {
         cadence: `
           import FungibleToken from 0xf233dcee88fe0abe
           import StorageRent from 0x707adbad1428c624
-          import PetJokicsHorses from 0x6fd2465f3a22e34
+          import PetJokicsHorses from 0x6fd2465f3a22e34c
 
           transaction(amount: UFix64, recipient: Address) {
               let sentVault: @{FungibleToken.Vault}
