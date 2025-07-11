@@ -37,12 +37,12 @@ export default function Layout() {
       </nav>
 
       {/* Main content */}
-      <div className="container-fluid mt-4">
+      <div className="container-fluid mt-4 flex-grow-1">
         <Outlet />
       </div>
 
       {/* Footer */}
-      <div className="footer">
+      <div className="footer mt-auto">
         <p>
           This is a fan project and is not affiliated with NBA TopShot, Nikola Jokić, or any official organization.
         </p>
