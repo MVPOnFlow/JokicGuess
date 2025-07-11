@@ -35,8 +35,6 @@ def close_db(error):
     if db is not None:
         db.close()
 
-
-
 @app.route('/', defaults={'path': ''})
 @app.route('/<path:path>')
 def serve_react(path):
