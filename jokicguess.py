@@ -977,11 +977,14 @@ async def latest_block(interaction: discord.Interaction):
 
 @bot.tree.command(
     name="latest_gifts_csv",
-    description="(Admin only) List the latest 20 gifts in CSV format"
+    description="(Admin only) List the latest gifts in CSV format (optionally filter by username)"
 )
 @commands.has_permissions(administrator=True)
-async def latest_gifts_csv(interaction: discord.Interaction):
-    # Check admin permissions
+async def latest_gifts_csv(
+    interaction: discord.Interaction,
+    from_address: str | None = None
+):
+    # ✅ Check admin
     if not is_admin(interaction):
         await interaction.response.send_message(
             "You need admin permissions to run this command.",
@@ -989,13 +992,25 @@ async def latest_gifts_csv(interaction: discord.Interaction):
         )
         return
 
-    # Query latest 20 gifts
-    cursor.execute(prepare_query('''
-        SELECT txn_id, moment_id, from_address, points, timestamp
-        FROM gifts
-        ORDER BY timestamp DESC
-        LIMIT 10
-    '''))
+    # ✅ Build query dynamically
+    if from_address:
+        query = prepare_query('''
+            SELECT txn_id, moment_id, from_address, points, timestamp
+            FROM gifts
+            WHERE from_address = ?
+            ORDER BY timestamp DESC
+            LIMIT 20
+        ''')
+        cursor.execute(query, (from_address,))
+    else:
+        query = prepare_query('''
+            SELECT txn_id, moment_id, from_address, points, timestamp
+            FROM gifts
+            ORDER BY timestamp DESC
+            LIMIT 20
+        ''')
+        cursor.execute(query)
+
     rows = cursor.fetchall()
 
     if not rows:
@@ -1005,20 +1020,17 @@ async def latest_gifts_csv(interaction: discord.Interaction):
         )
         return
 
-    # Build CSV header
+    # ✅ Build CSV
     csv_lines = ["txn_id,moment_id,from_address,points,timestamp"]
-    
-    # Add rows
+
     for txn_id, moment_id, from_address, points, timestamp in rows:
-        username = map_wallet_to_username(from_address)
-        csv_line = f"{txn_id},{moment_id},{username},{points},{timestamp}"
+        display_name = map_wallet_to_username(from_address)
+        csv_line = f"{txn_id},{moment_id},{display_name},{points},{timestamp}"
         csv_lines.append(csv_line)
 
-    # Combine into single code block
     csv_text = "\n".join(csv_lines)
     message_content = f"```csv\n{csv_text}\n```"
 
-    # Send response
     await interaction.response.send_message(message_content, ephemeral=True)
 
 @bot.tree.command(
