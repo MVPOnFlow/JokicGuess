@@ -1,9 +1,29 @@
+import { useEffect, useState } from 'react';
 import { Outlet, NavLink } from "react-router-dom";
+import * as fcl from "@onflow/fcl";
 import 'bootstrap/dist/css/bootstrap.min.css';
 import 'bootstrap-icons/font/bootstrap-icons.css';
-import './App.css'; // This is your custom CSS
+import './App.css';
+
+// The FCL config import ensures your Flow settings load
+import "./flow/config";
 
 export default function Layout() {
+  const [user, setUser] = useState({ loggedIn: null });
+
+  // Subscribe to Flow user state
+  useEffect(() => {
+    fcl.currentUser().subscribe(setUser);
+  }, []);
+
+  const handleConnect = () => {
+    fcl.authenticate();
+  };
+
+  const handleDisconnect = () => {
+    fcl.unauthenticate();
+  };
+
   return (
     <>
       {/* Navbar */}
@@ -21,7 +41,7 @@ export default function Layout() {
             <span className="navbar-toggler-icon"></span>
           </button>
           <div className="collapse navbar-collapse" id="navbarNav">
-            <ul className="navbar-nav me-auto">
+            <ul className="navbar-nav me-auto mb-2 mb-lg-0">
               <li className="nav-item">
                 <NavLink className="nav-link" to="/">Home</NavLink>
               </li>
@@ -32,9 +52,34 @@ export default function Layout() {
                 <NavLink className="nav-link" to="/treasury">Treasury</NavLink>
               </li>
               <li className="nav-item">
-                <NavLink className="nav-link" to="/vote">$MVP Vote</NavLink>
+                <NavLink className="nav-link" to="/vote">Vote</NavLink>
+              </li>
+              <li className="nav-item">
+                <NavLink className="nav-link" to="/fastbreak">Fastbreak</NavLink>
               </li>
             </ul>
+            <div className="d-flex align-items-center">
+              {user.loggedIn ? (
+                <>
+                  <span className="wallet-address me-2">
+                    {user.addr}
+                  </span>
+                  <button
+                    className="btn btn-outline-light btn-sm"
+                    onClick={handleDisconnect}
+                  >
+                    Disconnect
+                  </button>
+                </>
+              ) : (
+                <button
+                  className="btn btn-light btn-sm"
+                  onClick={handleConnect}
+                >
+                  Connect Wallet
+                </button>
+              )}
+            </div>
           </div>
         </div>
       </nav>
