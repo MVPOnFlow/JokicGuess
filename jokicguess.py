@@ -134,7 +134,7 @@ def serve_react(path):
 def api_leaderboard():
     # Define event period in UTC
     start_time = '2025-07-01 21:00:00'
-    end_time = '2025-07-11 21:00:00'
+    end_time = '2025-07-12 01:00:00'
 
     db = get_db()
     cursor = db.cursor()
