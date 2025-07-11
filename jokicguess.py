@@ -7,14 +7,17 @@ from discord import app_commands
 from typing import Literal
 import datetime
 import random
-from flask import Flask, render_template, g
+from flask import Flask, render_template, g, jsonify
 import threading
 from datetime import date
 import swapfest
 import math
+from flask_cors import CORS
+from flask import send_from_directory
 
 # Run mock on port 8000 for Azure
 app = Flask(__name__)
+CORS(app)
 
 def get_db():
     if 'db' not in g:
