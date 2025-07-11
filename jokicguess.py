@@ -974,6 +974,44 @@ async def latest_block(interaction: discord.Interaction):
         ephemeral=True
     )
 
+@bot.tree.command(
+    name="add_gift_swapfest",
+    description="(Admin only) Manually add a swapfest gift to the database"
+)
+@commands.has_permissions(administrator=True)
+async def add_gift(
+    interaction: discord.Interaction,
+    txn_id: str,
+    moment_id: int,
+    from_address: str,
+    points: int,
+    timestamp: str
+):
+    # ✅ Check admin (if you have a custom checker)
+    if not is_admin(interaction):
+        await interaction.response.send_message(
+            "You need admin permissions to run this command.",
+            ephemeral=True
+        )
+        return
+
+    try:
+        # ✅ Call your helpers.py function
+        save_gift(txn_id, moment_id, from_address, points, timestamp)
+
+        # ✅ Respond with success
+        await interaction.response.send_message(
+            f"✅ Gift added:\n- txn_id: {txn_id}\n- moment_id: {moment_id}\n- from: {from_address}\n- points: {points}\n- timestamp: {timestamp}",
+            ephemeral=True
+        )
+
+    except Exception as e:
+        # ✅ Error handling
+        await interaction.response.send_message(
+            f"❌ Failed to add gift: {e}",
+            ephemeral=True
+        )
+
 
 @bot.tree.command(
     name="latest_gifts_csv",
