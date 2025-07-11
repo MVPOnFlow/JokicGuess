@@ -13,7 +13,7 @@ from datetime import date
 import swapfest
 import math
 from flask_cors import CORS
-from flask import send_from_directory
+from flask import send_from_directory, request
 
 # Run mock on port 8000 for Azure
 app = Flask(__name__)
@@ -41,95 +41,7 @@ def serve_react(path):
         return send_from_directory('react-build', path)
     else:
         return send_from_directory('react-build', 'index.html')
-# @app.route("/")
-# def home():
-#     return render_template("home.html")
-#
-# @app.route("/swapfest")
-# def leaderboard():
-#     # Define event period in UTC
-#     start_time = '2025-07-01 21:00:00'
-#     end_time = '2025-07-11 21:00:00'
-#
-#     db = get_db()
-#     cursor = db.cursor()
-#
-#     cursor.execute(prepare_query('''
-#         SELECT from_address, SUM(points) AS total_points
-#         FROM gifts
-#         WHERE timestamp BETWEEN ? AND ?
-#         GROUP BY from_address
-#         ORDER BY total_points DESC
-#     '''), (start_time, end_time))
-#
-#     rows = cursor.fetchall()
-#
-#     # Map wallets to usernames
-#     leaderboard_data = [
-#         {
-#             "username": map_wallet_to_username(from_address),
-#             "points": total_points
-#         }
-#         for from_address, total_points in rows
-#     ]
-#     #leaderboard_data = [{"username": "Alice", "points": 300}, {"username": "Bob", "points": 250}]
-#
-#     # 1️⃣ Calculate total prize pool
-#     prize_pool = sum(entry["points"] for entry in leaderboard_data)
-#
-#     # 2️⃣ Prize percentage mapping by rank
-#     prize_percentages = {
-#         1: 25,
-#         2: 20,
-#         3: 15,
-#         4: 11,
-#         5: 8,
-#         6: 6,
-#         7: 5,
-#         8: 4,
-#         9: 3,
-#         10: 2
-#     }
-#
-#     # 3️⃣ Add prize info to each leaderboard entry
-#     for index, entry in enumerate(leaderboard_data, start=1):
-#         if index in prize_percentages:
-#             percent = prize_percentages[index]
-#             pet_count = math.ceil(float(prize_pool) * (percent / 100))
-#             entry["prize"] = f"{ordinal(index)} pick + Pet your horse {pet_count} times"
-#         else:
-#             entry["prize"] = "-"
-#
-#     return render_template("leaderboard.html", leaderboard=leaderboard_data, prize_pool=prize_pool)
-#
-# @app.route("/treasury")
-# def treasury():
-#     # Hard-coded example data
-#     treasury_data = {
-#         "tokens_in_wild": 15319,
-#         "common_count": 2114,
-#         "rare_count": 123,
-#         "tsd_count": 0,
-#         "lego_count": 3,
-#     }
-#
-#     # Calculating backed supply
-#     backed_supply = (
-#         treasury_data["common_count"] * 2
-#         + treasury_data["rare_count"] * 100
-#         + treasury_data["tsd_count"] * 500
-#         + treasury_data["lego_count"] * 2000
-#     )
-#
-#     surplus = backed_supply - treasury_data["tokens_in_wild"]
-#
-#     treasury_data["backed_supply"] = backed_supply
-#     treasury_data["surplus"] = surplus
-#
-#     # 🗓️ Manually updated last_updated text
-#     last_updated = "2025-07-08 15:00 UTC"
-#     return render_template("treasury.html", treasury=treasury_data, last_updated=last_updated)
-#
+
 @app.route("/api/leaderboard")
 def api_leaderboard():
     # Define event period in UTC
@@ -217,6 +129,143 @@ def api_treasury():
     # 🗓️ Manually updated last_updated text
     treasury_data['last_updated'] = "2025-07-08 15:00 UTC"
     return jsonify(treasury_data)
+
+from datetime import datetime
+
+@app.route("/api/fastbreak/contests", methods=["GET"])
+def api_list_fastbreak_contests():
+    cursor.execute(prepare_query('''
+        SELECT id, fastbreak_id, lock_timestamp, buy_in_currency, buy_in_amount, status, created_at, display_name
+        FROM fastbreakContests
+        ORDER BY created_at DESC
+    '''))
+    rows = cursor.fetchall()
+
+    contests = []
+    now_ts = int(datetime.utcnow().timestamp())
+    for row in rows:
+        contest_status = row[5]
+        try:
+            if contest_status == 'OPEN' and int(row[2]) < now_ts:
+                contest_status = 'STARTED'
+        except:
+            pass
+
+        if contest_status != 'CLOSED':
+            contests.append({
+                "id": row[0],
+                "fastbreak_id": row[1],
+                "lock_timestamp": row[2],
+                "buy_in_currency": row[3],
+                "buy_in_amount": float(row[4]),
+                "status": contest_status,
+                "created_at": row[6],
+                "display_name": row[7]
+            })
+
+    return jsonify(contests)
+
+from datetime import datetime
+
+@app.route("/api/fastbreak/contest/<int:contest_id>/entries", methods=["GET"])
+def api_list_fastbreak_entries(contest_id):
+    # Fetch contest to check lock time and status
+    cursor.execute(prepare_query('''
+        SELECT lock_timestamp, status
+        FROM fastbreakContests
+        WHERE id = ?
+    '''), (contest_id,))
+    row = cursor.fetchone()
+
+    if not row:
+        return jsonify({"error": "Contest not found"}), 404
+
+    lock_timestamp, status = row
+    now_ts = int(datetime.utcnow().timestamp())
+
+    # Determine if contest is "STARTED" or "CLOSED"
+    is_started = False
+    try:
+        if status == 'CLOSED':
+            is_started = True
+        elif status == 'OPEN' and int(lock_timestamp) < now_ts:
+            is_started = True
+    except:
+        pass
+
+    if not is_started:
+        return jsonify({"error": "Entries are not available before the contest locks."}), 403
+
+    # Entries are allowed
+    cursor.execute(prepare_query('''
+        SELECT id, contest_id, topshotUsernamePrediction, userWalletAddress, created_at
+        FROM fastbreakContestEntries
+        WHERE contest_id = ?
+        ORDER BY created_at ASC
+    '''), (contest_id,))
+    rows = cursor.fetchall()
+
+    entries = []
+    for row in rows:
+        entries.append({
+            "id": row[0],
+            "contest_id": row[1],
+            "topshotUsernamePrediction": row[2],
+            "userWalletAddress": row[3],
+            "created_at": row[4]
+        })
+
+    return jsonify(entries)
+
+
+@app.route("/api/fastbreak/contest/<int:contest_id>/entries/user/<wallet_address>", methods=["GET"])
+def api_list_user_fastbreak_entries(contest_id, wallet_address):
+    cursor.execute(prepare_query('''
+        SELECT id, contest_id, topshotUsernamePrediction, userWalletAddress, created_at
+        FROM fastbreakContestEntries
+        WHERE contest_id = ? AND userWalletAddress = ?
+        ORDER BY created_at ASC
+    '''), (contest_id, wallet_address))
+    rows = cursor.fetchall()
+
+    entries = []
+    for row in rows:
+        entries.append({
+            "id": row[0],
+            "contest_id": row[1],
+            "topshotUsernamePrediction": row[2],
+            "userWalletAddress": row[3],
+            "created_at": row[4]
+        })
+
+    return jsonify(entries)
+
+@app.route("/api/fastbreak/contest/<int:contest_id>/entries", methods=["POST"])
+def api_add_fastbreak_entry(contest_id):
+    data = request.get_json()
+    if not data:
+        return jsonify({"error": "Invalid JSON body"}), 400
+
+    topshot_username = data.get('topshotUsernamePrediction')
+    wallet_address = data.get('userWalletAddress')
+
+    if not topshot_username or not wallet_address:
+        return jsonify({"error": "Missing topshotUsernamePrediction or userWalletAddress"}), 400
+
+    cursor.execute(prepare_query('''
+        INSERT INTO fastbreakContestEntries (
+            contest_id, topshotUsernamePrediction, userWalletAddress
+        ) VALUES (?, ?, ?)
+    '''), (
+        contest_id,
+        topshot_username,
+        wallet_address
+    ))
+    conn.commit()
+
+    return jsonify({"status": "success"})
+
+
 
 def run_flask():
     app.run(host="0.0.0.0", port=8000)
@@ -319,6 +368,32 @@ cursor.execute(prepare_query('''
         name TEXT NOT NULL,       -- Name of the special reward
         probability REAL NOT NULL, -- Probability (e.g., 0.002 for 0.2%)
         amount INTEGER   -- Amount remaining before it runs out
+    )
+'''))
+conn.commit()
+
+cursor.execute(prepare_query('''
+    CREATE TABLE IF NOT EXISTS fastbreakContests (
+        id SERIAL PRIMARY KEY,
+        fastbreak_id TEXT NOT NULL,
+        display_name TEXT NOT NULL,
+        lock_timestamp TEXT NOT NULL,
+        buy_in_currency TEXT DEFAULT '$MVP',
+        buy_in_amount NUMERIC DEFAULT 5,
+        status TEXT DEFAULT 'OPEN', 
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+'''))
+conn.commit()
+
+
+cursor.execute(prepare_query('''
+    CREATE TABLE IF NOT EXISTS fastbreakContestEntries (
+        id SERIAL PRIMARY KEY,                    -- Unique entry ID
+        contest_id INTEGER REFERENCES fastbreakContests(id), -- Linked contest
+        topshotUsernamePrediction TEXT NOT NULL,  -- User's predicted TopShot username
+        userWalletAddress TEXT NOT NULL,          -- User's Flow wallet address
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP -- When entry was made
     )
 '''))
 conn.commit()
@@ -630,6 +705,130 @@ async def winner(interaction: discord.Interaction, stats: int, outcome: str):
 
     # Send the response with the list of winners
     await interaction.response.send_message(response)
+
+@bot.tree.command(name="list_active_fastbreak_runs", description="Admin only: Dump all active FastBreak runs as JSON file")
+@app_commands.checks.has_permissions(administrator=True)
+async def list_active_fastbreak_runs(interaction: discord.Interaction):
+    await interaction.response.defer()
+
+    # Admin check
+    if not is_admin(interaction):
+        await interaction.response.send_message(
+            "You need admin permissions to run this command.",
+            ephemeral=True
+        )
+        return
+    try:
+        runs = extract_fastbreak_runs()
+
+        # Convert to JSON string
+        json_data = json.dumps(runs, indent=2)
+
+        # Put it in a BytesIO buffer
+        buffer = io.BytesIO(json_data.encode('utf-8'))
+        buffer.seek(0)
+
+        # Create a Discord file
+        discord_file = discord.File(fp=buffer, filename="fastbreak_runs.json")
+
+        await interaction.followup.send(
+            content="Here is the full FastBreak runs JSON:",
+            file=discord_file,
+            ephemeral=True
+        )
+
+    except Exception as e:
+        await interaction.followup.send(f"Error: {e}", ephemeral=True)
+
+@bot.tree.command(
+    name="create_fastbreak_contest",
+    description="Admin only: Create a new FastBreak contest."
+)
+@commands.has_permissions(administrator=True)
+async def create_fastbreak_contest(
+    interaction: discord.Interaction,
+    fastbreak_id: str,
+    display_name: str,
+    lock_timestamp: str,
+    buy_in_currency: str = '$MVP',
+    buy_in_amount: float = 5
+):
+    # Admin check
+    if not is_admin(interaction):
+        await interaction.response.send_message(
+            "You need admin permissions to run this command.",
+            ephemeral=True
+        )
+        return
+
+    # Insert into DB
+    try:
+        cursor.execute(prepare_query('''
+            INSERT INTO fastbreakContests (
+                fastbreak_id, display_name, lock_timestamp, buy_in_currency, buy_in_amount
+            ) VALUES (?, ?, ?, ?, ?)
+        '''), (
+            fastbreak_id,
+            display_name,
+            lock_timestamp,
+            buy_in_currency,
+            buy_in_amount
+        ))
+        conn.commit()
+
+        await interaction.response.send_message(
+            f"✅ Contest created!\n"
+            f"FastBreak ID: **{fastbreak_id}**\n"
+            f"Display name: **{display_name}**\n"
+            f"Lock Timestamp: **{lock_timestamp}**\n"
+            f"Buy-In: **{buy_in_amount} {buy_in_currency}**",
+            ephemeral=True
+        )
+
+    except Exception as e:
+        print(f"Error creating contest: {e}")
+        await interaction.response.send_message(
+            "❌ Failed to create contest. Please try again.",
+            ephemeral=True
+        )
+
+        @bot.tree.command(
+            name="close_fastbreak_contest",
+            description="Admin only: Close a FastBreak contest."
+        )
+        @commands.has_permissions(administrator=True)
+        async def close_fastbreak_contest(
+                interaction: discord.Interaction,
+                contest_id: int
+        ):
+            # Check admin
+            if not is_admin(interaction):
+                await interaction.response.send_message(
+                    "You need admin permissions to run this command.",
+                    ephemeral=True
+                )
+                return
+
+            # Update DB
+            try:
+                cursor.execute(prepare_query('''
+                                             UPDATE fastbreakContests
+                                             SET status = 'CLOSED'
+                                             WHERE id = ?
+                                             '''), (contest_id,))
+                conn.commit()
+
+                await interaction.response.send_message(
+                    f"✅ Contest {contest_id} has been closed.",
+                    ephemeral=True
+                )
+            except Exception as e:
+                print(f"Error closing contest: {e}")
+                await interaction.response.send_message(
+                    "❌ Failed to close contest. Please try again.",
+                    ephemeral=True
+                )
+
 
 # Register slash commands when the bot is ready
 @bot.event

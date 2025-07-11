@@ -4,6 +4,8 @@ import Home from "./pages/Home";
 import Swapfest from "./pages/Swapfest";
 import Treasury from "./pages/Treasury";
 import Vote from "./pages/Vote";
+import Fastbreak from "./pages/Fastbreak";
+import "./flow/config";
 
 function App() {
   return (
@@ -14,6 +16,7 @@ function App() {
           <Route path="swapfest" element={<Swapfest />} />
           <Route path="treasury" element={<Treasury />} />
           <Route path="vote" element={<Vote />} />
+          <Route path="fastbreak" element={<Fastbreak />} />
         </Route>
       </Routes>
     </BrowserRouter>

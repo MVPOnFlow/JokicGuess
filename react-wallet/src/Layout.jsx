@@ -1,49 +1,89 @@
+import { useEffect, useState } from 'react';
 import { Outlet, NavLink } from "react-router-dom";
-import { Navbar, Nav, Container } from 'react-bootstrap';
+import * as fcl from "@onflow/fcl";
 import 'bootstrap/dist/css/bootstrap.min.css';
 import 'bootstrap-icons/font/bootstrap-icons.css';
-import './App.css'; // Your custom styles
+import './App.css';
+
+// The FCL config import ensures your Flow settings load
+import "./flow/config";
+import { Navbar, Nav, Container } from 'react-bootstrap';
 
 export default function Layout() {
+  const [user, setUser] = useState({ loggedIn: null });
+
+  // Subscribe to Flow user state
+  useEffect(() => {
+    fcl.currentUser().subscribe(setUser);
+  }, []);
+
+  const handleConnect = () => {
+    fcl.authenticate();
+  };
+
+  const handleDisconnect = () => {
+    fcl.unauthenticate();
+  };
+
   return (
     <>
       {/* Navbar */}
-      <Navbar expand="lg" className="navbar navbar-dark">
-        <Container fluid>
-          <Navbar.Brand as={NavLink} to="/" className="d-flex align-items-center">
-            <img
-              src="/favicon.png"
-              alt="MVP on Flow Logo"
-              height="40"
-              className="me-2"
-              style={{
-                maxWidth: "100px",
-                objectFit: "contain",
-                borderRadius: "50%",
-                boxShadow: "0 2px 5px rgba(0,0,0,0.3)",
-                backgroundColor: "#fff",
-                padding: "2px"
-              }}
-            />
-            MVP on Flow
-          </Navbar.Brand>
-
-          <Navbar.Toggle aria-controls="basic-navbar-nav" />
-          <Navbar.Collapse id="basic-navbar-nav">
-            <Nav className="me-auto">
-              <Nav.Link as={NavLink} to="/">Home</Nav.Link>
-              <Nav.Link as={NavLink} to="/swapfest">Swapfest</Nav.Link>
-              <Nav.Link as={NavLink} to="/treasury">Treasury</Nav.Link>
-              <Nav.Link as={NavLink} to="/vote">Vote</Nav.Link>
-            </Nav>
+      <nav className="navbar navbar-expand-lg">
+        <div className="container-fluid">
+          <NavLink className="navbar-brand d-flex align-items-center" to="/">
+            <img src="/favicon.png" alt="MVP on Flow Logo" height="40" className="me-2" />
+          </NavLink>
+          <button
+            className="navbar-toggler"
+            type="button"
+            data-bs-toggle="collapse"
+            data-bs-target="#navbarNav"
+          >
+            <span className="navbar-toggler-icon"></span>
+          </button>
+          <div className="collapse navbar-collapse" id="navbarNav">
+            <ul className="navbar-nav me-auto mb-2 mb-lg-0">
+              <li className="nav-item">
+                <NavLink className="nav-link" to="/">Home</NavLink>
+              </li>
+              <li className="nav-item">
+                <NavLink className="nav-link" to="/swapfest">Swapfest</NavLink>
+              </li>
+              <li className="nav-item">
+                <NavLink className="nav-link" to="/treasury">Treasury</NavLink>
+              </li>
+              <li className="nav-item">
+                <NavLink className="nav-link" to="/vote">Vote</NavLink>
+              </li>
+              <li className="nav-item">
+                <NavLink className="nav-link" to="/fastbreak">Fastbreak</NavLink>
+              </li>
+            </ul>
             <div className="d-flex align-items-center">
-              {/* Replace these with your wallet Connect/Disconnect Buttons */}
-              <button className="btn btn-light btn-sm me-2">Connect Wallet</button>
-              <button className="btn btn-outline-light btn-sm me-2">Disconnect</button>
+              {user.loggedIn ? (
+                <>
+                  <span className="wallet-address me-2">
+                    {user.addr}
+                  </span>
+                  <button
+                    className="btn btn-outline-light btn-sm"
+                    onClick={handleDisconnect}
+                  >
+                    Disconnect
+                  </button>
+                </>
+              ) : (
+                <button
+                  className="btn btn-light btn-sm"
+                  onClick={handleConnect}
+                >
+                  Connect Wallet
+                </button>
+              )}
             </div>
-          </Navbar.Collapse>
-        </Container>
-      </Navbar>
+          </div>
+        </div>
+      </nav>
 
       {/* Main Content */}
       <div className="container-fluid mt-4 flex-grow-1">
