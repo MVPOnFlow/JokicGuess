@@ -1,45 +1,51 @@
 import { Outlet, NavLink } from "react-router-dom";
+import { Navbar, Nav, Container } from 'react-bootstrap';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import 'bootstrap-icons/font/bootstrap-icons.css';
-import './App.css'; // This is your custom CSS
+import './App.css'; // Your custom styles
 
 export default function Layout() {
   return (
     <>
       {/* Navbar */}
-      <nav className="navbar navbar-expand-lg">
-        <div className="container-fluid">
-          <NavLink className="navbar-brand d-flex align-items-center" to="/">
-            <img src="/favicon.png" alt="MVP on Flow Logo" height="40" className="me-2" />
-          </NavLink>
-          <button
-            className="navbar-toggler"
-            type="button"
-            data-bs-toggle="collapse"
-            data-bs-target="#navbarNav"
-          >
-            <span className="navbar-toggler-icon"></span>
-          </button>
-          <div className="collapse navbar-collapse" id="navbarNav">
-            <ul className="navbar-nav me-auto">
-              <li className="nav-item">
-                <NavLink className="nav-link" to="/">Home</NavLink>
-              </li>
-              <li className="nav-item">
-                <NavLink className="nav-link" to="/swapfest">Swapfest</NavLink>
-              </li>
-              <li className="nav-item">
-                <NavLink className="nav-link" to="/treasury">Treasury</NavLink>
-              </li>
-              <li className="nav-item">
-                <NavLink className="nav-link" to="/vote">$MVP Vote</NavLink>
-              </li>
-            </ul>
-          </div>
-        </div>
-      </nav>
+      <Navbar expand="lg" className="navbar navbar-dark">
+        <Container fluid>
+          <Navbar.Brand as={NavLink} to="/" className="d-flex align-items-center">
+            <img
+              src="/favicon.png"
+              alt="MVP on Flow Logo"
+              height="40"
+              className="me-2"
+              style={{
+                maxWidth: "100px",
+                objectFit: "contain",
+                borderRadius: "50%",
+                boxShadow: "0 2px 5px rgba(0,0,0,0.3)",
+                backgroundColor: "#fff",
+                padding: "2px"
+              }}
+            />
+            MVP on Flow
+          </Navbar.Brand>
 
-      {/* Main content */}
+          <Navbar.Toggle aria-controls="basic-navbar-nav" />
+          <Navbar.Collapse id="basic-navbar-nav">
+            <Nav className="me-auto">
+              <Nav.Link as={NavLink} to="/">Home</Nav.Link>
+              <Nav.Link as={NavLink} to="/swapfest">Swapfest</Nav.Link>
+              <Nav.Link as={NavLink} to="/treasury">Treasury</Nav.Link>
+              <Nav.Link as={NavLink} to="/vote">Vote</Nav.Link>
+            </Nav>
+            <div className="d-flex align-items-center">
+              {/* Replace these with your wallet Connect/Disconnect Buttons */}
+              <button className="btn btn-light btn-sm me-2">Connect Wallet</button>
+              <button className="btn btn-outline-light btn-sm me-2">Disconnect</button>
+            </div>
+          </Navbar.Collapse>
+        </Container>
+      </Navbar>
+
+      {/* Main Content */}
       <div className="container-fluid mt-4 flex-grow-1">
         <Outlet />
       </div>
