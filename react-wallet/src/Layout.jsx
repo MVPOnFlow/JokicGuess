@@ -31,6 +31,9 @@ export default function Layout() {
               <li className="nav-item">
                 <NavLink className="nav-link" to="/treasury">Treasury</NavLink>
               </li>
+              <li className="nav-item">
+                <NavLink className="nav-link" to="/vote">$MVP Vote</NavLink>
+              </li>
             </ul>
           </div>
         </div>
