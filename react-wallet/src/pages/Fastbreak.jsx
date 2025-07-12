@@ -183,10 +183,15 @@ export default function Fastbreak() {
               <button
                 className="btn btn-primary btn-lg w-100"
                 onClick={handleBuyIn}
-                disabled={processing}
+                disabled={processing || leaderboardData?.status === "STARTED"}
               >
                 {processing ? "Processing..." : `Buy In for ${selectedContest?.buy_in_amount || ''} ${selectedContest?.buy_in_currency || ''}`}
               </button>
+              {leaderboardData?.status === "STARTED" && (
+                <p className="text-danger mt-2 text-center">
+                  🚫 This contest is locked for new entries.
+                </p>
+              )}
             </>
           ) : (
             <p className="text-muted text-center">Please connect your wallet using the top-right button.</p>
