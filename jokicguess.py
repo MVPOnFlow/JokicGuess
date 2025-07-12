@@ -221,11 +221,20 @@ def get_fastbreak_prediction_leaderboard(contest_id):
         })
 
     else:
-        # Contest NOT started: show summary
-        user_entries = [
-            {"wallet": e[0], "prediction": e[1]}
-            for e in entries if e[0].lower() == user_wallet
-        ]
+        # Contest NOT started
+        user_entries = []
+        for e in entries:
+            wallet = e[0].lower()
+            prediction = e[1]
+            if wallet == user_wallet:
+                stats = get_rank_and_lineup_for_user(prediction, fastbreak_id)
+                user_entries.append({
+                    "wallet": wallet,
+                    "prediction": prediction,
+                    "rank": stats.get("rank"),
+                    "lineup": stats.get("players")
+                })
+
         total_entries = len(entries)
         total_pot = total_entries * float(buy_in_amount)
 
@@ -235,6 +244,7 @@ def get_fastbreak_prediction_leaderboard(contest_id):
             "totalPot": total_pot,
             "userEntries": user_entries
         })
+
 
 
 @app.route("/api/fastbreak/contest/<int:contest_id>/entries", methods=["GET"])

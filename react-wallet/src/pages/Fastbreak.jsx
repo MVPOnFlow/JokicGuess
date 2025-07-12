@@ -148,7 +148,10 @@ export default function Fastbreak() {
       {/* Buy-In Form Card */}
       <div className="card shadow mb-4">
         <div className="card-body">
-          <h2 className="mb-4 text-center">Fastbreak Contest Buy-In</h2>
+          <h2 className="mb-4 text-center">Fastbreak Horse Race</h2>
+          <p className="text-center mb-4">
+            Pick the top-ranked NBA Top Shot user in the NBA Fastbreak. Buy in, submit your pick before lock, and if your horse is the fastest, i.e. ranks better than everyone else's pick, you win the pot!
+          </p>
 
           {user.loggedIn ? (
             <>
@@ -196,17 +199,6 @@ export default function Fastbreak() {
           )}
         </div>
       </div>
-
-      {/* Contest Info Card */}
-      <div className="card shadow mb-4">
-        <div className="card-body">
-          <h3 className="card-title mb-3 text-center">Fastbreak Horse Race</h3>
-          <p className="mt-3 text-center">
-            Pick the top-ranked NBA Top Shot user in the NBA Fastbreak. Buy in, submit your pick before lock, and if your horse is the fastest, i.e. ranks better than everyone else's pick, you win the pot!
-          </p>
-        </div>
-      </div>
-
       {/* Leaderboard / Prediction Info */}
       {leaderboardData && (
         <div className="card shadow mb-4">
@@ -250,14 +242,27 @@ export default function Fastbreak() {
 
                 {leaderboardData.userEntries.length > 0 ? (
                   <>
-                    <h5 className="mt-3">Your Entries:</h5>
-                    <ul>
-                      {leaderboardData.userEntries.map((entry, idx) => (
-                        <li key={idx}>
-                          {entry.prediction}
-                        </li>
-                      ))}
-                    </ul>
+                  <h5 className="mt-3">Your Entries:</h5>
+                  <div className="table-responsive">
+                    <table className="table table-striped table-bordered">
+                      <thead>
+                        <tr>
+                          <th>Prediction</th>
+                          <th>Fastbreak Rank</th>
+                          <th>Lineup</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {leaderboardData.userEntries.map((entry, idx) => (
+                          <tr key={idx}>
+                            <td>{entry.prediction}</td>
+                            <td>{entry.rank !== undefined ? entry.rank : "N/A"}</td>
+                            <td>{entry.lineup ? entry.lineup.join(", ") : "N/A"}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
                   </>
                 ) : (
                   <p className="text-muted">You have not submitted any entries yet.</p>
