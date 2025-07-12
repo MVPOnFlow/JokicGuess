@@ -27,7 +27,7 @@ export default function Fastbreak() {
 
   const fetchContests = async () => {
     try {
-      const res = await fetch("/api/fastbreak/contests");
+      const res = await fetch("https://pjh-gzerbpd3gecjhab5.westus-01.azurewebsites.net/api/fastbreak/contests");
       const data = await res.json();
       setContests(data);
       if (data.length > 0) setSelectedContest(data[0]);
@@ -38,7 +38,7 @@ export default function Fastbreak() {
 
   const fetchLeaderboard = async (contestId, userWallet) => {
     try {
-      const res = await fetch(`/api/fastbreak/contest/${contestId}/prediction-leaderboard?userWallet=${userWallet}`);
+      const res = await fetch(`https://pjh-gzerbpd3gecjhab5.westus-01.azurewebsites.net/api/fastbreak/contest/${contestId}/prediction-leaderboard?userWallet=${userWallet}`);
       const data = await res.json();
       setLeaderboardData(data);
     } catch (err) {
@@ -54,6 +54,11 @@ export default function Fastbreak() {
     if (contest && user.loggedIn) {
       fetchLeaderboard(contest.id, user.addr);
     }
+  };
+
+  const formatUFix64 = (value) => {
+    if (String(value).includes(".")) return String(value);
+    return `${value}.0`;
   };
 
   const handleBuyIn = async () => {
@@ -104,13 +109,13 @@ export default function Fastbreak() {
           }
         `,
         args: (arg, t) => [
-          arg(String(selectedContest.buy_in_amount), t.UFix64),
+          arg(formatUFix64(selectedContest.buy_in_amount), t.UFix64),
           arg(COMMUNITY_WALLET, t.Address)
         ],
         proposer: fcl.currentUser().authorization,
         payer: fcl.currentUser().authorization,
         authorizations: [fcl.currentUser().authorization],
-        limit: 100
+        limit: 9999
       });
 
       setTxStatus(`✅ Transaction submitted! ID: ${transactionId}`);
@@ -119,7 +124,7 @@ export default function Fastbreak() {
       setTxStatus('✅ Transaction Sealed! Registering your entry...');
 
       // Register in DB
-      await fetch(`/api/fastbreak/contest/${selectedContest.id}/entries`, {
+      await fetch(`https://pjh-gzerbpd3gecjhab5.westus-01.azurewebsites.net/api/fastbreak/contest/${selectedContest.id}/entries`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
