@@ -12,7 +12,7 @@ export default function Fastbreak() {
 
   const [leaderboardData, setLeaderboardData] = useState(null);
 
-  // ✅ NEW: Countdown state
+  // ✅ Countdown state
   const [countdown, setCountdown] = useState('');
 
   const COMMUNITY_WALLET = "0x2459710b1d10aed0";  // Replace with your community wallet
@@ -28,7 +28,7 @@ export default function Fastbreak() {
     }
   }, [user, selectedContest]);
 
-  // ✅ NEW: Countdown timer effect
+  // ✅ Countdown timer effect
   useEffect(() => {
     if (!selectedContest || !selectedContest.lock_timestamp) {
       setCountdown('');
@@ -146,10 +146,15 @@ export default function Fastbreak() {
         limit: 9999
       });
 
-      setTxStatus(`✅ Transaction submitted! ID: ${transactionId}`);
+      setTxStatus(
+        `✅ Transaction submitted! TX ID: <a href="https://flowscan.io/tx/${transactionId}" target="_blank" rel="noopener noreferrer">${transactionId}</a>`
+      );
 
       await fcl.tx(transactionId).onceSealed();
-      setTxStatus('✅ Transaction Sealed! Registering your entry...');
+
+      setTxStatus(
+        `✅ Transaction sealed on-chain! View TX: <a href="https://flowscan.io/tx/${transactionId}" target="_blank" rel="noopener noreferrer">${transactionId}</a><br/>Registering your entry...`
+      );
 
       // Register in DB
       await fetch(`https://pjh-gzerbpd3gecjhab5.westus-01.azurewebsites.net/api/fastbreak/contest/${selectedContest.id}/entries`, {
@@ -161,7 +166,9 @@ export default function Fastbreak() {
         })
       });
 
-      setTxStatus('✅ Entry submitted! Thank you for joining.');
+      setTxStatus(
+        `✅ Entry submitted! Thank you for joining.<br/>TX: <a href="https://flowscan.io/tx/${transactionId}" target="_blank" rel="noopener noreferrer">${transactionId}</a>`
+      );
       setProcessing(false);
       setTopshotUsername('');
 
@@ -189,6 +196,13 @@ export default function Fastbreak() {
           {user.loggedIn ? (
             <>
               <p className="text-muted text-center">Connected as: <strong>{user.addr}</strong></p>
+
+              {/* Countdown display */}
+              {countdown && (
+                <p className="text-center text-muted mb-2">
+                  Contest starts in: <strong>{countdown}</strong>
+                </p>
+              )}
 
               <div className="mb-3">
                 <label>Select Contest</label>
@@ -232,7 +246,7 @@ export default function Fastbreak() {
 
           {txStatus && (
             <div className="mt-3 text-center">
-              <p>{txStatus}</p>
+              <p dangerouslySetInnerHTML={{ __html: txStatus }}></p>
             </div>
           )}
         </div>
@@ -243,12 +257,10 @@ export default function Fastbreak() {
         <div className="card shadow mb-4">
           <div className="card-body">
 
-            {/* Contest Info always visible */}
             <h4 className="mb-3 text-center">📋 Contest Info</h4>
-              {/* ✅ Countdown display */}
-              {countdown && (
-                <p><strong>Contest locks in:</strong> {countdown}</p>
-              )}
+            {countdown && (
+              <p><strong>Contest locks in:</strong> {countdown}</p>
+            )}
             <p><strong>Total entries:</strong> {leaderboardData.totalEntries}</p>
             <p><strong>Total pot:</strong> {leaderboardData.totalPot} $MVP</p>
 
