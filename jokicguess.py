@@ -163,6 +163,80 @@ def api_list_fastbreak_contests():
 
     return jsonify(contests)
 
+@app.route("/api/fastbreak/contest/<int:contest_id>/prediction-leaderboard", methods=["GET"])
+def get_fastbreak_prediction_leaderboard(contest_id):
+    user_wallet = request.args.get('userWallet', '').lower()
+
+    # Get contest info, including fastbreak_id
+    cursor.execute(prepare_query('''
+        SELECT lock_timestamp, buy_in_amount, status, fastbreak_id
+        FROM fastbreakContests
+        WHERE id = ?
+    '''), (contest_id,))
+    row = cursor.fetchone()
+    if not row:
+        return jsonify({"error": "Contest not found"}), 404
+
+    lock_timestamp, buy_in_amount, status, fastbreak_id = row
+    now_ts = int(datetime.utcnow().timestamp())
+    is_started = (status == 'CLOSED') or (status == 'OPEN' and int(lock_timestamp) < now_ts)
+
+    # Load all entries
+    cursor.execute(prepare_query('''
+        SELECT userWalletAddress, topshotUsernamePrediction
+        FROM fastbreakContestEntries
+        WHERE contest_id = ?
+    '''), (contest_id,))
+    entries = cursor.fetchall()
+
+    if is_started:
+        # Contest STARTED: build leaderboard
+        result_entries = []
+        for e in entries:
+            wallet = e[0].lower()
+            prediction = e[1]
+
+            # Call your helper with fastbreak_id
+            fastbreak_data = get_rank_and_lineup_for_user(prediction, fastbreak_id)
+            # Expected: { "rank": int, "lineup": [player1, player2, ...] }
+
+            result_entries.append({
+                "wallet": wallet,
+                "prediction": prediction,
+                "rank": fastbreak_data.get("rank"),
+                "lineup": fastbreak_data.get("lineup"),
+                "isUser": (wallet == user_wallet)
+            })
+
+        # Sort by fastbreak rank (lowest = better)
+        result_entries.sort(key=lambda x: x["rank"] if x["rank"] is not None else 9999)
+
+        # Add position number
+        for idx, item in enumerate(result_entries):
+            item["position"] = idx + 1
+
+        return jsonify({
+            "status": "STARTED",
+            "entries": result_entries
+        })
+
+    else:
+        # Contest NOT started: show summary
+        user_entries = [
+            {"wallet": e[0], "prediction": e[1]}
+            for e in entries if e[0].lower() == user_wallet
+        ]
+        total_entries = len(entries)
+        total_pot = total_entries * float(buy_in_amount)
+
+        return jsonify({
+            "status": "NOT_STARTED",
+            "totalEntries": total_entries,
+            "totalPot": total_pot,
+            "userEntries": user_entries
+        })
+
+
 @app.route("/api/fastbreak/contest/<int:contest_id>/entries", methods=["GET"])
 def api_list_fastbreak_entries(contest_id):
     # Fetch contest to check lock time and status
