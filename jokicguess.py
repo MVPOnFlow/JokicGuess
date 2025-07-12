@@ -130,8 +130,6 @@ def api_treasury():
     treasury_data['last_updated'] = "2025-07-08 15:00 UTC"
     return jsonify(treasury_data)
 
-from datetime import datetime
-
 @app.route("/api/fastbreak/contests", methods=["GET"])
 def api_list_fastbreak_contests():
     cursor.execute(prepare_query('''
@@ -142,7 +140,7 @@ def api_list_fastbreak_contests():
     rows = cursor.fetchall()
 
     contests = []
-    now_ts = int(datetime.utcnow().timestamp())
+    now_ts = int(datetime.datetime.now(datetime.UTC).timestamp())
     for row in rows:
         contest_status = row[5]
         try:
@@ -165,8 +163,6 @@ def api_list_fastbreak_contests():
 
     return jsonify(contests)
 
-from datetime import datetime
-
 @app.route("/api/fastbreak/contest/<int:contest_id>/entries", methods=["GET"])
 def api_list_fastbreak_entries(contest_id):
     # Fetch contest to check lock time and status
@@ -181,7 +177,7 @@ def api_list_fastbreak_entries(contest_id):
         return jsonify({"error": "Contest not found"}), 404
 
     lock_timestamp, status = row
-    now_ts = int(datetime.utcnow().timestamp())
+    now_ts = int(datetime.datetime.now(datetime.UTC).timestamp())
 
     # Determine if contest is "STARTED" or "CLOSED"
     is_started = False
@@ -1026,7 +1022,7 @@ async def petting_stats(interaction: discord.Interaction):
     if not is_admin(interaction):
         await interaction.response.send_message("You need admin permissions to run this command.", ephemeral=True)
         return
-    today = datetime.datetime.utcnow().strftime("%Y-%m-%d")
+    today = datetime.datetime.now(datetime.UTC).strftime("%Y-%m-%d")
 
     # Fetch the number of unique users who petted today
     cursor.execute(prepare_query(
