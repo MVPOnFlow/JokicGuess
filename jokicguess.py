@@ -178,7 +178,7 @@ def get_fastbreak_prediction_leaderboard(contest_id):
         return jsonify({"error": "Contest not found"}), 404
 
     lock_timestamp, buy_in_amount, status, fastbreak_id = row
-    now_ts = int(datetime.utcnow().timestamp())
+    now_ts = int(datetime.datetime.now(datetime.UTC).timestamp())
     is_started = (status == 'CLOSED') or (status == 'OPEN' and int(lock_timestamp) < now_ts)
 
     # Load all entries
