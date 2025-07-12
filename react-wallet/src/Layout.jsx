@@ -43,7 +43,7 @@ export default function Layout() {
               <Nav.Link as={NavLink} to="/swapfest">Swapfest</Nav.Link>
               <Nav.Link as={NavLink} to="/treasury">Treasury</Nav.Link>
               <Nav.Link as={NavLink} to="/vote">Vote</Nav.Link>
-              <Nav.Link as={NavLink} to="/fastbreak">Fastbreak</Nav.Link>
+              {/* <Nav.Link as={NavLink} to="/fastbreak">Fastbreak</Nav.Link> */}
             </Nav>
             <div className="d-flex align-items-center">
               {user.loggedIn ? (
