@@ -12,6 +12,9 @@ export default function Fastbreak() {
 
   const [leaderboardData, setLeaderboardData] = useState(null);
 
+  // ✅ NEW: Countdown state
+  const [countdown, setCountdown] = useState('');
+
   const COMMUNITY_WALLET = "0x2459710b1d10aed0";  // Replace with your community wallet
 
   useEffect(() => {
@@ -24,6 +27,31 @@ export default function Fastbreak() {
       fetchLeaderboard(selectedContest.id, user.addr);
     }
   }, [user, selectedContest]);
+
+  // ✅ NEW: Countdown timer effect
+  useEffect(() => {
+    if (!selectedContest || !selectedContest.lock_timestamp) {
+      setCountdown('');
+      return;
+    }
+
+    const interval = setInterval(() => {
+      const now = Math.floor(Date.now() / 1000);
+      const diff = selectedContest.lock_timestamp - now;
+
+      if (diff <= 0) {
+        setCountdown('Contest has started!');
+        clearInterval(interval);
+      } else {
+        const hours = String(Math.floor(diff / 3600)).padStart(2, '0');
+        const minutes = String(Math.floor((diff % 3600) / 60)).padStart(2, '0');
+        const seconds = String(diff % 60).padStart(2, '0');
+        setCountdown(`${hours}:${minutes}:${seconds}`);
+      }
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [selectedContest]);
 
   const fetchContests = async () => {
     try {
@@ -217,6 +245,10 @@ export default function Fastbreak() {
 
             {/* Contest Info always visible */}
             <h4 className="mb-3 text-center">📋 Contest Info</h4>
+              {/* ✅ Countdown display */}
+              {countdown && (
+                <p><strong>Contest locks in:</strong> {countdown}</p>
+              )}
             <p><strong>Total entries:</strong> {leaderboardData.totalEntries}</p>
             <p><strong>Total pot:</strong> {leaderboardData.totalPot} $MVP</p>
 
