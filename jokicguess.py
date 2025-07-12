@@ -135,7 +135,7 @@ def api_list_fastbreak_contests():
     cursor.execute(prepare_query('''
         SELECT id, fastbreak_id, lock_timestamp, buy_in_currency, buy_in_amount, status, created_at, display_name
         FROM fastbreakContests
-        ORDER BY created_at DESC
+        ORDER BY lock_timestamp ASC
     '''))
     rows = cursor.fetchall()
 
@@ -337,6 +337,7 @@ def add_fastbreak_entry(contest_id):
         SELECT lock_timestamp, status
         FROM fastbreakContests
         WHERE id = ?
+        ORDER BY lock_timestamp ASC
     '''), (contest_id,))
     row = cursor.fetchone()
 
