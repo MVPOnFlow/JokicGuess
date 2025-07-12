@@ -12,7 +12,7 @@ export default function Fastbreak() {
 
   const [leaderboardData, setLeaderboardData] = useState(null);
 
-  const COMMUNITY_WALLET = "0x2459710b1d10aed0"; // Your community wallet address
+  const COMMUNITY_WALLET = "0x2459710b1d10aed0";  // Replace with your community wallet
 
   useEffect(() => {
     fcl.currentUser().subscribe(setUser);
@@ -199,13 +199,20 @@ export default function Fastbreak() {
           )}
         </div>
       </div>
+
       {/* Leaderboard / Prediction Info */}
       {leaderboardData && (
         <div className="card shadow mb-4">
           <div className="card-body">
+
+            {/* Contest Info always visible */}
+            <h4 className="mb-3 text-center">📋 Contest Info</h4>
+            <p><strong>Total entries:</strong> {leaderboardData.totalEntries}</p>
+            <p><strong>Total pot:</strong> {leaderboardData.totalPot} $MVP</p>
+
             {leaderboardData.status === "STARTED" ? (
               <>
-                <h4 className="mb-3 text-center">🏆 Contest Leaderboard</h4>
+                <h4 className="mt-4 mb-3 text-center">🏆 Contest Leaderboard</h4>
                 <div className="table-responsive">
                   <table className="table table-striped table-bordered">
                     <thead>
@@ -236,36 +243,32 @@ export default function Fastbreak() {
               </>
             ) : (
               <>
-                <h4 className="mb-3 text-center">📋 Contest Overview</h4>
-                <p><strong>Total entries:</strong> {leaderboardData.totalEntries}</p>
-                <p><strong>Total pot:</strong> {leaderboardData.totalPot} $MVP</p>
-
                 {leaderboardData.userEntries.length > 0 ? (
                   <>
-                  <h5 className="mt-3">Your Entries:</h5>
-                  <div className="table-responsive">
-                    <table className="table table-striped table-bordered">
-                      <thead>
-                        <tr>
-                          <th>Prediction</th>
-                          <th>Fastbreak Rank</th>
-                          <th>Lineup</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {leaderboardData.userEntries.map((entry, idx) => (
-                          <tr key={idx}>
-                            <td>{entry.prediction}</td>
-                            <td>{entry.rank !== undefined ? entry.rank : "N/A"}</td>
-                            <td>{entry.lineup ? entry.lineup.join(", ") : "N/A"}</td>
+                    <h5 className="mt-4">Your Entries:</h5>
+                    <div className="table-responsive">
+                      <table className="table table-striped table-bordered">
+                        <thead>
+                          <tr>
+                            <th>Prediction</th>
+                            <th>Fastbreak Rank</th>
+                            <th>Lineup</th>
                           </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
+                        </thead>
+                        <tbody>
+                          {leaderboardData.userEntries.map((entry, idx) => (
+                            <tr key={idx}>
+                              <td>{entry.prediction}</td>
+                              <td>{entry.rank !== undefined ? entry.rank : "N/A"}</td>
+                              <td>{entry.lineup ? entry.lineup.join(", ") : "N/A"}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
                   </>
                 ) : (
-                  <p className="text-muted">You have not submitted any entries yet.</p>
+                  <p className="text-muted mt-3">You have not submitted any entries yet.</p>
                 )}
               </>
             )}

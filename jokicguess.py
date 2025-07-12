@@ -189,6 +189,9 @@ def get_fastbreak_prediction_leaderboard(contest_id):
     '''), (contest_id,))
     entries = cursor.fetchall()
 
+    total_entries = len(entries)
+    total_pot = total_entries * float(buy_in_amount) * 0.95
+
     if is_started:
         # Contest STARTED: build leaderboard
         result_entries = []
@@ -217,7 +220,9 @@ def get_fastbreak_prediction_leaderboard(contest_id):
 
         return jsonify({
             "status": "STARTED",
-            "entries": result_entries
+            "entries": result_entries,
+            "totalEntries": total_entries,
+            "totalPot": total_pot,
         })
 
     else:
@@ -235,8 +240,6 @@ def get_fastbreak_prediction_leaderboard(contest_id):
                     "lineup": stats.get("players")
                 })
 
-        total_entries = len(entries)
-        total_pot = total_entries * float(buy_in_amount)
 
         return jsonify({
             "status": "NOT_STARTED",
@@ -321,29 +324,44 @@ def api_list_user_fastbreak_entries(contest_id, wallet_address):
     return jsonify(entries)
 
 @app.route("/api/fastbreak/contest/<int:contest_id>/entries", methods=["POST"])
-def api_add_fastbreak_entry(contest_id):
+def add_fastbreak_entry(contest_id):
     data = request.get_json()
-    if not data:
-        return jsonify({"error": "Invalid JSON body"}), 400
+    user_wallet = data.get("userWalletAddress")
+    prediction = data.get("topshotUsernamePrediction")
 
-    topshot_username = data.get('topshotUsernamePrediction')
-    wallet_address = data.get('userWalletAddress')
+    if not user_wallet or not prediction:
+        return jsonify({"error": "Missing data"}), 400
 
-    if not topshot_username or not wallet_address:
-        return jsonify({"error": "Missing topshotUsernamePrediction or userWalletAddress"}), 400
-
+    # Check contest status and lock time
     cursor.execute(prepare_query('''
-        INSERT INTO fastbreakContestEntries (
-            contest_id, topshotUsernamePrediction, userWalletAddress
-        ) VALUES (?, ?, ?)
-    '''), (
-        contest_id,
-        topshot_username,
-        wallet_address
-    ))
+        SELECT lock_timestamp, status
+        FROM fastbreakContests
+        WHERE id = ?
+    '''), (contest_id,))
+    row = cursor.fetchone()
+
+    if not row:
+        return jsonify({"error": "Contest not found"}), 404
+
+    lock_timestamp, status = row
+    now_ts = int(datetime.datetime.now(datetime.UTC).timestamp())
+
+    # Enforce rules
+    if status != "OPEN":
+        return jsonify({"error": "This contest is no longer accepting entries."}), 403
+
+    if int(lock_timestamp) <= now_ts:
+        return jsonify({"error": "This contest is already locked for new entries."}), 403
+
+    # Insert entry
+    cursor.execute(prepare_query('''
+        INSERT INTO fastbreakContestEntries (contest_id, userWalletAddress, topshotUsernamePrediction)
+        VALUES (?, ?, ?)
+    '''), (contest_id, user_wallet.lower(), prediction))
     conn.commit()
 
-    return jsonify({"status": "success"})
+    return jsonify({"success": True})
+
 
 
 
