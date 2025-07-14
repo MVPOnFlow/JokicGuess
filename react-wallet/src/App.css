@@ -1,5 +1,7 @@
+/* Global Body */
 body {
-  background-color: #f8f9fa;
+  background-color: #121826;
+  color: #E5E7EB;
   font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
   margin: 0;
   padding: 0;
@@ -7,6 +9,7 @@ body {
   min-height: 100vh;
 }
 
+/* Root layout */
 #root {
   display: flex;
   flex-direction: column;
@@ -14,13 +17,14 @@ body {
   width: 100%;
 }
 
+/* Navbar */
 .navbar {
-  background-color: #3B82F6;
+  background-color: #0E2240;
   flex-shrink: 0;
 }
 
 .navbar-brand, .navbar-nav .nav-link {
-  color: #f9fafb !important;
+  color: #FDB927 !important;
   font-weight: 600;
 }
 
@@ -41,20 +45,21 @@ body {
 }
 
 .navbar-nav .nav-link.active {
-  border-bottom: 2px solid #ffffff;
+  border-bottom: 2px solid #FDB927;
 }
 
 .navbar-nav .nav-link:hover {
-  color: #d1d5db !important;
+  color: #FACC15 !important;
 }
 
+/* Hero section */
 .hero {
-  background: linear-gradient(135deg, #1e40af, #3b82f6);
+  background: linear-gradient(135deg, #0E2240, #418FDE);
   color: white;
   padding: 3rem 1rem;
   text-align: center;
   border-radius: 10px;
-  box-shadow: 0 6px 20px rgba(0,0,0,0.2);
+  box-shadow: 0 6px 20px rgba(0,0,0,0.3);
   margin-bottom: 2rem;
 }
 
@@ -68,37 +73,165 @@ body {
   margin-top: 1rem;
 }
 
-.btn-discord {
-  background-color: #5865F2;
-  color: white;
-  font-weight: 600;
-  margin-top: 1rem;
+/* Card Styling */
+.card {
+  background-color: #1C2A3A;
+  border: 1px solid #0E2240;
+  border-radius: 10px;
+  box-shadow: 0 6px 15px rgba(0, 0, 0, 0.4);
+  color: #E5E7EB;
 }
 
-.btn-discord:hover {
-  background-color: #4752C4;
-}
-
+.card-body h2,
 .card-title {
-  font-weight: 600;
-  color: #111827;
+  color: #FDB927;
+  border-bottom: 2px solid #FDB927;
+  padding-bottom: 0.5rem;
+  margin-bottom: 1.5rem;
+  text-align: center;
 }
 
+/* Inner Treasury Item Cards */
+.treasury-card {
+  background-color: #1C2A3A;
+  border: 1px solid #FDB927;
+  border-radius: 10px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+  color: #E5E7EB;
+}
+
+.treasury-card h5 {
+  color: #FDB927;
+}
+
+.treasury-card .display-6 {
+  color: #FFFFFF;
+}
+
+.treasury-card p {
+  color: #CBD5E1;
+}
+
+.treasury-card .list-group-item {
+  background-color: #1C2A3A;
+  color: #E5E7EB;
+  border-color: #273549;
+}
+
+.treasury-card .list-group-item strong {
+  color: #FDB927;
+}
+
+/* Tables */
+.table {
+  color: #E5E7EB;
+  background-color: #1C2A3A;
+}
+
+.table thead {
+  background-color: #0E2240;
+  color: #FDB927;
+}
+
+.table tbody tr {
+  background-color: #1C2A3A;
+}
+
+.table-hover tbody tr:hover {
+  background-color: #273549;
+}
+
+/* Buttons */
+.btn-primary, .btn-discord {
+  background-color: #FDB927;
+  color: #0E2240;
+  font-weight: 600;
+  border: none;
+}
+
+.btn-primary:hover, .btn-discord:hover {
+  background-color: #D89A1E;
+  color: #FFFFFF;
+}
+
+.btn-outline-light {
+  border-color: #FDB927;
+  color: #FDB927;
+}
+
+.btn-outline-light:hover {
+  background-color: #FDB927;
+  color: #0E2240;
+}
+
+/* Footer */
 .footer {
   margin-top: 4rem;
   padding: 1rem 0;
   text-align: center;
   font-size: 0.9rem;
-  color: #6c757d;
-  background-color: #f1f5f9;
+  color: #9CA3AF;
+  background-color: #0E2240;
 }
 
 .footer a {
-  color: #6c757d;
+  color: #FDB927;
   margin: 0 10px;
   text-decoration: none;
 }
 
 .footer a:hover {
-  color: #343a40;
+  color: #FACC15;
+}
+
+/* Custom Leaderboard Table Style */
+.mvp-table {
+  width: 100%;
+  border-collapse: collapse;
+  background-color: #1C2A3A;
+  color: #E5E7EB;
+}
+
+.mvp-table th {
+  background-color: #0E2240;
+  color: #FDB927;
+  text-align: left;
+  padding: 12px;
+  border-bottom: 2px solid #FDB927;
+}
+
+.mvp-table td {
+  padding: 12px;
+  border-bottom: 1px solid #273549;
+}
+
+.mvp-table tr:nth-child(even) {
+  background-color: #1A2535;
+}
+
+.mvp-table tr:hover {
+  background-color: #273549;
+  transition: background-color 0.2s;
+}
+
+.mvp-table thead th {
+  border-top-left-radius: 6px;
+  border-top-right-radius: 6px;
+}
+
+/* Custom Wallet Button */
+.btn-wallet {
+  background-color: #FDB927;
+  color: #0E2240;
+  font-weight: 600;
+  border: none;
+  padding: 0.375rem 0.75rem;
+  font-size: 0.9rem;
+  border-radius: 0.25rem;
+  transition: background-color 0.2s, color 0.2s;
+}
+
+.btn-wallet:hover {
+  background-color: #D89A1E;
+  color: #FFFFFF;
 }

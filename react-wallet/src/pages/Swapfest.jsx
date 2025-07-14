@@ -27,12 +27,12 @@ export default function Swapfest() {
             />
           </div>
 
-          <p className="text-center text-muted mb-3">
+          <p className="text-center mb-3">
             Prize Pool: {prizePool} points
           </p>
 
           <div className="table-responsive">
-            <table className="table table-striped table-bordered table-hover">
+            <table className="mvp-table">
               <thead>
                 <tr>
                   <th>#</th>

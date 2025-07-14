@@ -50,7 +50,7 @@ export default function Layout() {
                 <>
                   <span className="wallet-address me-2">{user.addr}</span>
                   <button
-                    className="btn btn-outline-light btn-sm"
+                    className="btn-wallet"
                     onClick={handleDisconnect}
                   >
                     Disconnect
@@ -58,7 +58,7 @@ export default function Layout() {
                 </>
               ) : (
                 <button
-                  className="btn btn-light btn-sm"
+                  className="btn-wallet"
                   onClick={handleConnect}
                 >
                   Connect Wallet
