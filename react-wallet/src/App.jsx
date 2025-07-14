@@ -5,6 +5,7 @@ import Swapfest from "./pages/Swapfest";
 import Treasury from "./pages/Treasury";
 import Vote from "./pages/Vote";
 import Fastbreak from "./pages/Fastbreak";
+import HorseStats from "./pages/HorseStats";
 import "./flow/config";
 
 function App() {
@@ -17,6 +18,7 @@ function App() {
           <Route path="treasury" element={<Treasury />} />
           <Route path="vote" element={<Vote />} />
           <Route path="fastbreak" element={<Fastbreak />} />
+          <Route path="horsestats" element={<HorseStats />} />
         </Route>
       </Routes>
     </BrowserRouter>

@@ -21,6 +21,7 @@ body {
 .navbar {
   background-color: #0E2240;
   flex-shrink: 0;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.5);
 }
 
 .navbar-brand, .navbar-nav .nav-link {
@@ -50,6 +51,44 @@ body {
 
 .navbar-nav .nav-link:hover {
   color: #FACC15 !important;
+}
+
+/* Fastbreak Dropdown Custom Theme */
+.navbar .fastbreak-dropdown-toggle {
+  color: #FDB927 !important;
+  font-weight: 600;
+}
+
+.navbar .fastbreak-dropdown-toggle::after {
+  border-top-color: #FDB927;
+}
+
+.navbar .fastbreak-dropdown-menu {
+  background-color: #0E2240;
+  border: none;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+}
+
+.navbar .fastbreak-dropdown-menu .dropdown-item {
+  color: #FDB927;
+  font-weight: 500;
+  background-color: transparent;
+  transition: background-color 0.2s, color 0.2s;
+}
+
+.navbar .fastbreak-dropdown-menu .dropdown-item:hover,
+.navbar .fastbreak-dropdown-menu .dropdown-item:focus {
+  background-color: #FDB927;
+  color: #0E2240;
+}
+
+/* Burger icon tweaks for dark navbar */
+.navbar-toggler {
+  border-color: #FDB927 !important;
+}
+
+.navbar-toggler-icon {
+  filter: invert(80%) sepia(100%) saturate(400%) hue-rotate(10deg);
 }
 
 /* Hero section */
@@ -141,49 +180,6 @@ body {
   background-color: #273549;
 }
 
-/* Buttons */
-.btn-primary, .btn-discord {
-  background-color: #FDB927;
-  color: #0E2240;
-  font-weight: 600;
-  border: none;
-}
-
-.btn-primary:hover, .btn-discord:hover {
-  background-color: #D89A1E;
-  color: #FFFFFF;
-}
-
-.btn-outline-light {
-  border-color: #FDB927;
-  color: #FDB927;
-}
-
-.btn-outline-light:hover {
-  background-color: #FDB927;
-  color: #0E2240;
-}
-
-/* Footer */
-.footer {
-  margin-top: 4rem;
-  padding: 1rem 0;
-  text-align: center;
-  font-size: 0.9rem;
-  color: #9CA3AF;
-  background-color: #0E2240;
-}
-
-.footer a {
-  color: #FDB927;
-  margin: 0 10px;
-  text-decoration: none;
-}
-
-.footer a:hover {
-  color: #FACC15;
-}
-
 /* Custom Leaderboard Table Style */
 .mvp-table {
   width: 100%;
@@ -219,23 +215,6 @@ body {
   border-top-right-radius: 6px;
 }
 
-/* Custom Wallet Button */
-.btn-wallet {
-  background-color: #FDB927;
-  color: #0E2240;
-  font-weight: 600;
-  border: none;
-  padding: 0.375rem 0.75rem;
-  font-size: 0.9rem;
-  border-radius: 0.25rem;
-  transition: background-color 0.2s, color 0.2s;
-}
-
-.btn-wallet:hover {
-  background-color: #D89A1E;
-  color: #FFFFFF;
-}
-
 /* Highlight for current user's rows in tables */
 .mvp-user-row {
   background-color: #FDB927 !important;
@@ -246,4 +225,55 @@ body {
 .mvp-user-row:hover {
   background-color: #D89A1E !important;
   color: #ffffff !important;
+}
+
+/* Buttons */
+.btn-primary, .btn-discord, .btn-wallet {
+  background-color: #FDB927;
+  color: #0E2240;
+  font-weight: 600;
+  border: none;
+}
+
+.btn-primary:hover, .btn-discord:hover, .btn-wallet:hover {
+  background-color: #D89A1E;
+  color: #FFFFFF;
+}
+
+.btn-outline-light {
+  border-color: #FDB927;
+  color: #FDB927;
+}
+
+.btn-outline-light:hover {
+  background-color: #FDB927;
+  color: #0E2240;
+}
+
+/* Custom Wallet Button */
+.btn-wallet {
+  padding: 0.375rem 0.75rem;
+  font-size: 0.9rem;
+  border-radius: 0.25rem;
+  transition: background-color 0.2s, color 0.2s;
+}
+
+/* Footer */
+.footer {
+  margin-top: 4rem;
+  padding: 1rem 0;
+  text-align: center;
+  font-size: 0.9rem;
+  color: #9CA3AF;
+  background-color: #0E2240;
+}
+
+.footer a {
+  color: #FDB927;
+  margin: 0 10px;
+  text-decoration: none;
+}
+
+.footer a:hover {
+  color: #FACC15;
 }

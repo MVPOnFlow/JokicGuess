@@ -6,7 +6,7 @@ import 'bootstrap-icons/font/bootstrap-icons.css';
 import './App.css';
 
 import "./flow/config";
-import { Navbar, Nav, Container } from 'react-bootstrap';
+import { Navbar, Nav, Container, Dropdown } from 'react-bootstrap';
 
 export default function Layout() {
   const [user, setUser] = useState({ loggedIn: null });
@@ -36,15 +36,40 @@ export default function Layout() {
               className="me-2"
             />
           </Navbar.Brand>
-          <Navbar.Toggle aria-controls="navbarNav" />
+
+          {/* Burger toggle with gold color */}
+          <Navbar.Toggle
+            aria-controls="navbarNav"
+            style={{
+              borderColor: '#FDB927',
+              color: '#FDB927'
+            }}
+          >
+            <span className="navbar-toggler-icon" style={{ filter: 'invert(80%) sepia(100%) saturate(400%) hue-rotate(10deg)' }}></span>
+          </Navbar.Toggle>
+
           <Navbar.Collapse id="navbarNav">
             <Nav className="me-auto mb-2 mb-lg-0">
               <Nav.Link as={NavLink} to="/">Home</Nav.Link>
               <Nav.Link as={NavLink} to="/swapfest">Swapfest</Nav.Link>
               <Nav.Link as={NavLink} to="/treasury">Treasury</Nav.Link>
               <Nav.Link as={NavLink} to="/vote">Vote</Nav.Link>
-              <Nav.Link as={NavLink} to="/fastbreak">Fastbreak</Nav.Link>
+
+              <Dropdown as={Nav.Item}>
+                <Dropdown.Toggle as={Nav.Link} className="nav-link fastbreak-dropdown-toggle">
+                  Fastbreak
+                </Dropdown.Toggle>
+                <Dropdown.Menu className="fastbreak-dropdown-menu">
+                  <Dropdown.Item as={NavLink} to="/fastbreak">
+                    Race Track
+                  </Dropdown.Item>
+                  <Dropdown.Item as={NavLink} to="/horsestats">
+                    Horse Stats
+                  </Dropdown.Item>
+                </Dropdown.Menu>
+              </Dropdown>
             </Nav>
+
             <div className="d-flex align-items-center">
               {user.loggedIn ? (
                 <>
