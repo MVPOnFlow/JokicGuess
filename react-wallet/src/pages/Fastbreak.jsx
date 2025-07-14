@@ -278,7 +278,7 @@ export default function Fastbreak() {
                       {leaderboardData.entries.map(entry => (
                         <tr
                           key={`${entry.wallet}-${entry.prediction}`}
-                          className={entry.isUser ? "table-success" : ""}
+                          className={entry.isUser ? "mvp-user-row" : ""}
                         >
                           <td>{entry.position}</td>
                           <td>{entry.wallet}</td>

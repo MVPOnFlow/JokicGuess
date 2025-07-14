@@ -235,3 +235,15 @@ body {
   background-color: #D89A1E;
   color: #FFFFFF;
 }
+
+/* Highlight for current user's rows in tables */
+.mvp-user-row {
+  background-color: #FDB927 !important;
+  color: #0E2240 !important;
+  font-weight: 600;
+}
+
+.mvp-user-row:hover {
+  background-color: #D89A1E !important;
+  color: #ffffff !important;
+}
