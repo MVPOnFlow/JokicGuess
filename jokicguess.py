@@ -106,9 +106,9 @@ def api_leaderboard():
 def api_treasury():
     # Hard-coded example data
     treasury_data = {
-        "tokens_in_wild": 15319,
-        "common_count": 2114,
-        "rare_count": 123,
+        "tokens_in_wild": 15337,
+        "common_count": 2156,
+        "rare_count": 130,
         "tsd_count": 0,
         "lego_count": 3,
     }
@@ -127,7 +127,7 @@ def api_treasury():
     treasury_data["surplus"] = surplus
 
     # 🗓️ Manually updated last_updated text
-    treasury_data['last_updated'] = "2025-07-08 15:00 UTC"
+    treasury_data['last_updated'] = "2025-07-15 15:00 UTC"
     return jsonify(treasury_data)
 
 @app.route("/api/fastbreak/contests", methods=["GET"])
