@@ -11,11 +11,9 @@ export default function Fastbreak() {
   const [topshotUsername, setTopshotUsername] = useState('');
 
   const [leaderboardData, setLeaderboardData] = useState(null);
-
-  // ✅ Countdown state
   const [countdown, setCountdown] = useState('');
 
-  const COMMUNITY_WALLET = "0x2459710b1d10aed0";  // Replace with your community wallet
+  const COMMUNITY_WALLET = "0x2459710b1d10aed0";
 
   useEffect(() => {
     fcl.currentUser().subscribe(setUser);
@@ -23,12 +21,11 @@ export default function Fastbreak() {
   }, []);
 
   useEffect(() => {
-    if (selectedContest && user.loggedIn) {
+    if (selectedContest) {
       fetchLeaderboard(selectedContest.id, user.addr);
     }
   }, [user, selectedContest]);
 
-  // ✅ Countdown timer effect
   useEffect(() => {
     if (!selectedContest || !selectedContest.lock_timestamp) {
       setCountdown('');
@@ -79,7 +76,7 @@ export default function Fastbreak() {
     const contest = contests.find(c => c.id === selectedId);
     setSelectedContest(contest);
     setLeaderboardData(null);
-    if (contest && user.loggedIn) {
+    if (contest) {
       fetchLeaderboard(contest.id, user.addr);
     }
   };
@@ -109,7 +106,6 @@ export default function Fastbreak() {
       setProcessing(true);
       setTxStatus("Waiting for wallet approval...");
 
-      // Flow transaction
       const transactionId = await fcl.mutate({
         cadence: `
           import FungibleToken from 0xf233dcee88fe0abe
@@ -156,7 +152,6 @@ export default function Fastbreak() {
         `✅ Transaction sealed on-chain! View TX: <a href="https://flowscan.io/tx/${transactionId}" target="_blank" rel="noopener noreferrer">${transactionId}</a><br/>Registering your entry...`
       );
 
-      // Register in DB
       await fetch(`https://pjh-gzerbpd3gecjhab5.westus-01.azurewebsites.net/api/fastbreak/contest/${selectedContest.id}/entries`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -172,7 +167,6 @@ export default function Fastbreak() {
       setProcessing(false);
       setTopshotUsername('');
 
-      // Refresh leaderboard
       fetchLeaderboard(selectedContest.id, user.addr);
 
     } catch (error) {
@@ -184,8 +178,6 @@ export default function Fastbreak() {
 
   return (
     <div className="container">
-
-      {/* Buy-In Form Card */}
       <div className="card shadow mb-4">
         <div className="card-body">
           <h2 className="mb-4 text-center">Fastbreak Horse Race</h2>
@@ -193,55 +185,61 @@ export default function Fastbreak() {
             Pick the top-ranked NBA Top Shot user in the NBA Fastbreak. Buy in, submit your pick before lock, and if your horse is the fastest, i.e. ranks better than everyone else's pick, you win the pot!
           </p>
 
-          {user.loggedIn ? (
-            <>
-              <p className="text-muted text-center">Connected as: <strong>{user.addr}</strong></p>
+          {user.loggedIn && (
+            <p className="text-muted text-center">
+              Connected as: <strong>{user.addr}</strong>
+            </p>
+          )}
 
-              {/* Countdown display */}
-              {countdown && (
-                <p className="text-center text-muted mb-2">
-                  Contest starts in: <strong>{countdown}</strong>
-                </p>
-              )}
+          {countdown && (
+            <p className="text-center text-muted mb-2">
+              Contest starts in: <strong>{countdown}</strong>
+            </p>
+          )}
 
-              <div className="mb-3">
-                <label>Select Contest</label>
-                <select className="form-select" onChange={handleContestChange} value={selectedContest?.id || ''}>
-                  {contests.map(contest => (
-                    <option key={contest.id} value={contest.id}>
-                      {contest.display_name || contest.fastbreak_id}
-                      {` (Buy-in: ${contest.buy_in_amount} ${contest.buy_in_currency})`}
-                    </option>
-                  ))}
-                </select>
-              </div>
+          <div className="mb-3">
+            <label>Select Contest</label>
+            <select className="form-select" onChange={handleContestChange} value={selectedContest?.id || ''}>
+              {contests.map(contest => (
+                <option key={contest.id} value={contest.id}>
+                  {contest.display_name || contest.fastbreak_id}
+                  {` (Buy-in: ${contest.buy_in_amount} ${contest.buy_in_currency})`}
+                </option>
+              ))}
+            </select>
+          </div>
 
-              <div className="mb-3">
-                <label>TopShot Username Prediction</label>
-                <input
-                  type="text"
-                  className="form-control"
-                  value={topshotUsername}
-                  onChange={(e) => setTopshotUsername(e.target.value)}
-                  placeholder="Enter TopShot username of your champion"
-                />
-              </div>
+          <div className="mb-3">
+            <label>TopShot Username Prediction</label>
+            <input
+              type="text"
+              className="form-control"
+              value={topshotUsername}
+              onChange={(e) => setTopshotUsername(e.target.value)}
+              placeholder="Enter TopShot username of your champion"
+            />
+          </div>
 
-              <button
-                className="btn btn-primary btn-lg w-100"
-                onClick={handleBuyIn}
-                disabled={processing || leaderboardData?.status === "STARTED"}
-              >
-                {processing ? "Processing..." : `Buy In for ${selectedContest?.buy_in_amount || ''} ${selectedContest?.buy_in_currency || ''}`}
-              </button>
-              {leaderboardData?.status === "STARTED" && (
-                <p className="text-danger mt-2 text-center">
-                  🚫 This contest is locked for new entries.
-                </p>
-              )}
-            </>
-          ) : (
-            <p className="text-muted text-center">Please connect your wallet using the top-right button.</p>
+          <button
+            className="btn btn-primary btn-lg w-100"
+            onClick={handleBuyIn}
+            disabled={!user.loggedIn || processing || leaderboardData?.status === "STARTED"}
+          >
+            {processing
+              ? "Processing..."
+              : `Buy In for ${selectedContest?.buy_in_amount || ''} ${selectedContest?.buy_in_currency || ''}`}
+          </button>
+
+          {!user.loggedIn && (
+            <p className="text-muted text-center mt-2">
+              Please connect your wallet using the top-right button to buy in.
+            </p>
+          )}
+
+          {leaderboardData?.status === "STARTED" && (
+            <p className="text-danger mt-2 text-center">
+              🚫 This contest is locked for new entries.
+            </p>
           )}
 
           {txStatus && (
@@ -252,11 +250,9 @@ export default function Fastbreak() {
         </div>
       </div>
 
-      {/* Leaderboard / Prediction Info */}
       {leaderboardData && (
         <div className="card shadow mb-4">
           <div className="card-body">
-
             <h4 className="mb-3 text-center">📋 Contest Info</h4>
             {countdown && (
               <p><strong>Contest locks in:</strong> {countdown}</p>
