@@ -264,7 +264,7 @@ export default function Fastbreak() {
               <>
                 <h4 className="mt-4 mb-3 text-center">🏆 Contest Leaderboard</h4>
                 <div className="table-responsive">
-                  <table className="table table-striped table-bordered">
+                  <table className="mvp-table">
                     <thead>
                       <tr>
                         <th>Rank</th>
