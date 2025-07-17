@@ -472,7 +472,7 @@ def extract_fastbreak_runs():
     variables = {
         "input": {
             "filters": {
-                "byStatus": ["FAST_BREAK_RUN_RUNNING"]
+                "byStatus": []
             }
         }
     }
@@ -490,3 +490,103 @@ def extract_fastbreak_runs():
 
     response = requests.post(url, json=payload, headers=headers)
     return response.json()['data']['searchFastBreakRuns']['fastBreakRuns']
+
+def pull_rankings_for_fb(fastbreak_id):
+    import requests
+
+    url = "https://public-api.nbatopshot.com/graphql"
+
+    query = """
+    query GetFastBreakLeadersByFastBreakId($input: GetFastBreakLeadersRequestV2!) {
+      getFastBreakLeadersV2(input: $input) {
+        leaders {
+          rank
+          points
+          user {
+            username
+          }
+        }
+        rightCursor
+      }
+    }
+    """
+
+    headers = {
+        "User-Agent": "PetJokicsHorses",
+        "Content-Type": "application/json"
+    }
+
+    all_leaders = []
+    cursor_val = ""
+    limit = 50
+
+    while True:
+        variables = {
+            "input": {
+                "fastBreakId": fastbreak_id,
+                "pagination": {
+                    "cursor": cursor_val,
+                    "limit": limit
+                }
+            }
+        }
+
+        payload = {
+            "operationName": "GetFastBreakLeadersByFastBreakId",
+            "query": query,
+            "variables": variables
+        }
+
+        response = requests.post(url, json=payload, headers=headers)
+        data = response.json()
+        leaders = data['data']['getFastBreakLeadersV2']['leaders']
+        cursor_val = data['data']['getFastBreakLeadersV2']['rightCursor']
+        all_leaders.extend(leaders)
+
+        if not cursor_val:
+            break
+
+    for entry in all_leaders:
+        username = entry["user"]["username"]
+        rank = entry["rank"]
+        points = entry["points"]
+
+        cursor.execute(prepare_query('''
+            INSERT OR REPLACE INTO fastbreak_rankings (fastbreak_id, username, rank, points)
+            VALUES (?, ?, ?, ?)
+        '''), (fastbreak_id, username, rank, points))
+
+    conn.commit()
+    print(f"✅ Saved {len(all_leaders)} rankings for {fastbreak_id}")
+    return all_leaders
+
+def update_fastbreaks_table():
+    new_insertions = 0
+
+    for run in extract_fastbreak_runs():
+        run_name = run.get('runName', '')
+        if not run_name or run_name.endswith('Pro'):
+            continue
+
+        for fb in run.get('fastBreaks', []):
+            if not fb or fb.get('status') != 'FAST_BREAK_FINISHED':
+                continue
+
+            fb_id = fb.get('id')
+            game_date = fb.get('gameDate')
+            status = fb.get('status')
+
+            # Check if already exists
+            cursor.execute(prepare_query('SELECT 1 FROM fastbreaks WHERE id = ?'), (fb_id,))
+            if cursor.fetchone():
+                continue
+
+            # Insert
+            cursor.execute(prepare_query('''
+                INSERT INTO fastbreaks (id, game_date, run_name, status)
+                VALUES (?, ?, ?, ?)
+            '''), (fb_id, game_date, run_name, status))
+            new_insertions += 1
+
+    conn.commit()
+    print(f"✅ Inserted {new_insertions} new finished FastBreaks.")

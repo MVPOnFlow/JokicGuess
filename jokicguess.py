@@ -1,3 +1,5 @@
+import statistics
+
 import discord
 from discord.ext import commands
 import time
@@ -250,8 +252,6 @@ def get_fastbreak_prediction_leaderboard(contest_id):
             "userEntries": user_entries
         })
 
-
-
 @app.route("/api/fastbreak/contest/<int:contest_id>/entries", methods=["GET"])
 def api_list_fastbreak_entries(contest_id):
     # Fetch contest to check lock time and status
@@ -366,6 +366,85 @@ def add_fastbreak_entry(contest_id):
     return jsonify({"success": True})
 
 
+@app.route("/api/fastbreak_racing_stats/<username>")
+def fastbreak_racing_stats_user(username):
+    db = get_db()
+    cursor = db.cursor()
+
+    cursor.execute(prepare_query('''
+        SELECT fb.game_date, fr.rank
+        FROM fastbreak_rankings fr
+        JOIN fastbreaks fb ON fr.fastbreak_id = fb.id
+        WHERE LOWER(fr.username) = LOWER(?)
+        ORDER BY fb.game_date DESC
+        LIMIT 25
+    '''), (username,))
+
+    rows = cursor.fetchall()
+
+    rankings = [
+        {
+            "gameDate": game_date,
+            "rank": rank
+        }
+        for game_date, rank in rows
+    ]
+
+    rank_values = [r["rank"] for r in rankings]
+
+    # Compute summary stats
+    best = min(rank_values) if rank_values else None
+    mean = round(statistics.mean(rank_values), 2) if rank_values else None
+    median = statistics.median(rank_values) if rank_values else None
+
+    return jsonify({
+        "username": username,
+        "rankings": rankings,
+        "best": best,
+        "mean": mean,
+        "median": median
+    })
+
+@app.route("/api/fastbreak_racing_stats")
+def fastbreak_racing_stats_general():
+    from flask import request
+
+    db = get_db()
+    cursor = db.cursor()
+
+    # Pagination params
+    page = int(request.args.get("page", 1))
+    per_page = int(request.args.get("per_page", 25))
+    offset = (page - 1) * per_page
+
+    # Step 1: Pull from materialized view
+    cursor.execute(prepare_query('''
+        SELECT username, best, mean
+        FROM user_rankings_summary
+        ORDER BY mean ASC
+        LIMIT ? OFFSET ?
+    '''), (per_page, offset))
+    rows = cursor.fetchall()
+
+    leaderboard = [
+        {
+            "username": username,
+            "best": best,
+            "mean": float(mean)
+        }
+        for username, best, mean in rows
+    ]
+
+    # Step 2: Total users for pagination
+    cursor.execute('SELECT COUNT(*) FROM user_rankings_summary')
+    total_users = cursor.fetchone()[0]
+
+    return jsonify({
+        "page": page,
+        "per_page": per_page,
+        "total_users": total_users,
+        "leaderboard": leaderboard
+    })
 
 
 def run_flask():
@@ -473,6 +552,7 @@ cursor.execute(prepare_query('''
 '''))
 conn.commit()
 
+# These are our contests
 cursor.execute(prepare_query('''
     CREATE TABLE IF NOT EXISTS fastbreakContests (
         id SERIAL PRIMARY KEY,
@@ -487,7 +567,7 @@ cursor.execute(prepare_query('''
 '''))
 conn.commit()
 
-
+# These are entries to our contests, not on TS
 cursor.execute(prepare_query('''
     CREATE TABLE IF NOT EXISTS fastbreakContestEntries (
         id SERIAL PRIMARY KEY,                    -- Unique entry ID
@@ -497,6 +577,60 @@ cursor.execute(prepare_query('''
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP -- When entry was made
     )
 '''))
+conn.commit()
+
+
+cursor.execute(prepare_query('''
+    CREATE TABLE IF NOT EXISTS fastbreaks (
+        id TEXT PRIMARY KEY,
+        game_date TEXT,
+        run_name TEXT,
+        status TEXT
+    )
+'''))
+conn.commit()
+
+cursor.execute(prepare_query('''
+    CREATE TABLE IF NOT EXISTS fastbreak_rankings (
+        id SERIAL PRIMARY KEY,
+        fastbreak_id TEXT,
+        username TEXT,
+        rank INTEGER,
+        points INTEGER,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+'''))
+conn.commit()
+
+if db_type == "postgresql":
+    cursor.execute(prepare_query('''
+        CREATE MATERIALIZED VIEW IF NOT EXISTS user_rankings_summary AS
+        SELECT
+            username,
+            COUNT(*) AS total_entries,
+            MIN(rank) AS best,
+            ROUND(AVG(rank), 2) AS mean
+        FROM fastbreak_rankings
+        GROUP BY username
+    '''))
+else:
+    # Create view for per-user ranking summaries
+    cursor.execute(prepare_query('''
+        CREATE VIEW IF NOT EXISTS user_rankings_summary AS
+        SELECT username,
+            COUNT(*)            AS total_entries,
+            MIN(rank)           AS best,
+            ROUND(AVG(rank), 2) AS mean
+        FROM fastbreak_rankings
+        GROUP BY username
+    '''))
+
+    # Create index to speed up username filtering
+    cursor.execute(prepare_query('''
+                                 CREATE INDEX IF NOT EXISTS idx_fastbreak_rankings_username
+                                     ON fastbreak_rankings(username)
+                                 '''))
+
 conn.commit()
 
 # Register the slash command for starting a contest
@@ -1434,6 +1568,66 @@ async def swapfest_refresh_points(interaction: discord.Interaction):
         f"✅ Refreshed points for {updated_count} gifts.",
         ephemeral=True
     )
+
+
+@bot.tree.command(name="pull_fastbreak_horse_stats", description="Admin only: Pull and store new FastBreaks and their rankings.")
+@app_commands.checks.has_permissions(administrator=True)
+async def pull_fastbreak_horse_stats(interaction: discord.Interaction):
+    await interaction.response.defer(ephemeral=True)
+
+    if not is_admin(interaction):
+        await interaction.followup.send("You need admin permissions to run this command.", ephemeral=True)
+        return
+
+    new_fastbreaks = []
+    new_rankings_count = 0
+
+    # Step 1: Fetch FastBreak runs
+    runs = extract_fastbreak_runs()
+
+    for run in runs:
+
+        if run['fastBreaks'] and not run['runName'].endswith('Pro'):
+            continue
+        run_name = run.get('runName', '')
+        for fb in run.get('fastBreaks', []):
+            if not fb or fb.get('status') != 'FAST_BREAK_FINISHED':
+                continue
+
+            fb_id = fb.get('id')
+            game_date = fb.get('gameDate')
+            status = fb.get('status')
+
+            # Check if already in DB
+            cursor.execute(prepare_query('SELECT 1 FROM fastbreaks WHERE id = ?'), (fb_id,))
+            if cursor.fetchone():
+                continue  # already exists
+
+            # Insert FastBreak into DB
+            cursor.execute(prepare_query('''
+                INSERT INTO fastbreaks (id, game_date, run_name, status)
+                VALUES (?, ?, ?, ?)
+            '''), (fb_id, game_date, run_name, status))
+            new_fastbreaks.append({
+                'id': fb_id,
+                'game_date': game_date,
+                'run_name': run_name
+            })
+
+            # Step 2: Immediately pull and insert rankings
+            new_rankings_count += len(pull_rankings_for_fb(fb_id))
+            print(f"✅ FastBreak {fb_id} stored with {new_rankings_count} rankings.")
+
+    conn.commit()
+
+    cursor.execute("REFRESH MATERIALIZED VIEW user_rankings_summary")
+    conn.commit()
+
+    await interaction.followup.send(
+        f"✅ Pulled {len(new_fastbreaks)} new finished FastBreaks and {new_rankings_count} total rankings.",
+        ephemeral=True
+    )
+
 
 
 # Close the database connection when the bot stops
