@@ -56,8 +56,9 @@ export default function Layout() {
               <Nav.Link as={NavLink} to="/vote">Vote</Nav.Link>
 
               <Dropdown as={Nav.Item}>
-                <Dropdown.Toggle as={Nav.Link} className="nav-link fastbreak-dropdown-toggle">
-                  Fastbreak
+                <Dropdown.Toggle as={Nav.Link} className="nav-link fastbreak-dropdown-toggle d-flex align-items-center">
+                  <span>Fastbreak</span>
+                  <span className="ms-2 badge bg-warning text-dark" style={{ fontSize: '0.65rem' }}>BETA</span>
                 </Dropdown.Toggle>
                 <Dropdown.Menu className="fastbreak-dropdown-menu">
                   <Dropdown.Item as={NavLink} to="/fastbreak">

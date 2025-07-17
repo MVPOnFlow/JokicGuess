@@ -170,6 +170,10 @@ transaction(amount: UFix64, recipient: Address) {
       <div className="card shadow mb-4">
         <div className="card-body">
           <h2 className="mb-4 text-center">Fastbreak Horse Race</h2>
+          <p>
+            🏇 Welcome to the Fastbreak Horse Race!
+            Pick your champion, a Top Shot user you think will finish highest in the next Fastbreak.
+          </p>
           <div className="mb-4 px-2">
             <ul className="text-start ps-3">
               <li>Pick a Top Shot user ("horse") before the contest locks.</li>
@@ -254,6 +258,13 @@ transaction(amount: UFix64, recipient: Address) {
             )}
             <p><strong>Total entries:</strong> {leaderboardData.totalEntries}</p>
             <p><strong>Total pot:</strong> {leaderboardData.totalPot} $MVP</p>
+            <p className="text-muted">
+              <em>
+                Winner gets {(leaderboardData.totalPot * 18 / 19).toFixed(2)} $MVP,
+                and the selected user earns {(leaderboardData.totalPot / 19).toFixed(2)} $MVP
+              </em>
+            </p>
+
 
             {leaderboardData.status === "STARTED" ? (
               <>
@@ -294,7 +305,7 @@ transaction(amount: UFix64, recipient: Address) {
                   <>
                     <h5 className="mt-4">Your Entries:</h5>
                     <div className="table-responsive">
-                      <table className="table table-striped table-bordered">
+                      <table className="mvp-table">
                         <thead>
                           <tr>
                             <th>Prediction</th>
