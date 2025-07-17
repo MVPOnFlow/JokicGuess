@@ -161,8 +161,18 @@ transaction(amount: UFix64, recipient: Address) {
     } catch (error) {
       console.error(error);
       setProcessing(false);
-      setTxStatus(`❗ Error: ${error.message}`);
+
+      const msg = error.message || "";
+      const amount = selectedContest?.buy_in_amount || "N/A";
+      const token = selectedContest?.buy_in_currency || "$MVP";
+
+      if (msg.includes("Cannot withdraw tokens") && msg.includes("greater than the balance")) {
+        setTxStatus(`❗ Error: You need at least ${amount} ${token} in your wallet to buy in.`);
+      } else {
+        setTxStatus(`❗ Error: ${msg}`);
+      }
     }
+
   };
 
   return (
