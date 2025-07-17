@@ -277,3 +277,20 @@ body {
 .footer a:hover {
   color: #FACC15;
 }
+
+/* Improve visibility of muted text on dark background */
+.text-muted {
+  color: #cbd5e1 !important; /* Light gray-blue instead of very dim gray */
+}
+
+.fastbreak-rules-list {
+  padding-left: 1.5rem;
+  margin-top: 0.5rem;
+  margin-bottom: 1rem;
+  color: #E5E7EB;
+}
+
+.fastbreak-rules-list li {
+  margin-bottom: 0.5rem;
+  line-height: 1.5;
+}

@@ -207,6 +207,7 @@ def get_fastbreak_prediction_leaderboard(contest_id):
                 "wallet": wallet,
                 "prediction": prediction,
                 "rank": fastbreak_data.get("rank"),
+                "points": fastbreak_data.get("points"),
                 "lineup": fastbreak_data.get("players"),
                 "isUser": (wallet == user_wallet)
             })
@@ -237,6 +238,7 @@ def get_fastbreak_prediction_leaderboard(contest_id):
                     "wallet": wallet,
                     "prediction": prediction,
                     "rank": stats.get("rank"),
+                    "points": stats.get("points"),
                     "lineup": stats.get("players")
                 })
 

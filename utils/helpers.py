@@ -434,6 +434,7 @@ def get_rank_and_lineup_for_user(username, fastbreak_id):
     out = dict()
     if response.json()['data']['getFastBreakLeadersV2']['leaders']:
         out['rank'] = response.json()['data']['getFastBreakLeadersV2']['leaders'][0]['rank']
+        out['points'] = response.json()['data']['getFastBreakLeadersV2']['leaders'][0]['points']
         out['players'] = [p['fullName'] for p in
                           response.json()['data']['getFastBreakLeadersV2']['leaders'][0]['players']]
     return out

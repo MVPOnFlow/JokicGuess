@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import * as fcl from "@onflow/fcl";
 
+let leaderboardRequestToken = 0;
+
 export default function Fastbreak() {
   const [user, setUser] = useState({ loggedIn: null });
   const [txStatus, setTxStatus] = useState('');
@@ -62,10 +64,13 @@ export default function Fastbreak() {
   };
 
   const fetchLeaderboard = async (contestId, userWallet) => {
+    const currentToken = ++leaderboardRequestToken;
     try {
       const res = await fetch(`https://pjh-gzerbpd3gecjhab5.westus-01.azurewebsites.net/api/fastbreak/contest/${contestId}/prediction-leaderboard?userWallet=${userWallet}`);
       const data = await res.json();
-      setLeaderboardData(data);
+      if (currentToken === leaderboardRequestToken) {
+        setLeaderboardData(data);
+      }
     } catch (err) {
       console.error("Failed to load leaderboard", err);
     }
@@ -76,9 +81,6 @@ export default function Fastbreak() {
     const contest = contests.find(c => c.id === selectedId);
     setSelectedContest(contest);
     setLeaderboardData(null);
-    if (contest) {
-      fetchLeaderboard(contest.id, user.addr);
-    }
   };
 
   const formatUFix64 = (value) => {
@@ -98,7 +100,7 @@ export default function Fastbreak() {
     }
 
     if (!topshotUsername.trim()) {
-      setTxStatus("❗ Please enter your TopShot username.");
+      setTxStatus("❗ Please enter your TopShot username prediction.");
       return;
     }
 
@@ -107,31 +109,27 @@ export default function Fastbreak() {
       setTxStatus("Waiting for wallet approval...");
 
       const transactionId = await fcl.mutate({
-        cadence: `
-          import FungibleToken from 0xf233dcee88fe0abe
-          import StorageRent from 0x707adbad1428c624
-          import PetJokicsHorses from 0x6fd2465f3a22e34c
+        cadence: `import FungibleToken from 0xf233dcee88fe0abe
+import StorageRent from 0x707adbad1428c624
+import PetJokicsHorses from 0x6fd2465f3a22e34c
 
-          transaction(amount: UFix64, recipient: Address) {
-              let sentVault: @{FungibleToken.Vault}
-
-              prepare(signer: auth(Storage, BorrowValue) &Account) {
-                  let vaultRef = signer.storage.borrow<auth(FungibleToken.Withdraw) &PetJokicsHorses.Vault>(
-                      from: /storage/PetJokicsHorsesVault
-                  ) ?? panic("Could not borrow reference to the owner's Vault!")
-                  self.sentVault <- vaultRef.withdraw(amount: amount)
-              }
-
-              execute {
-                  let recipientAccount = getAccount(recipient)
-                  let receiverRef = recipientAccount.capabilities.borrow<&{FungibleToken.Vault}>(
-                      /public/PetJokicsHorsesReceiver
-                  )!
-                  receiverRef.deposit(from: <-self.sentVault)
-                  StorageRent.tryRefill(recipient)
-              }
-          }
-        `,
+transaction(amount: UFix64, recipient: Address) {
+  let sentVault: @{FungibleToken.Vault}
+  prepare(signer: auth(Storage, BorrowValue) &Account) {
+    let vaultRef = signer.storage.borrow<auth(FungibleToken.Withdraw) &PetJokicsHorses.Vault>(
+      from: /storage/PetJokicsHorsesVault
+    ) ?? panic("Could not borrow reference to the owner's Vault!")
+    self.sentVault <- vaultRef.withdraw(amount: amount)
+  }
+  execute {
+    let recipientAccount = getAccount(recipient)
+    let receiverRef = recipientAccount.capabilities.borrow<&{FungibleToken.Vault}>(
+      /public/PetJokicsHorsesReceiver
+    )!
+    receiverRef.deposit(from: <-self.sentVault)
+    StorageRent.tryRefill(recipient)
+  }
+}`,
         args: (arg, t) => [
           arg(formatUFix64(selectedContest.buy_in_amount), t.UFix64),
           arg(COMMUNITY_WALLET, t.Address)
@@ -142,16 +140,10 @@ export default function Fastbreak() {
         limit: 9999
       });
 
-      setTxStatus(
-        `✅ Transaction submitted! TX ID: <a href="https://flowscan.io/tx/${transactionId}" target="_blank" rel="noopener noreferrer">${transactionId}</a>`
-      );
-
+      setTxStatus(`✅ Transaction submitted! TX ID: <a href="https://flowscan.io/tx/${transactionId}" target="_blank" rel="noopener noreferrer">${transactionId}</a>`);
       await fcl.tx(transactionId).onceSealed();
 
-      setTxStatus(
-        `✅ Transaction sealed on-chain! View TX: <a href="https://flowscan.io/tx/${transactionId}" target="_blank" rel="noopener noreferrer">${transactionId}</a><br/>Registering your entry...`
-      );
-
+      setTxStatus(`✅ Transaction sealed! Registering your entry...`);
       await fetch(`https://pjh-gzerbpd3gecjhab5.westus-01.azurewebsites.net/api/fastbreak/contest/${selectedContest.id}/entries`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -161,12 +153,9 @@ export default function Fastbreak() {
         })
       });
 
-      setTxStatus(
-        `✅ Entry submitted! Thank you for joining.<br/>TX: <a href="https://flowscan.io/tx/${transactionId}" target="_blank" rel="noopener noreferrer">${transactionId}</a>`
-      );
+      setTxStatus(`✅ Entry submitted!`);
       setProcessing(false);
       setTopshotUsername('');
-
       fetchLeaderboard(selectedContest.id, user.addr);
 
     } catch (error) {
@@ -181,18 +170,24 @@ export default function Fastbreak() {
       <div className="card shadow mb-4">
         <div className="card-body">
           <h2 className="mb-4 text-center">Fastbreak Horse Race</h2>
-          <p className="text-center mb-4">
-            Pick the top-ranked NBA Top Shot user in the NBA Fastbreak. Buy in, submit your pick before lock, and if your horse is the fastest, i.e. ranks better than everyone else's pick, you win the pot!
-          </p>
+          <div className="mb-4 px-2">
+            <ul className="text-start ps-3">
+              <li>Pick a Top Shot user ("horse") before the contest locks.</li>
+              <li>If your horse finishes better than everyone else’s, you win!</li>
+              <li><strong>90%</strong> of the pot goes to the winning picker.</li>
+              <li><strong>5%</strong> goes to the horse who actually performed!</li>
+              <li>Remaining 5% goes to the Treasury.</li>
+            </ul>
+          </div>
 
           {user.loggedIn && (
-            <p className="text-muted text-center">
+            <p className="text-info text-center">
               Connected as: <strong>{user.addr}</strong>
             </p>
           )}
 
           {countdown && (
-            <p className="text-center text-muted mb-2">
+            <p className="text-warning text-center mb-2">
               Contest starts in: <strong>{countdown}</strong>
             </p>
           )}
@@ -271,6 +266,7 @@ export default function Fastbreak() {
                         <th>Wallet</th>
                         <th>Prediction</th>
                         <th>Fastbreak Rank</th>
+                        <th>Points</th>
                         <th>Lineup</th>
                       </tr>
                     </thead>
@@ -284,6 +280,7 @@ export default function Fastbreak() {
                           <td>{entry.wallet}</td>
                           <td>{entry.prediction}</td>
                           <td>{entry.rank}</td>
+                          <td>{entry.points}</td>
                           <td>{entry.lineup ? entry.lineup.join(", ") : "N/A"}</td>
                         </tr>
                       ))}
@@ -302,6 +299,7 @@ export default function Fastbreak() {
                           <tr>
                             <th>Prediction</th>
                             <th>Fastbreak Rank</th>
+                            <th>Points</th>
                             <th>Lineup</th>
                           </tr>
                         </thead>
@@ -310,6 +308,7 @@ export default function Fastbreak() {
                             <tr key={idx}>
                               <td>{entry.prediction}</td>
                               <td>{entry.rank !== undefined ? entry.rank : "N/A"}</td>
+                              <td>{entry.points !== undefined ? entry.points : "N/A"}</td>
                               <td>{entry.lineup ? entry.lineup.join(", ") : "N/A"}</td>
                             </tr>
                           ))}
