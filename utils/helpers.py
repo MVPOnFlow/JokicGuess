@@ -552,8 +552,10 @@ def pull_rankings_for_fb(fastbreak_id):
         points = entry["points"]
 
         cursor.execute(prepare_query('''
-            INSERT OR REPLACE INTO fastbreak_rankings (fastbreak_id, username, rank, points)
-            VALUES (?, ?, ?, ?)
+            INSERT INTO fastbreak_rankings (fastbreak_id, username, rank, points)
+            VALUES (%s, %s, %s, %s)
+            ON CONFLICT (fastbreak_id, username)
+            DO UPDATE SET rank = EXCLUDED.rank, points = EXCLUDED.points
         '''), (fastbreak_id, username, rank, points))
 
     conn.commit()
