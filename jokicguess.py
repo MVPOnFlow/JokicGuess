@@ -613,10 +613,13 @@ if db_type == "postgresql":
         FROM fastbreak_rankings
         GROUP BY username
     '''))
-    cursor.execute(prepare_query('''
+    try: # Only needed once
+        cursor.execute(prepare_query('''
         ALTER TABLE fastbreak_rankings
         ADD CONSTRAINT unique_fb_user UNIQUE (fastbreak_id, username);
-    '''))
+        '''))
+    except:
+        pass
 else:
     # Create view for per-user ranking summaries
     cursor.execute(prepare_query('''
