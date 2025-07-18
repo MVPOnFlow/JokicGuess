@@ -421,6 +421,7 @@ def fastbreak_racing_stats_general():
     cursor.execute(prepare_query('''
         SELECT username, best, mean
         FROM user_rankings_summary
+        WHERE total_count > 10
         ORDER BY mean ASC
         LIMIT ? OFFSET ?
     '''), (per_page, offset))
@@ -603,16 +604,28 @@ cursor.execute(prepare_query('''
 conn.commit()
 
 if db_type == "postgresql":
-    cursor.execute(prepare_query('''
-        CREATE MATERIALIZED VIEW IF NOT EXISTS user_rankings_summary AS
+    cursor.execute("DROP MATERIALIZED VIEW IF EXISTS user_rankings_summary")
+    cursor.execute("""
+        CREATE MATERIALIZED VIEW user_rankings_summary AS
+        WITH ranked AS (
+            SELECT
+                r.username,
+                r.rank,
+                r.fastbreak_id,
+                f.game_date,
+                ROW_NUMBER() OVER (PARTITION BY r.username ORDER BY f.game_date DESC) AS rn
+            FROM fastbreak_rankings r
+            JOIN fastbreaks f ON r.fastbreak_id = f.id
+        )
         SELECT
             username,
             COUNT(*) AS total_entries,
             MIN(rank) AS best,
-            ROUND(AVG(rank), 2) AS mean
-        FROM fastbreak_rankings
+            ROUND(AVG(rank)::numeric, 2) AS mean
+        FROM ranked
+        WHERE rn <= 15
         GROUP BY username
-    '''))
+    """)
     try: # Only needed once
         cursor.execute(prepare_query('''
         ALTER TABLE fastbreak_rankings
@@ -620,6 +633,7 @@ if db_type == "postgresql":
         '''))
     except:
         pass
+    conn.commit()
 else:
     # Create view for per-user ranking summaries
     cursor.execute(prepare_query('''
@@ -637,8 +651,7 @@ else:
                                  CREATE INDEX IF NOT EXISTS idx_fastbreak_rankings_username
                                      ON fastbreak_rankings(username)
                                  '''))
-
-conn.commit()
+    conn.commit()
 
 # Register the slash command for starting a contest
 @bot.tree.command(name='start', description='Start a contest (Admin only)')
@@ -1607,8 +1620,8 @@ async def pull_fastbreak_horse_stats(interaction: discord.Interaction, fb_id: st
 
                 # Check if already in DB
                 cursor.execute(prepare_query('SELECT 1 FROM fastbreaks WHERE id = ?'), (fb_id,))
-                if cursor.fetchone():
-                    continue  # already exists
+                # if cursor.fetchone():
+                #     continue  # already exists
 
                 # Insert FastBreak into DB
                 cursor.execute(prepare_query('''
@@ -1625,8 +1638,6 @@ async def pull_fastbreak_horse_stats(interaction: discord.Interaction, fb_id: st
                 # Step 2: Immediately pull and insert rankings
                 new_rankings_count += len(pull_rankings_for_fb(fb_id))
                 print(f"✅ FastBreak {fb_id} stored with {new_rankings_count} rankings.")
-
-
 
     cursor.execute("REFRESH MATERIALIZED VIEW user_rankings_summary")
     conn.commit()
