@@ -1589,7 +1589,7 @@ async def pull_fastbreak_horse_stats(interaction: discord.Interaction):
     # Step 1: Fetch FastBreak runs
     runs = extract_fastbreak_runs()
 
-    for run in runs:
+    for run in runs[:7]:
 
         if run['fastBreaks'] and not run['runName'].endswith('Pro'):
             continue
