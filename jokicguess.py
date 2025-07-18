@@ -377,7 +377,7 @@ def fastbreak_racing_stats_user(username):
         JOIN fastbreaks fb ON fr.fastbreak_id = fb.id
         WHERE LOWER(fr.username) = LOWER(?)
         ORDER BY fb.game_date DESC
-        LIMIT 25
+        LIMIT 15
     '''), (username,))
 
     rows = cursor.fetchall()
@@ -1594,7 +1594,7 @@ async def pull_fastbreak_horse_stats(interaction: discord.Interaction, fb_id: st
 
     for run in runs[:7]:
 
-        if run['fastBreaks'] and not run['runName'].endswith('Pro'):
+        if not run['fastBreaks'] or run['runName'].endswith('Pro'):
             continue
         run_name = run.get('runName', '')
         for fb in run.get('fastBreaks', []):
