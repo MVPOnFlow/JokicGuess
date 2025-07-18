@@ -488,7 +488,7 @@ def extract_fastbreak_runs():
         "Content-Type": "application/json"
     }
 
-    response = requests.post(url, json=payload, headers=headers)
+    response = requests.post(url, json=payload, headers=headers, timeout=10)
     return response.json()['data']['searchFastBreakRuns']['fastBreakRuns']
 
 def pull_rankings_for_fb(fastbreak_id):
@@ -518,7 +518,7 @@ def pull_rankings_for_fb(fastbreak_id):
 
     all_leaders = []
     cursor_val = ""
-    limit = 10
+    limit = 50
 
     while True:
         variables = {
@@ -537,7 +537,7 @@ def pull_rankings_for_fb(fastbreak_id):
             "variables": variables
         }
 
-        response = requests.post(url, json=payload, headers=headers)
+        response = requests.post(url, json=payload, headers=headers, timeout=10)
         data = response.json()
         leaders = data['data']['getFastBreakLeadersV2']['leaders']
         cursor_val = data['data']['getFastBreakLeadersV2']['rightCursor']
@@ -546,6 +546,7 @@ def pull_rankings_for_fb(fastbreak_id):
         if not cursor_val:
             break
 
+    print (f"Found {len(all_leaders)} entries in fastbreak {fastbreak_id}")
     for entry in all_leaders:
         username = entry["user"]["username"]
         rank = entry["rank"]
