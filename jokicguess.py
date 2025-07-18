@@ -447,6 +447,27 @@ def fastbreak_racing_stats_general():
         "leaderboard": leaderboard
     })
 
+@app.route("/api/has_lineup")
+def has_lineup():
+    username = request.args.get("username")
+    fastbreak_id = request.args.get("fastbreak_id")
+
+    if not username or not fastbreak_id:
+        return jsonify({"error": "Missing required parameters"}), 400
+
+    db = get_db()
+    cursor = db.cursor()
+
+    cursor.execute(prepare_query('''
+        SELECT 1
+        FROM fastbreak_rankings
+        WHERE LOWER(username) = LOWER(?) AND fastbreak_id = ?
+        LIMIT 1
+    '''), (username, fastbreak_id))
+
+    row = cursor.fetchone()
+
+    return jsonify({"hasLineup": bool(row)})
 
 def run_flask():
     app.run(host="0.0.0.0", port=8000)
