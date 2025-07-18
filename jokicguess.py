@@ -455,19 +455,7 @@ def has_lineup():
     if not username or not fastbreak_id:
         return jsonify({"error": "Missing required parameters"}), 400
 
-    db = get_db()
-    cursor = db.cursor()
-
-    cursor.execute(prepare_query('''
-        SELECT 1
-        FROM fastbreak_rankings
-        WHERE LOWER(username) = LOWER(?) AND fastbreak_id = ?
-        LIMIT 1
-    '''), (username, fastbreak_id))
-
-    row = cursor.fetchone()
-
-    return jsonify({"hasLineup": bool(row)})
+    return jsonify({"hasLineup": bool(get_rank_and_lineup_for_user(username, fastbreak_id))})
 
 def run_flask():
     app.run(host="0.0.0.0", port=8000)
