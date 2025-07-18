@@ -421,7 +421,7 @@ def fastbreak_racing_stats_general():
     cursor.execute(prepare_query('''
         SELECT username, best, mean
         FROM user_rankings_summary
-        WHERE total_count > 10
+        WHERE total_entries > 10
         ORDER BY mean ASC
         LIMIT ? OFFSET ?
     '''), (per_page, offset))

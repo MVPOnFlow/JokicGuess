@@ -5,7 +5,7 @@ export default function Swapfest() {
   const [leaderboard, setLeaderboard] = useState([]);
 
   useEffect(() => {
-    fetch('https://pjh-gzerbpd3gecjhab5.westus-01.azurewebsites.net/api/leaderboard')
+    fetch('mvponflow.cc/api/leaderboard')
       .then(res => res.json())
       .then(data => {
         setPrizePool(data.prize_pool);

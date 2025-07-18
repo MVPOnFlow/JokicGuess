@@ -15,6 +15,10 @@ export default function Fastbreak() {
   const [leaderboardData, setLeaderboardData] = useState(null);
   const [countdown, setCountdown] = useState('');
 
+  // Modal state
+  const [showModal, setShowModal] = useState(false);
+  const [modalStats, setModalStats] = useState(null);
+
   const COMMUNITY_WALLET = "0x2459710b1d10aed0";
 
   useEffect(() => {
@@ -54,7 +58,7 @@ export default function Fastbreak() {
 
   const fetchContests = async () => {
     try {
-      const res = await fetch("https://pjh-gzerbpd3gecjhab5.westus-01.azurewebsites.net/api/fastbreak/contests");
+      const res = await fetch("https://mvponflow.cc/api/fastbreak/contests");
       const data = await res.json();
       setContests(data);
       if (data.length > 0) setSelectedContest(data[0]);
@@ -66,7 +70,7 @@ export default function Fastbreak() {
   const fetchLeaderboard = async (contestId, userWallet) => {
     const currentToken = ++leaderboardRequestToken;
     try {
-      const res = await fetch(`https://pjh-gzerbpd3gecjhab5.westus-01.azurewebsites.net/api/fastbreak/contest/${contestId}/prediction-leaderboard?userWallet=${userWallet}`);
+      const res = await fetch(`https://mvponflow.cc/api/fastbreak/contest/${contestId}/prediction-leaderboard?userWallet=${userWallet}`);
       const data = await res.json();
       if (currentToken === leaderboardRequestToken) {
         setLeaderboardData(data);
@@ -144,7 +148,7 @@ transaction(amount: UFix64, recipient: Address) {
       await fcl.tx(transactionId).onceSealed();
 
       setTxStatus(`✅ Transaction sealed! Registering your entry...`);
-      await fetch(`https://pjh-gzerbpd3gecjhab5.westus-01.azurewebsites.net/api/fastbreak/contest/${selectedContest.id}/entries`, {
+      await fetch(`https://mvponflow.cc/api/fastbreak/contest/${selectedContest.id}/entries`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -172,7 +176,26 @@ transaction(amount: UFix64, recipient: Address) {
         setTxStatus(`❗ Error: ${msg}`);
       }
     }
+  };
 
+  const handleCheckStats = async () => {
+    if (!topshotUsername.trim() || !selectedContest) return;
+    try {
+      const statsRes = await fetch(`https://mvponflow.cc/api/fastbreak_racing_stats/${topshotUsername}`);
+      const statsData = await statsRes.json();
+
+      const lineupRes = await fetch(`https://mvponflow.cc/api/has_lineup?username=${topshotUsername}&fastbreak_id=${selectedContest.fastbreak_id}`);
+      const { hasLineup } = await lineupRes.json();
+
+      setModalStats({
+        ...statsData,
+        hasLineup
+      });
+      setShowModal(true);
+    } catch (err) {
+      console.error("Failed to fetch stats:", err);
+      alert("Failed to load stats. Please try again.");
+    }
   };
 
   return (
@@ -228,28 +251,30 @@ transaction(amount: UFix64, recipient: Address) {
               placeholder="Enter TopShot username of your champion"
             />
           </div>
-
-          <button
-            className="btn btn-primary btn-lg w-100"
-            onClick={handleBuyIn}
-            disabled={!user.loggedIn || processing || leaderboardData?.status === "STARTED"}
-          >
-            {processing
-              ? "Processing..."
-              : `Buy In for ${selectedContest?.buy_in_amount || ''} ${selectedContest?.buy_in_currency || ''}`}
-          </button>
-
-          {!user.loggedIn && (
-            <p className="text-muted text-center mt-2">
-              Please connect your wallet using the top-right button to buy in.
-            </p>
-          )}
-
-          {leaderboardData?.status === "STARTED" && (
-            <p className="text-danger mt-2 text-center">
-              🚫 This contest is locked for new entries.
-            </p>
-          )}
+          <div className="d-flex flex-column flex-md-row gap-3 mt-3 justify-content-center">
+            <button
+              className="btn btn-outline-light flex-fill"
+              style={{
+                backgroundColor: '#0E2240',
+                color: '#FDB927',
+                border: '1px solid #FDB927',
+                fontWeight: '600'
+              }}
+              disabled={!topshotUsername.trim()}
+              onClick={handleCheckStats}
+            >
+              📊 Check Stats
+            </button>
+            <button
+              className="btn btn-primary flex-fill"
+              onClick={handleBuyIn}
+              disabled={!user.loggedIn || processing || leaderboardData?.status === "STARTED"}
+            >
+              {processing
+                ? "Processing..."
+                : `Buy In for ${selectedContest?.buy_in_amount || ''} ${selectedContest?.buy_in_currency || ''}`}
+            </button>
+          </div>
 
           {txStatus && (
             <div className="mt-3 text-center">
@@ -259,92 +284,41 @@ transaction(amount: UFix64, recipient: Address) {
         </div>
       </div>
 
-      {leaderboardData && (
-        <div className="card shadow mb-4">
-          <div className="card-body">
-            <h4 className="mb-3 text-center">📋 Contest Info</h4>
-            {countdown && (
-              <p><strong>Contest locks in:</strong> {countdown}</p>
-            )}
-            <p><strong>Total entries:</strong> {leaderboardData.totalEntries}</p>
-            <p><strong>Total pot:</strong> {leaderboardData.totalPot} $MVP</p>
-            <p className="text-muted">
-              <em>
-                Winner gets {(leaderboardData.totalPot * 18 / 19).toFixed(2)} $MVP,
-                and the selected user earns {(leaderboardData.totalPot / 19).toFixed(2)} $MVP
-              </em>
-            </p>
-
-
-            {leaderboardData.status === "STARTED" ? (
-              <>
-                <h4 className="mt-4 mb-3 text-center">🏆 Contest Leaderboard</h4>
-                <div className="table-responsive">
-                  <table className="mvp-table">
-                    <thead>
-                      <tr>
-                        <th>Rank</th>
-                        <th>Wallet</th>
-                        <th>Prediction</th>
-                        <th>Fastbreak Rank</th>
-                        <th>Points</th>
-                        <th>Lineup</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {leaderboardData.entries.map(entry => (
-                        <tr
-                          key={`${entry.wallet}-${entry.prediction}`}
-                          className={entry.isUser ? "mvp-user-row" : ""}
-                        >
-                          <td>{entry.position}</td>
-                          <td>{entry.wallet}</td>
-                          <td>{entry.prediction}</td>
-                          <td>{entry.rank}</td>
-                          <td>{entry.points}</td>
-                          <td>{entry.lineup ? entry.lineup.join(", ") : "N/A"}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+      {/* Modal */}
+      {showModal && modalStats && (
+        <div className="modal show d-block" tabIndex="-1" style={{ backgroundColor: 'rgba(0, 0, 0, 0.6)' }}>
+          <div className="modal-dialog modal-dialog-centered modal-lg">
+            <div className="modal-content" style={{ backgroundColor: '#1C2A3A', color: '#E5E7EB', border: '1px solid #273549' }}>
+              <div className="modal-header border-bottom-0">
+                <h5 className="modal-title" style={{ color: '#FDB927' }}>
+                  📊 Stats for {modalStats.username} in the last 15
+                </h5>
+                <button type="button" className="btn-close" style={{ filter: 'invert(90%)' }} onClick={() => setShowModal(false)} />
+              </div>
+              <div className="modal-body">
+                <div className="d-flex flex-wrap justify-content-around text-center mb-3">
+                  <div><strong style={{ color: '#FDB927' }}>Best:</strong> {modalStats.best}</div>
+                  <div><strong style={{ color: '#FDB927' }}>Mean:</strong> {modalStats.mean}</div>
+                  <div><strong style={{ color: '#FDB927' }}>Median:</strong> {modalStats.median}</div>
+                  <div>
+                    <strong style={{ color: '#FDB927' }}>Lineup Submitted:</strong> {modalStats.hasLineup ? "✅ Yes" : "❌ No"}
+                  </div>
                 </div>
-              </>
-            ) : (
-              <>
-                {leaderboardData.userEntries.length > 0 ? (
-                  <>
-                    <h5 className="mt-4">Your Entries:</h5>
-                    <div className="table-responsive">
-                      <table className="mvp-table">
-                        <thead>
-                          <tr>
-                            <th>Prediction</th>
-                            <th>Fastbreak Rank</th>
-                            <th>Points</th>
-                            <th>Lineup</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {leaderboardData.userEntries.map((entry, idx) => (
-                            <tr key={idx}>
-                              <td>{entry.prediction}</td>
-                              <td>{entry.rank !== undefined ? entry.rank : "N/A"}</td>
-                              <td>{entry.points !== undefined ? entry.points : "N/A"}</td>
-                              <td>{entry.lineup ? entry.lineup.join(", ") : "N/A"}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  </>
-                ) : (
-                  <p className="text-muted mt-3">You have not submitted any entries yet.</p>
-                )}
-              </>
-            )}
+                <div className="mt-3">
+                  <strong style={{ color: '#FDB927' }}>Recent Ranks:</strong>
+                  <p className="mt-2 text-muted" style={{ wordBreak: 'break-word' }}>
+                    {modalStats.rankings.map(r => r.rank).join(', ')}
+                  </p>
+                </div>
+              </div>
+              <div className="modal-footer border-top-0">
+                <button className="btn btn-outline-light" onClick={() => setShowModal(false)}>Close</button>
+              </div>
+            </div>
           </div>
         </div>
       )}
+
     </div>
   );
 }

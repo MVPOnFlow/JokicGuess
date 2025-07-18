@@ -439,7 +439,6 @@ def get_rank_and_lineup_for_user(username, fastbreak_id):
                           response.json()['data']['getFastBreakLeadersV2']['leaders'][0]['players']]
     return out
 
-
 def extract_fastbreak_runs():
     url = "https://public-api.nbatopshot.com/graphql"
 
