@@ -1579,7 +1579,7 @@ async def swapfest_refresh_points(interaction: discord.Interaction):
 
 @bot.tree.command(name="pull_fastbreak_horse_stats", description="Admin only: Pull and store new FastBreaks and their rankings.")
 @app_commands.checks.has_permissions(administrator=True)
-async def pull_fastbreak_horse_stats(interaction: discord.Interaction):
+async def pull_fastbreak_horse_stats(interaction: discord.Interaction, fb_id: str):
     await interaction.response.defer(ephemeral=True)
 
     if not is_admin(interaction):
@@ -1601,31 +1601,32 @@ async def pull_fastbreak_horse_stats(interaction: discord.Interaction):
             if not fb or fb.get('status') != 'FAST_BREAK_FINISHED':
                 continue
 
-            fb_id = fb.get('id')
-            game_date = fb.get('gameDate')
-            status = fb.get('status')
+            if fb_id == fb.get('id'):
+                game_date = fb.get('gameDate')
+                status = fb.get('status')
 
-            # Check if already in DB
-            cursor.execute(prepare_query('SELECT 1 FROM fastbreaks WHERE id = ?'), (fb_id,))
-            if cursor.fetchone():
-                continue  # already exists
+                # Check if already in DB
+                cursor.execute(prepare_query('SELECT 1 FROM fastbreaks WHERE id = ?'), (fb_id,))
+                if cursor.fetchone():
+                    continue  # already exists
 
-            # Insert FastBreak into DB
-            cursor.execute(prepare_query('''
-                INSERT INTO fastbreaks (id, game_date, run_name, status)
-                VALUES (?, ?, ?, ?)
-            '''), (fb_id, game_date, run_name, status))
-            new_fastbreaks.append({
-                'id': fb_id,
-                'game_date': game_date,
-                'run_name': run_name
-            })
+                # Insert FastBreak into DB
+                cursor.execute(prepare_query('''
+                    INSERT INTO fastbreaks (id, game_date, run_name, status)
+                    VALUES (?, ?, ?, ?)
+                '''), (fb_id, game_date, run_name, status))
+                conn.commit()
+                new_fastbreaks.append({
+                    'id': fb_id,
+                    'game_date': game_date,
+                    'run_name': run_name
+                })
 
-            # Step 2: Immediately pull and insert rankings
-            new_rankings_count += len(pull_rankings_for_fb(fb_id))
-            print(f"✅ FastBreak {fb_id} stored with {new_rankings_count} rankings.")
+                # Step 2: Immediately pull and insert rankings
+                new_rankings_count += len(pull_rankings_for_fb(fb_id))
+                print(f"✅ FastBreak {fb_id} stored with {new_rankings_count} rankings.")
 
-    conn.commit()
+
 
     cursor.execute("REFRESH MATERIALIZED VIEW user_rankings_summary")
     conn.commit()
