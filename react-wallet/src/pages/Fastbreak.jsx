@@ -79,7 +79,6 @@ export default function Fastbreak() {
       console.error("Failed to load leaderboard", err);
     }
   };
-
   const handleContestChange = (e) => {
     const selectedId = parseInt(e.target.value);
     const contest = contests.find(c => c.id === selectedId);
@@ -177,7 +176,6 @@ transaction(amount: UFix64, recipient: Address) {
       }
     }
   };
-
   const handleCheckStats = async () => {
     if (!topshotUsername.trim() || !selectedContest) return;
     try {
@@ -200,33 +198,20 @@ transaction(amount: UFix64, recipient: Address) {
 
   return (
     <div className="container">
+      {/* Entry Card */}
       <div className="card shadow mb-4">
         <div className="card-body">
           <h2 className="mb-4 text-center">Fastbreak Horse Race</h2>
-          <p>
-            🏇 Welcome to the Fastbreak Horse Race!
-            Pick your champion, a Top Shot user you think will finish highest in the next Fastbreak.
-          </p>
-          <div className="mb-4 px-2">
-            <ul className="text-start ps-3">
-              <li>Pick a Top Shot user ("horse") before the contest locks.</li>
-              <li>If your horse finishes better than everyone else’s, you win!</li>
-              <li><strong>90%</strong> of the pot goes to the winning picker.</li>
-              <li><strong>5%</strong> goes to the horse who actually performed!</li>
-              <li>Remaining 5% goes to the Treasury.</li>
-            </ul>
-          </div>
+          <p>🏇 Pick your champion — a Top Shot user you think will finish highest in the next Fastbreak.</p>
+          <ul className="text-start ps-4">
+            <li>Submit before lock</li>
+            <li>90% to winner's picker</li>
+            <li>5% to actual top horse</li>
+            <li>5% to Treasury</li>
+          </ul>
 
           {user.loggedIn && (
-            <p className="text-info text-center">
-              Connected as: <strong>{user.addr}</strong>
-            </p>
-          )}
-
-          {countdown && (
-            <p className="text-warning text-center mb-2">
-              Contest starts in: <strong>{countdown}</strong>
-            </p>
+            <p className="text-info text-center"><strong>Wallet:</strong> {user.addr}</p>
           )}
 
           <div className="mb-3">
@@ -234,32 +219,27 @@ transaction(amount: UFix64, recipient: Address) {
             <select className="form-select" onChange={handleContestChange} value={selectedContest?.id || ''}>
               {contests.map(contest => (
                 <option key={contest.id} value={contest.id}>
-                  {contest.display_name || contest.fastbreak_id}
-                  {` (Buy-in: ${contest.buy_in_amount} ${contest.buy_in_currency})`}
+                  {contest.display_name || contest.fastbreak_id} — {contest.buy_in_amount} {contest.buy_in_currency}
                 </option>
               ))}
             </select>
           </div>
 
           <div className="mb-3">
-            <label>TopShot Username Prediction</label>
+            <label>TopShot Username</label>
             <input
               type="text"
               className="form-control"
               value={topshotUsername}
               onChange={(e) => setTopshotUsername(e.target.value)}
-              placeholder="Enter TopShot username of your champion"
+              placeholder="Enter TopShot username"
             />
           </div>
+
           <div className="d-flex flex-column flex-md-row gap-3 mt-3 justify-content-center">
             <button
               className="btn btn-outline-light flex-fill"
-              style={{
-                backgroundColor: '#0E2240',
-                color: '#FDB927',
-                border: '1px solid #FDB927',
-                fontWeight: '600'
-              }}
+              style={{ backgroundColor: '#0E2240', color: '#FDB927', border: '1px solid #FDB927', fontWeight: '600' }}
               disabled={!topshotUsername.trim()}
               onClick={handleCheckStats}
             >
@@ -291,7 +271,7 @@ transaction(amount: UFix64, recipient: Address) {
             <div className="modal-content" style={{ backgroundColor: '#1C2A3A', color: '#E5E7EB', border: '1px solid #273549' }}>
               <div className="modal-header border-bottom-0">
                 <h5 className="modal-title" style={{ color: '#FDB927' }}>
-                  📊 Stats for {modalStats.username} in the last 15
+                  📊 Stats for {modalStats.username}
                 </h5>
                 <button type="button" className="btn-close" style={{ filter: 'invert(90%)' }} onClick={() => setShowModal(false)} />
               </div>
@@ -300,15 +280,11 @@ transaction(amount: UFix64, recipient: Address) {
                   <div><strong style={{ color: '#FDB927' }}>Best:</strong> {modalStats.best}</div>
                   <div><strong style={{ color: '#FDB927' }}>Mean:</strong> {modalStats.mean}</div>
                   <div><strong style={{ color: '#FDB927' }}>Median:</strong> {modalStats.median}</div>
-                  <div>
-                    <strong style={{ color: '#FDB927' }}>Lineup Submitted:</strong> {modalStats.hasLineup ? "✅ Yes" : "❌ No"}
-                  </div>
+                  <div><strong style={{ color: '#FDB927' }}>Lineup:</strong> {modalStats.hasLineup ? "✅" : "❌"}</div>
                 </div>
-                <div className="mt-3">
+                <div>
                   <strong style={{ color: '#FDB927' }}>Recent Ranks:</strong>
-                  <p className="mt-2 text-muted" style={{ wordBreak: 'break-word' }}>
-                    {modalStats.rankings.map(r => r.rank).join(', ')}
-                  </p>
+                  <p className="mt-2 text-muted">{modalStats.rankings.map(r => r.rank).join(', ')}</p>
                 </div>
               </div>
               <div className="modal-footer border-top-0">
@@ -319,6 +295,90 @@ transaction(amount: UFix64, recipient: Address) {
         </div>
       )}
 
+      {/* Leaderboard Section */}
+      {leaderboardData && (
+        <div className="card shadow mb-4">
+          <div className="card-body">
+            <h4 className="mb-3 text-center">📋 Contest Info</h4>
+            {countdown && <p><strong>Contest locks in:</strong> {countdown}</p>}
+            <p><strong>Total entries:</strong> {leaderboardData.totalEntries}</p>
+            <p><strong>Total pot:</strong> {leaderboardData.totalPot} $MVP</p>
+            <p className="text-muted">
+              <em>
+                Winner gets {(leaderboardData.totalPot * 18 / 19).toFixed(2)} $MVP,
+                Selected user earns {(leaderboardData.totalPot / 19).toFixed(2)} $MVP
+              </em>
+            </p>
+
+            {leaderboardData.status === "STARTED" ? (
+              <>
+                <h4 className="mt-4 mb-3 text-center">🏆 Leaderboard</h4>
+                <div className="table-responsive">
+                  <table className="mvp-table">
+                    <thead>
+                      <tr>
+                        <th>Rank</th>
+                        <th>Wallet</th>
+                        <th>Prediction</th>
+                        <th>Fastbreak Rank</th>
+                        <th>Points</th>
+                        <th>Lineup</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {leaderboardData.entries.map(entry => (
+                        <tr
+                          key={`${entry.wallet}-${entry.prediction}`}
+                          className={entry.isUser ? "mvp-user-row" : ""}
+                        >
+                          <td>{entry.position}</td>
+                          <td>{entry.wallet}</td>
+                          <td>{entry.prediction}</td>
+                          <td>{entry.rank}</td>
+                          <td>{entry.points}</td>
+                          <td>{entry.lineup ? entry.lineup.join(", ") : "N/A"}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </>
+            ) : (
+              <>
+                {leaderboardData.userEntries.length > 0 ? (
+                  <>
+                    <h5 className="mt-4">Your Entries:</h5>
+                    <div className="table-responsive">
+                      <table className="mvp-table">
+                        <thead>
+                          <tr>
+                            <th>Prediction</th>
+                            <th>Fastbreak Rank</th>
+                            <th>Points</th>
+                            <th>Lineup</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {leaderboardData.userEntries.map((entry, idx) => (
+                            <tr key={idx}>
+                              <td>{entry.prediction}</td>
+                              <td>{entry.rank !== undefined ? entry.rank : "N/A"}</td>
+                              <td>{entry.points !== undefined ? entry.points : "N/A"}</td>
+                              <td>{entry.lineup ? entry.lineup.join(", ") : "N/A"}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </>
+                ) : (
+                  <p className="text-muted mt-3">You have not submitted any entries yet.</p>
+                )}
+              </>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

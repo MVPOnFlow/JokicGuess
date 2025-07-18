@@ -4,7 +4,7 @@ export default function Treasury() {
   const [treasury, setTreasury] = useState(null);
 
   useEffect(() => {
-    fetch('mvponflow.cc/api/treasury')
+    fetch('https://mvponflow.cc/api/treasury')
       .then(res => res.json())
       .then(data => setTreasury(data));
   }, []);
