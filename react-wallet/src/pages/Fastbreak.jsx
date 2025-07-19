@@ -21,6 +21,15 @@ export default function Fastbreak() {
 
   const COMMUNITY_WALLET = "0x2459710b1d10aed0";
 
+  const [usernames, setUsernames] = useState([]);
+
+  useEffect(() => {
+    fetch("https://mvponflow.cc/api/fastbreak_racing_usernames")
+      .then((res) => res.json())
+      .then((data) => setUsernames(data))
+      .catch((err) => console.error("Failed to fetch usernames", err));
+  }, []);
+
   useEffect(() => {
     fcl.currentUser().subscribe(setUser);
     fetchContests();
@@ -224,16 +233,38 @@ transaction(amount: UFix64, recipient: Address) {
             </select>
           </div>
 
-          <div className="mb-3">
-            <label>TopShot Username</label>
-            <input
-              type="text"
-              className="form-control"
-              value={topshotUsername}
-              onChange={(e) => setTopshotUsername(e.target.value)}
-              placeholder="Enter TopShot username"
-            />
-          </div>
+            <div className="mb-3 position-relative">
+              <label>TopShot Username</label>
+              <input
+                type="text"
+                className="form-control"
+                value={topshotUsername}
+                onChange={(e) => setTopshotUsername(e.target.value)}
+                placeholder="Enter TopShot username"
+                autoComplete="off"
+              />
+              {topshotUsername && (
+                <ul className="list-group position-absolute w-100" style={{ zIndex: 1000 }}>
+                  {usernames
+                    .filter((u) =>
+                      u.toLowerCase().includes(topshotUsername.toLowerCase()) &&
+                      u.toLowerCase() !== topshotUsername.toLowerCase()
+                    )
+                    .slice(0, 5)
+                    .map((u, idx) => (
+                      <li
+                        key={idx}
+                        className="list-group-item list-group-item-action"
+                        style={{ backgroundColor: "#1C2A3A", color: "#FDB927", cursor: "pointer" }}
+                        onClick={() => setTopshotUsername(u)}
+                      >
+                        {u}
+                      </li>
+                    ))}
+                </ul>
+              )}
+            </div>
+
 
           <div className="d-flex flex-column flex-md-row gap-3 mt-3 justify-content-center">
             <button
