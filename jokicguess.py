@@ -447,6 +447,20 @@ def fastbreak_racing_stats_general():
         "leaderboard": leaderboard
     })
 
+@app.route("/api/fastbreak_racing_usernames")
+def fastbreak_racing_usernames():
+    db = get_db()
+    cursor = db.cursor()
+    cursor.execute('''
+        SELECT DISTINCT username
+        FROM user_rankings_summary
+        WHERE total_entries > 10
+        ORDER BY username
+    ''')
+    usernames = [row[0] for row in cursor.fetchall()]
+    return jsonify(usernames)
+
+
 @app.route("/api/has_lineup")
 def has_lineup():
     username = request.args.get("username")
