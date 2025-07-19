@@ -234,7 +234,21 @@ transaction(amount: UFix64, recipient: Address) {
           </div>
 
             <div className="mb-3 position-relative">
-              <label>TopShot Username</label>
+              <label>
+                TopShot Username (Need help choosing?{" "}
+                <span
+                  onClick={() => window.location.href = "/horsestats"}
+                  style={{
+                    color: "#FDB927",
+                    fontWeight: "bold",
+                    textDecoration: "underline",
+                    cursor: "pointer"
+                  }}
+                >
+                  Investigate detailed stats
+                </span>
+                )
+              </label>
               <input
                 type="text"
                 className="form-control"
