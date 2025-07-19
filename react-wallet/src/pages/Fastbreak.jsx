@@ -271,7 +271,7 @@ transaction(amount: UFix64, recipient: Address) {
             <div className="modal-content" style={{ backgroundColor: '#1C2A3A', color: '#E5E7EB', border: '1px solid #273549' }}>
               <div className="modal-header border-bottom-0">
                 <h5 className="modal-title" style={{ color: '#FDB927' }}>
-                  📊 Stats for {modalStats.username}
+                  📊 Stats for {modalStats.username} for the last 15 classic daily games
                 </h5>
                 <button type="button" className="btn-close" style={{ filter: 'invert(90%)' }} onClick={() => setShowModal(false)} />
               </div>
