@@ -202,12 +202,11 @@ transaction(amount: UFix64, recipient: Address) {
       <div className="card shadow mb-4">
         <div className="card-body">
           <h2 className="mb-4 text-center">Fastbreak Horse Race</h2>
-          <p>🏇 Pick your champion — a Top Shot user you think will finish highest in the next Fastbreak.</p>
+          <p>🏇 Pick your champion - a Top Shot user you think will finish highest in the next Fastbreak.</p>
           <ul className="text-start ps-4">
-            <li>Submit before lock</li>
-            <li>90% to winner's picker</li>
-            <li>5% to actual top horse</li>
-            <li>5% to Treasury</li>
+            <li>Submit before lock by choosing a TS user and sending the buy-in</li>
+            <li>90% to the winner</li>
+            <li>5% to the actual top horse (TS user selected by the winner)</li>
           </ul>
 
           {user.loggedIn && (
