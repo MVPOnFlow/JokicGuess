@@ -129,7 +129,7 @@ def api_treasury():
     treasury_data["surplus"] = surplus
 
     # 🗓️ Manually updated last_updated text
-    treasury_data['last_updated'] = "2025-07-15 15:00 UTC"
+    treasury_data['last_updated'] = "2025-08-01 15:00 UTC"
     return jsonify(treasury_data)
 
 @app.route("/api/fastbreak/contests", methods=["GET"])
