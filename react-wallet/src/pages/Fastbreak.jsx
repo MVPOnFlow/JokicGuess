@@ -216,6 +216,7 @@ transaction(amount: UFix64, recipient: Address) {
             <li>Submit before lock by choosing a TS user and sending the buy-in</li>
             <li>90% to the winner</li>
             <li>5% to the actual top horse (TS user selected by the winner)</li>
+            <li>Maximum entries per wallet: Unlimited</li>
           </ul>
 
           {user.loggedIn && (

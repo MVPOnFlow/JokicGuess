@@ -141,29 +141,48 @@ def api_list_fastbreak_contests():
     '''))
     rows = cursor.fetchall()
 
-    contests = []
     now_ts = int(datetime.datetime.now(datetime.UTC).timestamp())
+    twenty_four_hours_ago = now_ts - 86400  # 24 hours in seconds
+
+    recent_started = []
+    open_contests = []
+    older_started = []
+
     for row in rows:
         contest_status = row[5]
+        lock_ts = int(row[2])
+
+        # Reclassify OPEN contests as STARTED if lock time has passed
         try:
-            if contest_status == 'OPEN' and int(row[2]) < now_ts:
+            if contest_status == 'OPEN' and lock_ts < now_ts:
                 contest_status = 'STARTED'
         except:
             pass
 
-        if contest_status != 'CLOSED':
-            contests.append({
-                "id": row[0],
-                "fastbreak_id": row[1],
-                "lock_timestamp": row[2],
-                "buy_in_currency": row[3],
-                "buy_in_amount": float(row[4]),
-                "status": contest_status,
-                "created_at": row[6],
-                "display_name": row[7]
-            })
+        if contest_status == 'CLOSED':
+            continue
 
-    return jsonify(contests)
+        contest_data = {
+            "id": row[0],
+            "fastbreak_id": row[1],
+            "lock_timestamp": row[2],
+            "buy_in_currency": row[3],
+            "buy_in_amount": float(row[4]),
+            "status": contest_status,
+            "created_at": row[6],
+            "display_name": row[7]
+        }
+
+        if contest_status == 'STARTED':
+            if lock_ts >= twenty_four_hours_ago:
+                recent_started.append(contest_data)
+            else:
+                older_started.append(contest_data)
+        elif contest_status == 'OPEN':
+            open_contests.append(contest_data)
+
+    return jsonify(recent_started + open_contests + older_started)
+
 
 @app.route("/api/fastbreak/contest/<int:contest_id>/prediction-leaderboard", methods=["GET"])
 def get_fastbreak_prediction_leaderboard(contest_id):
