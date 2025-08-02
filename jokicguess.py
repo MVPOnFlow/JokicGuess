@@ -108,7 +108,7 @@ def api_leaderboard():
 def api_treasury():
     # Hard-coded example data
     treasury_data = {
-        "tokens_in_wild": 15337,
+        "tokens_in_wild": 15348,
         "common_count": 2156,
         "rare_count": 130,
         "tsd_count": 0,
