@@ -473,7 +473,7 @@ def fastbreak_racing_usernames():
     cursor.execute('''
         SELECT DISTINCT username
         FROM user_rankings_summary
-        WHERE total_entries > 10
+        WHERE total_entries > 1
         ORDER BY username
     ''')
     usernames = [row[0] for row in cursor.fetchall()]
