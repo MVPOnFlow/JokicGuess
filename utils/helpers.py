@@ -622,7 +622,7 @@ def pull_rankings_for_fb(fastbreak_id):
         leaders = data['data']['getFastBreakLeadersV2']['leaders']
         cursor_val = data['data']['getFastBreakLeadersV2']['rightCursor']
         all_leaders.extend(leaders)
-
+        pages += 1
         if pages > max_pages:
             break
         if not cursor_val:
