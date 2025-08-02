@@ -235,7 +235,7 @@ transaction(amount: UFix64, recipient: Address) {
 
             <div className="mb-3 position-relative">
               <label>
-                TopShot Username (Need help choosing?{" "}
+                TopShot Username prediction (Need help choosing?{" "}
                 <span
                   onClick={() => window.location.href = "/horsestats"}
                   style={{
@@ -254,7 +254,7 @@ transaction(amount: UFix64, recipient: Address) {
                 className="form-control"
                 value={topshotUsername}
                 onChange={(e) => setTopshotUsername(e.target.value)}
-                placeholder="Enter TopShot username"
+                placeholder="Enter TopShot username of someone you predict does well"
                 autoComplete="off"
               />
               {topshotUsername && (
@@ -287,7 +287,7 @@ transaction(amount: UFix64, recipient: Address) {
               disabled={!topshotUsername.trim()}
               onClick={handleCheckStats}
             >
-              📊 Check Stats
+              📊 Check Their Stats
             </button>
             <button
               className="btn btn-primary flex-fill"
