@@ -1668,7 +1668,7 @@ async def pull_fastbreak_horse_stats(interaction: discord.Interaction, fb_id: st
                 # Insert FastBreak into DB
                 cursor.execute(prepare_query('''
                     INSERT INTO fastbreaks (id, game_date, run_name, status)
-                    VALUES (?, ?, ?, ?)
+                    VALUES (?, ?, ?, ?) ON CONFLICT DO NOTHING
                 '''), (fb_id, game_date, run_name, status))
                 conn.commit()
                 new_fastbreaks.append({
