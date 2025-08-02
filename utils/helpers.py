@@ -640,7 +640,6 @@ def pull_rankings_for_fb(fastbreak_id):
             ON CONFLICT (fastbreak_id, username)
             DO UPDATE SET rank = EXCLUDED.rank, points = EXCLUDED.points
         '''), (fastbreak_id, username, rank, points))
-        conn.commit()
 
     conn.commit()
     print(f"✅ Saved {len(all_leaders)} rankings for {fastbreak_id}")
