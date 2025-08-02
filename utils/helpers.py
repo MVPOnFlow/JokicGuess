@@ -598,7 +598,7 @@ def pull_rankings_for_fb(fastbreak_id):
     cursor_val = ""
     limit = 50
     pages = 0
-    max_pages = 120
+    max_pages = 100
 
     while True:
         variables = {
@@ -622,8 +622,10 @@ def pull_rankings_for_fb(fastbreak_id):
         leaders = data['data']['getFastBreakLeadersV2']['leaders']
         cursor_val = data['data']['getFastBreakLeadersV2']['rightCursor']
         all_leaders.extend(leaders)
-        pages += 1
-        if not cursor_val or pages > max_pages:
+
+        if pages > max_pages:
+            break
+        if not cursor_val:
             break
 
     print (f"Found {len(all_leaders)} entries in fastbreak {fastbreak_id}")
@@ -632,6 +634,15 @@ def pull_rankings_for_fb(fastbreak_id):
         rank = entry["rank"]
         points = entry["points"]
 
+        cursor.execute(prepare_query('''
+            INSERT INTO fastbreak_rankings (fastbreak_id, username, rank, points)
+            VALUES (%s, %s, %s, %s)
+            ON CONFLICT (fastbreak_id, username)
+            DO UPDATE SET rank = EXCLUDED.rank, points = EXCLUDED.points
+        '''), (fastbreak_id, username, rank, points))
+        conn.commit()
+
+    conn.commit()
     print(f"✅ Saved {len(all_leaders)} rankings for {fastbreak_id}")
     return all_leaders
 
