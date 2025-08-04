@@ -427,6 +427,11 @@ def fastbreak_racing_stats_user(username):
         "flow_wallet": flow_wallet
     })
 
+@app.route("/api/linked_username/<wallet>")
+def fastbreak_username(wallet):
+    username = get_ts_username_from_flow_wallet(wallet)  # your Python helper
+    return jsonify({"username": username})
+
 @app.route("/api/fastbreak_racing_stats")
 def fastbreak_racing_stats_general():
     from flask import request
