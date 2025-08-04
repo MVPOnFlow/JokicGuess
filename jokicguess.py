@@ -415,13 +415,15 @@ def fastbreak_racing_stats_user(username):
     best = min(rank_values) if rank_values else None
     mean = round(statistics.mean(rank_values), 2) if rank_values else None
     median = statistics.median(rank_values) if rank_values else None
+    flow_wallet = get_flow_wallet_from_ts_username(username)
 
     return jsonify({
         "username": username,
         "rankings": rankings,
         "best": best,
         "mean": mean,
-        "median": median
+        "median": median,
+        "flow_wallet": flow_wallet
     })
 
 @app.route("/api/fastbreak_racing_stats")
