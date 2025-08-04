@@ -9,6 +9,7 @@ import json
 import requests
 from flow_py_sdk import flow_client, Script
 from flow_py_sdk.cadence import Address
+import asyncio
 
 # Detect if running on Heroku by checking if DATABASE_URL is set
 DATABASE_URL = os.getenv('DATABASE_URL')  # Heroku PostgreSQL URL
@@ -862,8 +863,8 @@ def get_username_from_dapper_wallet_flow(flow_address: str) -> str:
 
     return None
 
-async def get_ts_username_from_flow_wallet(flow_address):
-    return get_username_from_dapper_wallet_flow(await get_linked_child_account(flow_address))
+def get_ts_username_from_flow_wallet(flow_address):
+    return get_username_from_dapper_wallet_flow(asyncio.run(get_linked_child_account(flow_address)))
 
-async def get_flow_wallet_from_ts_username(username):
-    return await get_linked_parent_account(get_flow_address_by_username(username))
+def get_flow_wallet_from_ts_username(username):
+    return asyncio.run(get_linked_parent_account(get_flow_address_by_username(username)))

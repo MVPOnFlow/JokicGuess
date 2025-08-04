@@ -416,7 +416,7 @@ def fastbreak_racing_stats_user(username):
     best = min(rank_values) if rank_values else None
     mean = round(statistics.mean(rank_values), 2) if rank_values else None
     median = statistics.median(rank_values) if rank_values else None
-    flow_wallet = asyncio.run(get_flow_wallet_from_ts_username(username))
+    flow_wallet = get_flow_wallet_from_ts_username(username)
 
     return jsonify({
         "username": username,
@@ -429,7 +429,7 @@ def fastbreak_racing_stats_user(username):
 
 @app.route("/api/linked_username/<wallet>")
 def fastbreak_username(wallet):
-    username = get_ts_username_from_flow_wallet(wallet)  # your Python helper
+    username = get_ts_username_from_flow_wallet(wallet)
     return jsonify({"username": username})
 
 @app.route("/api/fastbreak_racing_stats")
