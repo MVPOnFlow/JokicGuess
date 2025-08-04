@@ -146,7 +146,7 @@ async def get_block_gifts(block_height, offset):
     blocks = response.json()
     
     if blocks['blocks'][0]['height'] != block_height + offset + delay:
-        print('Waiting for more blocks')
+        # print('Waiting for more blocks')
         await asyncio.sleep(10)
         return False
 
