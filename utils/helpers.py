@@ -7,6 +7,8 @@ import psycopg2
 import random
 import json
 import requests
+from flow_py_sdk import flow_client, Script
+from flow_py_sdk.cadence import Address
 
 # Detect if running on Heroku by checking if DATABASE_URL is set
 DATABASE_URL = os.getenv('DATABASE_URL')  # Heroku PostgreSQL URL
@@ -675,3 +677,190 @@ def update_fastbreaks_table():
 
     conn.commit()
     print(f"✅ Inserted {new_insertions} new finished FastBreaks.")
+
+
+async def get_linked_child_account(address_hex: str):
+    # Create a synchronous Flow client (do NOT await)
+    client = flow_client(
+        host="access.mainnet.nodes.onflow.org",
+        port=9000
+    )
+
+    cadence = """
+    import HybridCustody from 0xd8a7e05a7ac670c0
+    import TopShot from 0x0b2a3299cc857e29
+
+    access(all) fun main(parent: Address): [Address] {
+        // 1️⃣ Borrow the HybridCustody.Manager resource from the parent account
+        let manager = getAuthAccount<auth(Storage) &Account>(parent)
+            .storage
+            .borrow<auth(HybridCustody.Manage) &HybridCustody.Manager>(
+                from: HybridCustody.ManagerStoragePath
+            )
+            ?? panic("HybridCustody manager does not exist for this account")
+
+        // 2️⃣ Iterate over all child addresses
+        let children = manager.getChildAddresses()
+
+        for child in children {
+            let account = getAccount(child)
+
+            // Check if the TopShot Collection exists & is borrowable
+            let collectionRef = account
+                .capabilities
+                .get<&TopShot.Collection>(/public/MomentCollection)
+                .borrow()
+
+            if collectionRef != nil {
+                // ✅ Found a child address with a valid Top Shot collection
+                return [child]
+            }
+        }
+
+        // ❌ No child has a valid collection, return empty array
+        return []
+    }
+    """
+    addr = Address.from_hex(address_hex.lstrip("0x"))
+    script = Script(code=cadence, arguments=[addr])
+    try:
+        result = await client.execute_script(script)
+        if result.value:
+            return (str(result.value[0]))
+        else:
+            return ""
+    except:
+        return ""
+
+def has_linked_child_account(address_hex: str):
+    if get_linked_child_account(address_hex):
+        return True
+    return False
+
+async def get_linked_parent_account(address_hex: str):
+    # Create a synchronous Flow client (do NOT await)
+    client = flow_client(
+        host="access.mainnet.nodes.onflow.org",
+        port=9000
+    )
+
+    cadence = """
+    import HybridCustody from 0xd8a7e05a7ac670c0
+
+    access(all)  fun main(childAddress: Address): {Address: Bool}? {
+        let acct = getAccount(childAddress)
+
+        // Borrow the public capability of OwnedAccount
+        let ownedAccountCap = acct
+            .capabilities
+            .get<&{HybridCustody.OwnedAccountPublic}>(HybridCustody.OwnedAccountPublicPath)
+
+        if !ownedAccountCap.check() {
+            return nil
+        }
+
+        let ownedAccountRef = ownedAccountCap.borrow()
+            ?? panic("Could not borrow OwnedAccount reference")
+
+        // Returns a dictionary of parentAddress -> redeemedStatus
+        //   true  = redeemed
+        //   false = pending
+        return ownedAccountRef.getParentStatuses()
+    }
+
+    """
+
+    addr = Address.from_hex(address_hex.lstrip("0x"))
+    script = Script(code=cadence, arguments=[addr])
+    try:
+        result = await client.execute_script(script)
+        for kv_pair in result.value.__dict__['value']:
+            if kv_pair.__dict__['value']:
+                return str(kv_pair.__dict__['key'])
+    except:
+        return ""
+
+
+def get_flow_address_by_username(username: str):
+    url = "https://public-api.nbatopshot.com/graphql"
+
+    query = """
+    query GetUserProfileByUsername($input: getUserProfileByUsernameInput!) {
+      getUserProfileByUsername(input: $input) {
+        publicInfo {
+          username
+          flowAddress
+          dapperID
+          profileImageUrl
+        }
+      }
+    }
+    """
+
+    variables = {
+        "input": {
+            "username": username
+        }
+    }
+
+    headers = {
+        "User-Agent": "PetJokicsHorses",
+        "Content-Type": "application/json"
+    }
+
+    resp = requests.post(url, json={"query": query, "variables": variables}, headers=headers, timeout=10)
+    data = resp.json()
+
+    if "errors" in data:
+        print("❌ GraphQL Error:", data["errors"])
+        return None
+
+    public_info = data["data"]["getUserProfileByUsername"]["publicInfo"]
+    flow_address = public_info.get("flowAddress")
+    #print(f"✅ Username: {public_info['username']}, Flow Address: {flow_address}, DapperID: {public_info['dapperID']}")
+    return '0x'+flow_address
+
+def get_username_from_dapper_wallet_flow(flow_address: str) -> str:
+    """
+    Fetches the Top Shot username for a given Flow address.
+    Returns the username string or None if not found.
+    """
+    url = "https://public-api.nbatopshot.com/graphql"
+
+    query = """
+    query GetUserProfile($input: GetUserProfileInput!) {
+      getUserProfile(input: $input) {
+        publicInfo {
+          username
+          flowAddress
+        }
+      }
+    }
+    """
+    flow_address = flow_address.lstrip('0x')
+    variables = {
+        "input": {
+            "flowAddress": flow_address
+        }
+    }
+
+    headers = {
+        "User-Agent": "PetJokicsHorses",
+        "Content-Type": "application/json"
+    }
+
+    response = requests.post(url, json={"query": query, "variables": variables}, headers=headers, timeout=10)
+    data = response.json()
+    # Handle potential GraphQL errors
+    if "errors" in data:
+        print("❌ GraphQL Error:", data["errors"])
+        return None
+
+    public_info = data.get("data", {}).get("getUserProfile", {}).get("publicInfo")
+    if public_info and public_info.get("username"):
+        return public_info["username"]
+
+    return None
+
+async def get_ts_username_from_flow_wallet(flow_address):
+    return get_username_from_dapper_wallet_flow(await get_linked_child_account(flow_address))
