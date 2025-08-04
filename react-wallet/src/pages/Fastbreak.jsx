@@ -185,13 +185,15 @@ transaction(amount: UFix64, recipient: Address) {
       }
     }
   };
-  const handleCheckStats = async () => {
-    if (!topshotUsername.trim() || !selectedContest) return;
+  const openStatsModal = async (username) => {
+    if (!username || !selectedContest) return;
     try {
-      const statsRes = await fetch(`https://mvponflow.cc/api/fastbreak_racing_stats/${topshotUsername}`);
+      const statsRes = await fetch(`https://mvponflow.cc/api/fastbreak_racing_stats/${username}`);
       const statsData = await statsRes.json();
 
-      const lineupRes = await fetch(`https://mvponflow.cc/api/has_lineup?username=${topshotUsername}&fastbreak_id=${selectedContest.fastbreak_id}`);
+      const lineupRes = await fetch(
+        `https://mvponflow.cc/api/has_lineup?username=${username}&fastbreak_id=${selectedContest.fastbreak_id}`
+      );
       const { hasLineup } = await lineupRes.json();
 
       setModalStats({
@@ -203,6 +205,10 @@ transaction(amount: UFix64, recipient: Address) {
       console.error("Failed to fetch stats:", err);
       alert("Failed to load stats. Please try again.");
     }
+  };
+
+  const handleCheckStats = () => {
+    openStatsModal(topshotUsername.trim());
   };
 
   return (
@@ -322,6 +328,9 @@ transaction(amount: UFix64, recipient: Address) {
               </div>
               <div className="modal-body">
                 <div className="d-flex flex-wrap justify-content-around text-center mb-3">
+                  <div><strong style={{ color: '#FDB927' }}>Flow Wallet Address:</strong> {modalStats.flow_wallet || "Account linking not enabled"}</div>
+                </div>
+                <div className="d-flex flex-wrap justify-content-around text-center mb-3">
                   <div><strong style={{ color: '#FDB927' }}>Best:</strong> {modalStats.best}</div>
                   <div><strong style={{ color: '#FDB927' }}>Mean:</strong> {modalStats.mean}</div>
                   <div><strong style={{ color: '#FDB927' }}>Median:</strong> {modalStats.median}</div>
@@ -378,7 +387,13 @@ transaction(amount: UFix64, recipient: Address) {
                         >
                           <td>{entry.position}</td>
                           <td>{entry.wallet}</td>
-                          <td>{entry.prediction}</td>
+                          <td
+                            href="#"
+                            className="leaderboard-link"
+                            onClick={() => openStatsModal(entry.prediction)}
+                          >
+                            {entry.prediction}
+                          </td>
                           <td>{entry.rank}</td>
                           <td>{entry.points}</td>
                           <td>{entry.lineup ? entry.lineup.join(", ") : "N/A"}</td>

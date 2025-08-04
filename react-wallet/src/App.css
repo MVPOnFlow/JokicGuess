@@ -300,3 +300,13 @@ body {
   color: #0E2240;
   border-color: #FDB927;
 }
+
+.leaderboard-link {
+  color: #4FC3F7; /* Light blue for visibility */
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.leaderboard-link:hover {
+  color: #FFFFFF; /* White on hover */
+}
