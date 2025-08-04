@@ -1,4 +1,5 @@
 import statistics
+import asyncio
 
 import discord
 from discord.ext import commands
@@ -415,7 +416,7 @@ def fastbreak_racing_stats_user(username):
     best = min(rank_values) if rank_values else None
     mean = round(statistics.mean(rank_values), 2) if rank_values else None
     median = statistics.median(rank_values) if rank_values else None
-    flow_wallet = await get_flow_wallet_from_ts_username(username)
+    flow_wallet = asyncio.run(get_flow_wallet_from_ts_username(username))
 
     return jsonify({
         "username": username,
