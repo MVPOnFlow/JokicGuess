@@ -15,13 +15,16 @@ export default function Fastbreak() {
   const [leaderboardData, setLeaderboardData] = useState(null);
   const [countdown, setCountdown] = useState('');
 
-  // Modal state
   const [showModal, setShowModal] = useState(false);
   const [modalStats, setModalStats] = useState(null);
 
   const COMMUNITY_WALLET = "0x2459710b1d10aed0";
 
   const [usernames, setUsernames] = useState([]);
+
+  // ✅ New state for linked TS username and flag
+  const [linkedUsername, setLinkedUsername] = useState(null);
+  const [linkChecked, setLinkChecked] = useState(false);
 
   useEffect(() => {
     fetch("https://mvponflow.cc/api/fastbreak_racing_usernames")
@@ -31,7 +34,15 @@ export default function Fastbreak() {
   }, []);
 
   useEffect(() => {
-    fcl.currentUser().subscribe(setUser);
+    fcl.currentUser().subscribe(async (cu) => {
+      setUser(cu);
+      if (cu?.addr) {
+        await fetchLinkedUsername(cu.addr);
+      } else {
+        setLinkedUsername(null);
+        setLinkChecked(false);
+      }
+    });
     fetchContests();
   }, []);
 
@@ -88,6 +99,24 @@ export default function Fastbreak() {
       console.error("Failed to load leaderboard", err);
     }
   };
+
+  const fetchLinkedUsername = async (walletAddr) => {
+    try {
+      const res = await fetch(`https://mvponflow.cc/api/linked_username/${walletAddr}`);
+      const data = await res.json();
+      if (data?.username) {
+        setLinkedUsername(data.username);
+      } else {
+        setLinkedUsername(null);
+      }
+    } catch (err) {
+      console.error("Failed to check linked username", err);
+      setLinkedUsername(null);
+    } finally {
+      setLinkChecked(true);
+    }
+  };
+
   const handleContestChange = (e) => {
     const selectedId = parseInt(e.target.value);
     const contest = contests.find(c => c.id === selectedId);
@@ -103,6 +132,11 @@ export default function Fastbreak() {
   const handleBuyIn = async () => {
     if (!user.loggedIn) {
       setTxStatus("❗ Please connect your wallet first.");
+      return;
+    }
+
+    if (!linkedUsername) {
+      setTxStatus("❗ You must enable account linking to make predictions. See: https://support.meetdapper.com/hc/en-us/articles/20744347884819-Account-Linking-and-FAQ");
       return;
     }
 
@@ -185,6 +219,7 @@ transaction(amount: UFix64, recipient: Address) {
       }
     }
   };
+
   const openStatsModal = async (username) => {
     if (!username || !selectedContest) return;
     try {
@@ -213,20 +248,32 @@ transaction(amount: UFix64, recipient: Address) {
 
   return (
     <div className="container">
-      {/* Entry Card */}
       <div className="card shadow mb-4">
         <div className="card-body">
           <h2 className="mb-4 text-center">Fastbreak Horse Race</h2>
           <p>🏇 Pick your champion - a Top Shot user you think will finish highest in the next Fastbreak.</p>
-          <ul className="text-start ps-4">
-            <li>Submit before lock by choosing a TS user and sending the buy-in</li>
-            <li>90% to the winner</li>
-            <li>5% to the actual top horse (TS user selected by the winner)</li>
-            <li>Maximum entries per wallet: Unlimited</li>
-          </ul>
 
           {user.loggedIn && (
-            <p className="text-info text-center"><strong>Wallet:</strong> {user.addr}</p>
+            <>
+              <p className="text-info text-center">
+                <strong>Wallet:</strong> {user.addr}{" "}
+                {linkedUsername ? (
+                  <> | <strong>Linked TS Username:</strong> {linkedUsername}</>
+                ) : (
+                  linkChecked && (
+                    <> | <span style={{ color: 'red' }}>No linked TS username</span></>
+                  )
+                )}
+              </p>
+              {!linkedUsername && linkChecked && (
+                <p className="text-danger text-center">
+                  ❗ You must enable account linking to participate.{" "}
+                  <a href="https://support.meetdapper.com/hc/en-us/articles/20744347884819-Account-Linking-and-FAQ" target="_blank" rel="noopener noreferrer">
+                    Learn more
+                  </a>
+                </p>
+              )}
+            </>
           )}
 
           <div className="mb-3">
@@ -299,7 +346,7 @@ transaction(amount: UFix64, recipient: Address) {
             <button
               className="btn btn-primary flex-fill"
               onClick={handleBuyIn}
-              disabled={!user.loggedIn || processing || leaderboardData?.status === "STARTED"}
+              disabled={!user.loggedIn || processing || leaderboardData?.status === "STARTED" || !linkedUsername}
             >
               {processing
                 ? "Processing..."
