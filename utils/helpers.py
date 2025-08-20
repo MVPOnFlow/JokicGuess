@@ -722,7 +722,7 @@ async def get_linked_child_account(address_hex: str):
         return []
     }
     """
-    addr = Address.from_hex(address_hex.lstrip("0x"))
+    addr = Address.from_hex(address_hex.removeprefix("0x"))
     script = Script(code=cadence, arguments=[addr])
     try:
         result = await client.execute_script(script)
