@@ -15,10 +15,20 @@ function formatUFix64(n) {
   return fixed.replace(/(\.\d*?[1-9])0+$/g, "$1");
 }
 
+/** Strip a single leading $ if present (for internal use) */
+function stripLeadingDollar(s) {
+  return (s || "").replace(/^\$/, "");
+}
+
+/** Always show currency with a leading $ (for UI) */
+function formatCurrencyLabel(s) {
+  const stripped = stripLeadingDollar(s);
+  return stripped ? `$${stripped}` : "";
+}
+
 /** Map contest currency label -> token key in config */
 function normalizeTokenLabel(label) {
-  if (!label) return null;
-  const x = String(label).trim().toUpperCase().replace(/^\$/, ""); // strip leading $
+  const x = stripLeadingDollar(label).toUpperCase();
   if (x === "MVP") return "MVP";
   if (x === "FLOW") return "FLOW";
   if (x === "TSHOT") return "TSHOT";
@@ -46,7 +56,7 @@ const TOKEN_CONFIG = {
     storagePath: "/storage/TSHOTTokenVault",
     publicReceiverPath: "/public/TSHOTTokenReceiver",
   },
-  // Your bridged "beta" token: copy names/paths verbatim
+  // Bridged "BETA" token
   BETA: {
     contractName: "EVMVMBridgedToken_d8ad8ae8375aa31bff541e17dc4b4917014ebdaa",
     contractAddr: "0x1e4aa0b87d10b141",
@@ -304,7 +314,7 @@ export default function Fastbreak() {
 
       const userMsg = simplifyFlowError(error);
       const amount = selectedContest?.buy_in_amount ?? "N/A";
-      const tokenLabel = selectedContest?.buy_in_currency ?? "";
+      const tokenLabel = formatCurrencyLabel(selectedContest?.buy_in_currency) ?? "";
 
       if (userMsg.includes("Insufficient balance")) {
         setTxStatus(`❗ Error: You need at least ${amount} ${tokenLabel} in your wallet to buy in.`);
@@ -375,7 +385,7 @@ export default function Fastbreak() {
             <select className="form-select" onChange={handleContestChange} value={selectedContest?.id || ''}>
               {contests.map(contest => (
                 <option key={contest.id} value={contest.id}>
-                  {contest.display_name || contest.fastbreak_id} — {contest.buy_in_amount} ${contest.buy_in_currency}
+                  {contest.display_name || contest.fastbreak_id} — {contest.buy_in_amount} {formatCurrencyLabel(contest.buy_in_currency)}
                 </option>
               ))}
             </select>
@@ -443,7 +453,7 @@ export default function Fastbreak() {
             >
               {processing
                 ? "Processing..."
-                : `Buy In for ${selectedContest?.buy_in_amount || ''} ${selectedContest?.buy_in_currency || ''}`}
+                : `Buy In for ${selectedContest?.buy_in_amount || ''} ${formatCurrencyLabel(selectedContest?.buy_in_currency) || ''}`}
             </button>
           </div>
 
@@ -497,22 +507,21 @@ export default function Fastbreak() {
             {countdown && <p><strong>Contest locks in:</strong> {countdown}</p>}
             <p><strong>Total entries:</strong> {leaderboardData.totalEntries}</p>
             {(() => {
-              const currency = selectedContest?.buy_in_currency || "";
+              const currency = formatCurrencyLabel(selectedContest?.buy_in_currency);
               const winnerShare = (leaderboardData.totalPot * 18 / 19).toFixed(2);
               const pickedShare = (leaderboardData.totalPot / 19).toFixed(2);
               return (
                 <>
-                  <p><strong>Total pot:</strong> {leaderboardData.totalPot} ${currency}</p>
+                  <p><strong>Total pot:</strong> {leaderboardData.totalPot} {currency}</p>
                   <p className="text-muted">
                     <em>
-                      Winner gets {winnerShare} ${currency},&nbsp;
-                      Selected user earns {pickedShare} ${currency}
+                      Winner gets {winnerShare} {currency},&nbsp;
+                      Selected user earns {pickedShare} {currency}
                     </em>
                   </p>
                 </>
               );
             })()}
-
 
             {leaderboardData.status === "STARTED" ? (
               <>
