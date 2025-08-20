@@ -356,7 +356,12 @@ export default function Fastbreak() {
         <div className="card-body">
           <h2 className="mb-4 text-center">Fastbreak Horse Race</h2>
           <p>🏇 Pick your champion - a Top Shot user you think will finish highest in the next Fastbreak.</p>
-
+          <ul className="text-start ps-4">
+            <li>Submit before lock by choosing a TS user and sending the buy-in</li>
+            <li>90% to the winner</li>
+            <li>5% to the actual top horse (TS user selected by the winner)</li>
+            <li>Maximum entries per wallet: Unlimited</li>
+          </ul>
           {user.loggedIn && (
             <>
               <p className="text-info text-center">
