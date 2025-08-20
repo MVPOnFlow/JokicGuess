@@ -376,6 +376,8 @@ def add_fastbreak_entry(contest_id):
     if int(lock_timestamp) <= now_ts:
         return jsonify({"error": "This contest is already locked for new entries."}), 403
 
+    # TO DO - Validate transaction
+
     # Insert entry
     cursor.execute(prepare_query('''
         INSERT INTO fastbreakContestEntries (contest_id, userWalletAddress, topshotUsernamePrediction)
@@ -1055,7 +1057,7 @@ async def create_fastbreak_contest(
     fastbreak_id: str,
     display_name: str,
     lock_timestamp: str,
-    buy_in_currency: str = '$MVP',
+    buy_in_currency: str = 'MVP',
     buy_in_amount: float = 5.0
 ):
     # Admin check

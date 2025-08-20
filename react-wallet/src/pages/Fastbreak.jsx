@@ -3,6 +3,125 @@ import * as fcl from "@onflow/fcl";
 
 let leaderboardRequestToken = 0;
 
+/** =========================
+ *  Token config & helpers
+ *  ========================= */
+
+/** Format to UFix64 (<= 8 dp, keep at least one decimal) */
+function formatUFix64(n) {
+  const s = typeof n === "number" ? n.toFixed(8) : String(n);
+  const [i, d = "0"] = s.split(".");
+  const fixed = `${i}.${(d + "00000000").slice(0, 8)}`;
+  return fixed.replace(/(\.\d*?[1-9])0+$/g, "$1");
+}
+
+/** Map contest currency label -> token key in config */
+function normalizeTokenLabel(label) {
+  if (!label) return null;
+  const x = String(label).trim().toUpperCase().replace(/^\$/, ""); // strip leading $
+  if (x === "MVP") return "MVP";
+  if (x === "FLOW") return "FLOW";
+  if (x === "TSHOT") return "TSHOT";
+  if (x === "BETA") return "BETA";
+  return null;
+}
+
+/** MAINNET token wiring */
+const TOKEN_CONFIG = {
+  MVP: {
+    contractName: "PetJokicsHorses",
+    contractAddr: "0x6fd2465f3a22e34c",
+    storagePath: "/storage/PetJokicsHorsesVault",
+    publicReceiverPath: "/public/PetJokicsHorsesReceiver",
+  },
+  FLOW: {
+    contractName: "FlowToken",
+    contractAddr: "0x1654653399040a61",
+    storagePath: "/storage/flowTokenVault",
+    publicReceiverPath: "/public/flowTokenReceiver",
+  },
+  TSHOT: {
+    contractName: "TSHOT",
+    contractAddr: "0x05b67ba314000b2d",
+    storagePath: "/storage/TSHOTTokenVault",
+    publicReceiverPath: "/public/TSHOTTokenReceiver",
+  },
+  // Your bridged "beta" token: copy names/paths verbatim
+  BETA: {
+    contractName: "EVMVMBridgedToken_d8ad8ae8375aa31bff541e17dc4b4917014ebdaa",
+    contractAddr: "0x1e4aa0b87d10b141",
+    storagePath: "/storage/EVMVMBridgedToken_d8ad8ae8375aa31bff541e17dc4b4917014ebdaaVault",
+    publicReceiverPath: "/public/EVMVMBridgedToken_d8ad8ae8375aa31bff541e17dc4b4917014ebdaaReceiver",
+  },
+};
+
+function buildTransferCadence({ contractName, contractAddr, storagePath, publicReceiverPath }) {
+  return `
+import FungibleToken from 0xf233dcee88fe0abe
+import StorageRent from 0x707adbad1428c624
+import ${contractName} from ${contractAddr}
+
+transaction(amount: UFix64, recipient: Address) {
+  let sentVault: @{FungibleToken.Vault}
+
+  prepare(signer: auth(Storage, BorrowValue) &Account) {
+    let vaultRef = signer.storage.borrow<auth(FungibleToken.Withdraw) &${contractName}.Vault>(
+      from: ${storagePath}
+    ) ?? panic("Could not borrow reference to the owner's Vault!")
+    self.sentVault <- vaultRef.withdraw(amount: amount)
+  }
+
+  execute {
+    let recipientAccount = getAccount(recipient)
+    let receiverRef = recipientAccount.capabilities.borrow<&{FungibleToken.Vault}>(
+      ${publicReceiverPath}
+    ) ?? panic("Recipient is missing receiver capability at ${publicReceiverPath}")
+    receiverRef.deposit(from: <-self.sentVault)
+    StorageRent.tryRefill(recipient)
+  }
+}
+`;
+}
+
+/** One helper to send any supported FT */
+async function sendToken({
+  token,       // 'MVP' | 'FLOW' | 'TSHOT' | 'BETA'
+  amount,      // number|string
+  recipient,   // 0x...
+  limit = 9999
+}) {
+  const cfg = TOKEN_CONFIG[token];
+  if (!cfg) throw new Error(`Unsupported token '${token}'. Supported: ${Object.keys(TOKEN_CONFIG).join(", ")}`);
+
+  const cadence = buildTransferCadence(cfg);
+  const args = (arg, t) => [arg(formatUFix64(amount), t.UFix64), arg(recipient, t.Address)];
+  const authz = fcl.currentUser().authorization;
+
+  return fcl.mutate({
+    cadence,
+    args,
+    proposer: authz,
+    payer: authz,
+    authorizations: [authz],
+    limit,
+  });
+}
+
+function simplifyFlowError(e) {
+  const msg = String(e?.message || e);
+  if (msg.includes("FungibleToken.Vault.withdraw: Cannot withdraw tokens")) {
+    return "Insufficient balance to complete the transfer.";
+  }
+  if (msg.toLowerCase().includes("missing receiver capability")) {
+    return "Recipient wallet is not set up to receive this token.";
+  }
+  return msg;
+}
+
+/** =========================
+ *  Component
+ *  ========================= */
+
 export default function Fastbreak() {
   const [user, setUser] = useState({ loggedIn: null });
   const [txStatus, setTxStatus] = useState('');
@@ -124,11 +243,6 @@ export default function Fastbreak() {
     setLeaderboardData(null);
   };
 
-  const formatUFix64 = (value) => {
-    if (String(value).includes(".")) return String(value);
-    return `${value}.0`;
-  };
-
   const handleBuyIn = async () => {
     if (!user.loggedIn) {
       setTxStatus("❗ Please connect your wallet first.");
@@ -150,40 +264,20 @@ export default function Fastbreak() {
       return;
     }
 
+    const tokenKey = normalizeTokenLabel(selectedContest.buy_in_currency);
+    if (!tokenKey) {
+      setTxStatus(`❗ Unsupported token/currency: ${selectedContest.buy_in_currency}`);
+      return;
+    }
+
     try {
       setProcessing(true);
       setTxStatus("Waiting for wallet approval...");
 
-      const transactionId = await fcl.mutate({
-        cadence: `import FungibleToken from 0xf233dcee88fe0abe
-import StorageRent from 0x707adbad1428c624
-import PetJokicsHorses from 0x6fd2465f3a22e34c
-
-transaction(amount: UFix64, recipient: Address) {
-  let sentVault: @{FungibleToken.Vault}
-  prepare(signer: auth(Storage, BorrowValue) &Account) {
-    let vaultRef = signer.storage.borrow<auth(FungibleToken.Withdraw) &PetJokicsHorses.Vault>(
-      from: /storage/PetJokicsHorsesVault
-    ) ?? panic("Could not borrow reference to the owner's Vault!")
-    self.sentVault <- vaultRef.withdraw(amount: amount)
-  }
-  execute {
-    let recipientAccount = getAccount(recipient)
-    let receiverRef = recipientAccount.capabilities.borrow<&{FungibleToken.Vault}>(
-      /public/PetJokicsHorsesReceiver
-    )!
-    receiverRef.deposit(from: <-self.sentVault)
-    StorageRent.tryRefill(recipient)
-  }
-}`,
-        args: (arg, t) => [
-          arg(formatUFix64(selectedContest.buy_in_amount), t.UFix64),
-          arg(COMMUNITY_WALLET, t.Address)
-        ],
-        proposer: fcl.currentUser().authorization,
-        payer: fcl.currentUser().authorization,
-        authorizations: [fcl.currentUser().authorization],
-        limit: 9999
+      const transactionId = await sendToken({
+        token: tokenKey,
+        amount: selectedContest.buy_in_amount,
+        recipient: COMMUNITY_WALLET,
       });
 
       setTxStatus(`✅ Transaction submitted! TX ID: <a href="https://flowscan.io/tx/${transactionId}" target="_blank" rel="noopener noreferrer">${transactionId}</a>`);
@@ -208,14 +302,14 @@ transaction(amount: UFix64, recipient: Address) {
       console.error(error);
       setProcessing(false);
 
-      const msg = error.message || "";
-      const amount = selectedContest?.buy_in_amount || "N/A";
-      const token = selectedContest?.buy_in_currency || "$MVP";
+      const userMsg = simplifyFlowError(error);
+      const amount = selectedContest?.buy_in_amount ?? "N/A";
+      const tokenLabel = selectedContest?.buy_in_currency ?? "";
 
-      if (msg.includes("Cannot withdraw tokens") && msg.includes("greater than the balance")) {
-        setTxStatus(`❗ Error: You need at least ${amount} ${token} in your wallet to buy in.`);
+      if (userMsg.includes("Insufficient balance")) {
+        setTxStatus(`❗ Error: You need at least ${amount} ${tokenLabel} in your wallet to buy in.`);
       } else {
-        setTxStatus(`❗ Error: ${msg}`);
+        setTxStatus(`❗ Error: ${userMsg}`);
       }
     }
   };
@@ -281,58 +375,57 @@ transaction(amount: UFix64, recipient: Address) {
             <select className="form-select" onChange={handleContestChange} value={selectedContest?.id || ''}>
               {contests.map(contest => (
                 <option key={contest.id} value={contest.id}>
-                  {contest.display_name || contest.fastbreak_id} — {contest.buy_in_amount} {contest.buy_in_currency}
+                  {contest.display_name || contest.fastbreak_id} — {contest.buy_in_amount} ${contest.buy_in_currency}
                 </option>
               ))}
             </select>
           </div>
 
-            <div className="mb-3 position-relative">
-              <label>
-                TopShot Username prediction (Need help choosing?{" "}
-                <span
-                  onClick={() => window.location.href = "/horsestats"}
-                  style={{
-                    color: "#FDB927",
-                    fontWeight: "bold",
-                    textDecoration: "underline",
-                    cursor: "pointer"
-                  }}
-                >
-                  Investigate detailed stats
-                </span>
-                )
-              </label>
-              <input
-                type="text"
-                className="form-control"
-                value={topshotUsername}
-                onChange={(e) => setTopshotUsername(e.target.value)}
-                placeholder="Enter TopShot username of someone you predict does well"
-                autoComplete="off"
-              />
-              {topshotUsername && (
-                <ul className="list-group position-absolute w-100" style={{ zIndex: 1000 }}>
-                  {usernames
-                    .filter((u) =>
-                      u.toLowerCase().includes(topshotUsername.toLowerCase()) &&
-                      u.toLowerCase() !== topshotUsername.toLowerCase()
-                    )
-                    .slice(0, 5)
-                    .map((u, idx) => (
-                      <li
-                        key={idx}
-                        className="list-group-item list-group-item-action"
-                        style={{ backgroundColor: "#1C2A3A", color: "#FDB927", cursor: "pointer" }}
-                        onClick={() => setTopshotUsername(u)}
-                      >
-                        {u}
-                      </li>
-                    ))}
-                </ul>
-              )}
-            </div>
-
+          <div className="mb-3 position-relative">
+            <label>
+              TopShot Username prediction (Need help choosing?{" "}
+              <span
+                onClick={() => window.location.href = "/horsestats"}
+                style={{
+                  color: "#FDB927",
+                  fontWeight: "bold",
+                  textDecoration: "underline",
+                  cursor: "pointer"
+                }}
+              >
+                Investigate detailed stats
+              </span>
+              )
+            </label>
+            <input
+              type="text"
+              className="form-control"
+              value={topshotUsername}
+              onChange={(e) => setTopshotUsername(e.target.value)}
+              placeholder="Enter TopShot username of someone you predict does well"
+              autoComplete="off"
+            />
+            {topshotUsername && (
+              <ul className="list-group position-absolute w-100" style={{ zIndex: 1000 }}>
+                {usernames
+                  .filter((u) =>
+                    u.toLowerCase().includes(topshotUsername.toLowerCase()) &&
+                    u.toLowerCase() !== topshotUsername.toLowerCase()
+                  )
+                  .slice(0, 5)
+                  .map((u, idx) => (
+                    <li
+                      key={idx}
+                      className="list-group-item list-group-item-action"
+                      style={{ backgroundColor: "#1C2A3A", color: "#FDB927", cursor: "pointer" }}
+                      onClick={() => setTopshotUsername(u)}
+                    >
+                      {u}
+                    </li>
+                  ))}
+              </ul>
+            )}
+          </div>
 
           <div className="d-flex flex-column flex-md-row gap-3 mt-3 justify-content-center">
             <button
@@ -403,13 +496,23 @@ transaction(amount: UFix64, recipient: Address) {
             <h4 className="mb-3 text-center">📋 Contest Info</h4>
             {countdown && <p><strong>Contest locks in:</strong> {countdown}</p>}
             <p><strong>Total entries:</strong> {leaderboardData.totalEntries}</p>
-            <p><strong>Total pot:</strong> {leaderboardData.totalPot} $MVP</p>
-            <p className="text-muted">
-              <em>
-                Winner gets {(leaderboardData.totalPot * 18 / 19).toFixed(2)} $MVP,
-                Selected user earns {(leaderboardData.totalPot / 19).toFixed(2)} $MVP
-              </em>
-            </p>
+            {(() => {
+              const currency = selectedContest?.buy_in_currency || "";
+              const winnerShare = (leaderboardData.totalPot * 18 / 19).toFixed(2);
+              const pickedShare = (leaderboardData.totalPot / 19).toFixed(2);
+              return (
+                <>
+                  <p><strong>Total pot:</strong> {leaderboardData.totalPot} ${currency}</p>
+                  <p className="text-muted">
+                    <em>
+                      Winner gets {winnerShare} ${currency},&nbsp;
+                      Selected user earns {pickedShare} ${currency}
+                    </em>
+                  </p>
+                </>
+              );
+            })()}
+
 
             {leaderboardData.status === "STARTED" ? (
               <>
