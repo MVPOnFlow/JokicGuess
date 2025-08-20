@@ -771,7 +771,7 @@ async def get_linked_parent_account(address_hex: str):
 
     """
 
-    addr = Address.from_hex(address_hex.lstrip("0x"))
+    addr = Address.from_hex(address_hex.removeprefix("0x"))
     script = Script(code=cadence, arguments=[addr])
     try:
         result = await client.execute_script(script)
@@ -838,7 +838,7 @@ def get_username_from_dapper_wallet_flow(flow_address: str) -> str:
       }
     }
     """
-    flow_address = flow_address.lstrip('0x')
+    flow_address = flow_address.removeprefix('0x')
     variables = {
         "input": {
             "flowAddress": flow_address
