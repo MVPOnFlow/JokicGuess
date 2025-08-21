@@ -155,6 +155,9 @@ export default function Fastbreak() {
   const [linkedUsername, setLinkedUsername] = useState(null);
   const [linkChecked, setLinkChecked] = useState(false);
 
+  // Autocomplete visibility
+  const [showSuggestions, setShowSuggestions] = useState(false);
+
   useEffect(() => {
     fetch("https://mvponflow.cc/api/fastbreak_racing_usernames")
       .then((res) => res.json())
@@ -396,48 +399,93 @@ export default function Fastbreak() {
             </select>
           </div>
 
+          {/* Username input + autocomplete */}
           <div className="mb-3 position-relative">
             <label>
               TopShot Username prediction (Need help choosing?{" "}
               <span
-                onClick={() => window.location.href = "/horsestats"}
+                onClick={() => (window.location.href = "/horsestats")}
                 style={{
                   color: "#FDB927",
                   fontWeight: "bold",
                   textDecoration: "underline",
-                  cursor: "pointer"
+                  cursor: "pointer",
                 }}
               >
                 Investigate detailed stats
               </span>
               )
             </label>
+
             <input
               type="text"
               className="form-control"
               value={topshotUsername}
-              onChange={(e) => setTopshotUsername(e.target.value)}
+                onChange={(e) => {
+                  const next = e.target.value;
+                  setTopshotUsername(next);
+                  // keep suggestions visible whenever there is text (even on exact match)
+                  setShowSuggestions(next.trim().length > 0);
+                }}
+
+              onFocus={() => {
+                if (topshotUsername.trim().length > 0) setShowSuggestions(true);
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Escape" || e.key === "Enter") {
+                  setShowSuggestions(false);
+                }
+              }}
+              onBlur={() => {
+                // allow click on an item to register before hiding
+                setTimeout(() => setShowSuggestions(false), 120);
+              }}
               placeholder="Enter TopShot username of someone you predict does well"
               autoComplete="off"
             />
-            {topshotUsername && (
-              <ul className="list-group position-absolute w-100" style={{ zIndex: 1000 }}>
+
+            {showSuggestions && topshotUsername && (
+              <ul
+                className="list-group position-absolute w-100"
+                style={{ zIndex: 1000 }}
+                role="listbox"
+              >
                 {usernames
                   .filter((u) =>
-                    u.toLowerCase().includes(topshotUsername.toLowerCase()) &&
-                    u.toLowerCase() !== topshotUsername.toLowerCase()
+                    u.toLowerCase().includes(topshotUsername.toLowerCase())
                   )
                   .slice(0, 5)
                   .map((u, idx) => (
                     <li
                       key={idx}
                       className="list-group-item list-group-item-action"
-                      style={{ backgroundColor: "#1C2A3A", color: "#FDB927", cursor: "pointer" }}
-                      onClick={() => setTopshotUsername(u)}
+                      style={{
+                        backgroundColor: "#1C2A3A",
+                        color: "#FDB927",
+                        cursor: "pointer",
+                      }}
+                      onMouseDown={(e) => {
+                        // use onMouseDown so blur doesn’t fire first
+                        e.preventDefault();
+                        setTopshotUsername(u);
+                        setShowSuggestions(false);
+                      }}
+                      role="option"
+                      aria-selected={u.toLowerCase() === topshotUsername.toLowerCase()}
                     >
                       {u}
                     </li>
                   ))}
+                {usernames.filter((u) =>
+                  u.toLowerCase().includes(topshotUsername.toLowerCase())
+                ).length === 0 && (
+                  <li
+                    className="list-group-item"
+                    style={{ backgroundColor: "#1C2A3A", color: "#ADB5BD" }}
+                  >
+                    No matches — press Enter to use “{topshotUsername}”
+                  </li>
+                )}
               </ul>
             )}
           </div>
