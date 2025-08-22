@@ -151,10 +151,11 @@ def api_list_fastbreak_contests():
 
     for row in rows:
         contest_status = row[5]
-        lock_ts = int(row[2])
+
 
         # Reclassify OPEN contests as STARTED if lock time has passed
         try:
+            lock_ts = int(row[2])
             if contest_status == 'OPEN' and lock_ts < now_ts:
                 contest_status = 'STARTED'
         except:
