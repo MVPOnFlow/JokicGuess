@@ -32,7 +32,7 @@ export default function Home() {
           </p>
           <div className="text-center mt-3">
             <img
-              src="/images/Tokenomics.png"
+              src="/images/Tokenomics.svg"
               alt="MVP Tokenomics"
               className="img-fluid rounded shadow"
             />
