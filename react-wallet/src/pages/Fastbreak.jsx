@@ -565,7 +565,7 @@ export default function Fastbreak() {
               const pickedShare = (leaderboardData.totalPot / 19).toFixed(2);
               return (
                 <>
-                  <p><strong>Total pot:</strong> {leaderboardData.totalPot} {currency}</p>
+                  <p><strong>Total pot:</strong> {leaderboardData.totalPot.toFixed(2)} {currency}</p>
                   <p className="text-muted">
                     <em>
                       Winner gets {winnerShare} {currency},&nbsp;
