@@ -691,6 +691,7 @@ if db_type == "postgresql":
         WHERE rn <= 15
         GROUP BY username
     """)
+    conn.commit()
     try: # Only needed once
         cursor.execute(prepare_query('''
         ALTER TABLE fastbreak_rankings
