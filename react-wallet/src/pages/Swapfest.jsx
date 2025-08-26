@@ -28,7 +28,7 @@ export default function Swapfest() {
           </div>
 
           <p className="text-center mb-3">
-            Prize Pool: {prizePool} points
+            Prize Pool: {prizePool} chances to pet your horse
           </p>
 
           <div className="table-responsive">

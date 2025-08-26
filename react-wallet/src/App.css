@@ -310,3 +310,17 @@ body {
 .leaderboard-link:hover {
   color: #FFFFFF; /* White on hover */
 }
+
+/* --- Fix "stuck clicked" look for Buy $MVP button --- */
+#buy-mvp,
+
+#buy-mvp:focus,
+#buy-mvp:active,
+#buy-mvp:focus-visible {
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+.navbar-nav .nav-link#buy-mvp.active {
+  border-bottom: none !important;
+}

@@ -45,7 +45,10 @@ export default function Layout() {
               color: '#FDB927'
             }}
           >
-            <span className="navbar-toggler-icon" style={{ filter: 'invert(80%) sepia(100%) saturate(400%) hue-rotate(10deg)' }}></span>
+            <span
+              className="navbar-toggler-icon"
+              style={{ filter: 'invert(80%) sepia(100%) saturate(400%) hue-rotate(10deg)' }}
+            />
           </Navbar.Toggle>
 
           <Navbar.Collapse id="navbarNav">
@@ -69,6 +72,19 @@ export default function Layout() {
                   </Dropdown.Item>
                 </Dropdown.Menu>
               </Dropdown>
+                {/* Buy $MVP button */}
+                <Nav.Link
+                  id="buy-mvp"
+                  href="https://app.increment.fi/swap?in=A.1654653399040a61.FlowToken&out=A.6fd2465f3a22e34c.PetJokicsHorses"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="btn btn-sm ms-lg-2 mt-2 mt-lg-0"
+                  style={{ fontWeight: 600, borderRadius: '8px' }}
+                  onClick={(e) => e.currentTarget.blur()}   // drop focus so it doesn’t look “stuck”
+                >
+                  💰 Buy $MVP
+                </Nav.Link>
+
             </Nav>
 
             <div className="d-flex align-items-center">
