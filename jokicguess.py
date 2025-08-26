@@ -48,8 +48,8 @@ def serve_react(path):
 @app.route("/api/leaderboard")
 def api_leaderboard():
     # Define event period in UTC
-    start_time = '2025-07-01 21:00:00'
-    end_time = '2025-07-12 01:00:00'
+    start_time = '2025-08-25 21:00:00'
+    end_time = '2025-09-21 01:00:00'
 
     db = get_db()
     cursor = db.cursor()
