@@ -1,7 +1,4 @@
 import statistics
-import asyncio
-
-import discord
 from discord.ext import commands
 import time
 import discord
@@ -12,7 +9,6 @@ import datetime
 import random
 from flask import Flask, render_template, g, jsonify
 import threading
-from datetime import date
 import swapfest
 import math
 from flask_cors import CORS
@@ -49,19 +45,34 @@ def serve_react(path):
 def api_leaderboard():
     # Define event period in UTC
     start_time = '2025-08-25 21:00:00'
-    end_time = '2025-09-21 01:00:00'
+    end_time = '2025-09-21 21:00:00'
+
+    # Multiplier cutoffs (UTC)
+    boost1_cutoff = '2025-09-04 21:00:00'  # 1.4x before this
+    boost2_cutoff = '2025-09-15 21:00:00'  # 1.2x before this (and on/after Sept 4)
 
     db = get_db()
     cursor = db.cursor()
 
-    cursor.execute(prepare_query('''
-        SELECT from_address, SUM(points) AS total_points
+    # Sum points with date-based multipliers:
+    # - < Sept 04 => 1.4x
+    # - < Sept 15 => 1.2x
+    # - otherwise 1.0x
+    query = prepare_query('''
+        SELECT
+            from_address,
+            SUM(points * CASE
+                WHEN timestamp < ? THEN 1.4
+                WHEN timestamp < ? THEN 1.2
+                ELSE 1.0
+            END) AS total_points
         FROM gifts
         WHERE timestamp BETWEEN ? AND ?
         GROUP BY from_address
         ORDER BY total_points DESC
-    '''), (start_time, end_time))
+    ''')
 
+    cursor.execute(query, (boost1_cutoff, boost2_cutoff, start_time, end_time))
     rows = cursor.fetchall()
 
     # Map wallets to usernames
@@ -107,7 +118,7 @@ def api_leaderboard():
 
 @app.route('/api/treasury')
 def api_treasury():
-    # Hard-coded example data
+    # Hard-coded data
     treasury_data = {
         "tokens_in_wild": 14970,
         "common_count": 2143,
@@ -1424,17 +1435,30 @@ async def list_petting_rewards(interaction: discord.Interaction):
 async def gift_leaderboard(interaction: discord.Interaction):
     # Define the event window in UTC
     start_time = '2025-08-25 21:00:00'
-    end_time = '2025-09-21 21:00:00'
+    end_time   = '2025-09-21 21:00:00'
 
-    # Query with time filter
+    # Multiplier cutoffs (UTC)
+    boost1_cutoff = '2025-09-04 21:00:00'  # 1.4x before this
+    boost2_cutoff = '2025-09-15 21:00:00'  # 1.2x before this (and on/after Sept 4)
+
+    # Query with date-based multipliers:
+    # - < Sept 04 => 1.4x
+    # - < Sept 15 => 1.2x
+    # - otherwise 1.0x
     cursor.execute(prepare_query('''
-        SELECT from_address, SUM(points) AS total_points
+        SELECT
+            from_address,
+            SUM(points * CASE
+                WHEN timestamp < ? THEN 1.4
+                WHEN timestamp < ? THEN 1.2
+                ELSE 1.0
+            END) AS total_points
         FROM gifts
         WHERE timestamp BETWEEN ? AND ?
         GROUP BY from_address
         ORDER BY total_points DESC
         LIMIT 20
-    '''), (start_time, end_time))
+    '''), (boost1_cutoff, boost2_cutoff, start_time, end_time))
     rows = cursor.fetchall()
 
     if not rows:
@@ -1446,14 +1470,18 @@ async def gift_leaderboard(interaction: discord.Interaction):
 
     # Format leaderboard with wallet-to-username mapping
     leaderboard_lines = ["🎁 **Swapfest Gift Leaderboard** 🎁"]
-    leaderboard_lines.append(f"_Between {start_time} UTC and {end_time} UTC_\n")
+    leaderboard_lines.append(
+        f"_Between {start_time} UTC and {end_time} UTC_"
+        f"\n_1.4× before {boost1_cutoff} • 1.2× before {boost2_cutoff}_\n"
+    )
     for i, (from_address, total_points) in enumerate(rows, start=1):
         username = map_wallet_to_username(from_address)
-        leaderboard_lines.append(f"{i}. `{username}` : **{total_points} points**")
+        # If you prefer whole numbers, swap to: int(round(total_points))
+        leaderboard_lines.append(f"{i}. `{username}` : **{total_points:.2f} points**")
 
     message = "\n".join(leaderboard_lines)
-
     await interaction.response.send_message(message, ephemeral=True)
+
 
 @bot.tree.command(name="swapfest_latest_block", description="Check the last processed blockchain block scraping swapfest gifts (Admin only)")
 @commands.has_permissions(administrator=True)

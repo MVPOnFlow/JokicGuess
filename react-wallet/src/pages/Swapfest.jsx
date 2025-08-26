@@ -17,11 +17,11 @@ export default function Swapfest() {
     <div className="container">
       <div className="card shadow mb-4">
         <div className="card-body">
-          <h2 className="mb-4 text-center">🏀 $MVP Swap Fest July 1st - 11th 🏆</h2>
+          <h2 className="mb-4 text-center">🏀 $MVP Swap Fest Aug 25th - Sep 21st 🏆</h2>
 
           <div className="text-center mb-4">
             <img
-              src="/images/1-11-07-25.png"
+              src="/images/25-8-15-9-25.png"
               alt="Swap Fest Rules"
               className="img-fluid rounded shadow"
             />
