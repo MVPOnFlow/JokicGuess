@@ -658,6 +658,7 @@ conn.commit()
 
 if db_type == "postgresql":
     cursor.execute("DROP MATERIALIZED VIEW IF EXISTS user_rankings_summary")
+    conn.commit()
     cursor.execute("""
         CREATE MATERIALIZED VIEW user_rankings_summary AS
         WITH ranked AS (
@@ -1422,8 +1423,8 @@ async def list_petting_rewards(interaction: discord.Interaction):
 )
 async def gift_leaderboard(interaction: discord.Interaction):
     # Define the event window in UTC
-    start_time = '2025-07-01 21:00:00'
-    end_time = '2025-07-11 21:00:00'
+    start_time = '2025-08-25 21:00:00'
+    end_time = '2025-09-21 21:00:00'
 
     # Query with time filter
     cursor.execute(prepare_query('''
@@ -1544,7 +1545,7 @@ async def latest_gifts_csv(
             FROM gifts
             WHERE from_address = ?
             ORDER BY timestamp DESC
-            LIMIT 20
+            LIMIT 10
         ''')
         cursor.execute(query, (from_address,))
     else:
@@ -1552,7 +1553,7 @@ async def latest_gifts_csv(
             SELECT txn_id, moment_id, from_address, points, timestamp
             FROM gifts
             ORDER BY timestamp DESC
-            LIMIT 20
+            LIMIT 10
         ''')
         cursor.execute(query)
 
