@@ -1151,7 +1151,7 @@ async def on_ready():
     print(f'Logged in as {bot.user}! Commands synced.')
     bot.loop.create_task(swapfest.main())
     bot.loop.create_task(swapfest.main(offset=600))
-    bot.loop.create_task(swapfest.main(offset=60000))
+    bot.loop.create_task(swapfest.main(offset=50000))
 
 
 # Pet command for $MVP rewards
