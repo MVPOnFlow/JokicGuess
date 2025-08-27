@@ -54,63 +54,56 @@ def api_leaderboard():
     db = get_db()
     cursor = db.cursor()
 
-    # Sum points with date-based multipliers:
-    # - < Sept 04 => 1.4x
-    # - < Sept 15 => 1.2x
-    # - otherwise 1.0x
     query = prepare_query('''
         SELECT
             from_address,
             SUM(points * CASE
-                WHEN timestamp < ? THEN 1.4
-                WHEN timestamp < ? THEN 1.2
+                WHEN "timestamp" < ? THEN 1.4
+                WHEN "timestamp" < ? THEN 1.2
                 ELSE 1.0
-            END) AS total_points
+            END) AS total_points,
+            MAX("timestamp") AS last_scored_at
         FROM gifts
-        WHERE timestamp BETWEEN ? AND ?
+        WHERE "timestamp" BETWEEN ? AND ?
         GROUP BY from_address
-        ORDER BY total_points DESC
+        ORDER BY total_points DESC, last_scored_at ASC
     ''')
 
     cursor.execute(query, (boost1_cutoff, boost2_cutoff, start_time, end_time))
     rows = cursor.fetchall()
 
-    # Map wallets to usernames
+    def _to_iso(ts):
+        # Works if ts is already a string (SQLite) or a datetime (Postgres)
+        try:
+            return ts.isoformat(sep=' ')
+        except AttributeError:
+            return str(ts) if ts is not None else None
+
+    # Map wallets to usernames + attach last_scored_at
     leaderboard_data = [
         {
             "username": map_wallet_to_username(from_address),
-            "points": total_points
+            "points": total_points,
+            "last_scored_at": _to_iso(last_scored_at),
         }
-        for from_address, total_points in rows
+        for (from_address, total_points, last_scored_at) in rows
     ]
 
-    # 1️⃣ Calculate total prize pool
-    prize_pool = sum(entry["points"] for entry in leaderboard_data)
+    # 1️⃣ Total prize pool
+    prize_pool = sum(float(entry["points"]) for entry in leaderboard_data)
 
     # 2️⃣ Prize percentage mapping by rank
-    prize_percentages = {
-        1: 25,
-        2: 20,
-        3: 15,
-        4: 11,
-        5: 8,
-        6: 6,
-        7: 5,
-        8: 4,
-        9: 3,
-        10: 2
-    }
+    prize_percentages = {1: 25, 2: 20, 3: 15, 4: 11, 5: 8, 6: 6, 7: 5, 8: 4, 9: 3, 10: 2}
 
-    # 3️⃣ Add prize info to each leaderboard entry
+    # 3️⃣ Add prize info
     for index, entry in enumerate(leaderboard_data, start=1):
         if index in prize_percentages:
             percent = prize_percentages[index]
-            pet_count = math.ceil(float(prize_pool) * (percent / 100))
+            pet_count = math.ceil(prize_pool * (percent / 100))
             entry["prize"] = f"{ordinal(index)} pick + Pet your horse {pet_count} times"
         else:
             entry["prize"] = "-"
 
-    # ✅ Return JSON
     return jsonify({
         "prize_pool": prize_pool,
         "leaderboard": leaderboard_data
