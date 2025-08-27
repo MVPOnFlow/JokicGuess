@@ -417,6 +417,7 @@ WALLET_USERNAME_MAP = {
     '0xb4da21808155485d': 'crazyzeus',
     '0xca87efe2e0da6297': 'Agent00',
     '0xd6641d89e6372ee1': 'leet3',
+    '0x58bdc3d07e83ba18': 'Libruary'
 }
 
 def map_wallet_to_username(wallet_address: str) -> str:
