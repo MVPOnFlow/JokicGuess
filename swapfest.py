@@ -187,13 +187,13 @@ async def get_block_gifts(block_height, offset):
 # ==============================
 # MAIN LOOP
 # ==============================
-async def main():
-    all_gifts = []
+async def main(offset = OFFSET):
+    #all_gifts = []
     #reset_last_processed_block("118853777")
-    block_height = get_last_processed_block()
+    block_height = get_last_processed_block() - offset
 
     while True:
-        new_gifts = await get_block_gifts(block_height, OFFSET)
+        new_gifts = await get_block_gifts(block_height, offset)
 
         if new_gifts is False:
             continue  # Do NOT advance block_height
@@ -205,7 +205,7 @@ async def main():
                 points = await get_moment_points(moment_id)
             #print(f"Transaction {gift['txn_id']} - Awarded {points} points")
             # Here you can save to DB, file, etc.
-            all_gifts.append((gift, points))
+            #all_gifts.append((gift, points))
             save_gift(
                 txn_id=gift['txn_id'],
                 moment_id=int(gift['moment_id']),
@@ -213,8 +213,9 @@ async def main():
                 points=points,
                 timestamp=gift.get('timestamp', '')
             )
-        save_last_processed_block(block_height + OFFSET)
-        block_height += OFFSET + 1
+        if offset == OFFSET:
+            save_last_processed_block(block_height + offset)
+        block_height += offset + 1
         await asyncio.sleep(0.01)
         #print(f"Next block_height: {block_height}")
 
