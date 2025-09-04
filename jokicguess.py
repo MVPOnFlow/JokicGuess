@@ -48,8 +48,8 @@ def api_leaderboard():
     end_time = '2025-09-21 21:00:00'
 
     # Multiplier cutoffs (UTC)
-    boost1_cutoff = '2025-09-04 21:00:00'  # 1.4x before this
-    boost2_cutoff = '2025-09-15 21:00:00'  # 1.2x before this (and on/after Sept 4)
+    boost1_cutoff = '2025-09-05 00:00:00'  # 1.4x before this
+    boost2_cutoff = '2025-09-16 00:00:00'  # 1.2x before this (and on/after Sept 4)
 
     db = get_db()
     cursor = db.cursor()
@@ -1432,8 +1432,8 @@ async def gift_leaderboard(interaction: discord.Interaction):
     end_time   = '2025-09-21 21:00:00'
 
     # Multiplier cutoffs (UTC)
-    boost1_cutoff = '2025-09-04 21:00:00'  # 1.4x before this
-    boost2_cutoff = '2025-09-15 21:00:00'  # 1.2x before this (and on/after Sept 4)
+    boost1_cutoff = '2025-09-05 00:00:00'  # 1.4x before this
+    boost2_cutoff = '2025-09-16 00:00:00'  # 1.2x before this (and on/after Sept 4)
 
     # Query with date-based multipliers:
     # - < Sept 04 => 1.4x
