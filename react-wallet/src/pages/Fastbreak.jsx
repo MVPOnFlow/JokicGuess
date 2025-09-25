@@ -151,7 +151,7 @@ export default function Fastbreak() {
 
   const [usernames, setUsernames] = useState([]);
 
-  // ✅ New state for linked TS username and flag
+  // ✅ Linked TS username (optional now)
   const [linkedUsername, setLinkedUsername] = useState(null);
   const [linkChecked, setLinkChecked] = useState(false);
 
@@ -262,10 +262,7 @@ export default function Fastbreak() {
       return;
     }
 
-    if (!linkedUsername) {
-      setTxStatus("❗ You must enable account linking to make predictions. See: https://support.meetdapper.com/hc/en-us/articles/20744347884819-Account-Linking-and-FAQ");
-      return;
-    }
+    // 🔓 Account linking is OPTIONAL now — no blocking check here.
 
     if (!selectedContest) {
       setTxStatus("❗ Please select a contest.");
@@ -358,10 +355,10 @@ export default function Fastbreak() {
       <div className="card shadow mb-4">
         <div className="card-body">
           <h2 className="mb-4 text-center">Fastbreak Horse Race</h2>
-          <p>🏇 Pick your champion - a Top Shot user you think will finish highest in the next Fastbreak.</p>
+          <p>🏇 Pick your champion - a Top Shot user you think will finish highest in the selected Fastbreak daily game. Rules are simple:</p>
           <ul className="text-start ps-4">
             <li>Submit before lock by choosing a TS user and sending the buy-in</li>
-            <li>90% to the winner</li>
+            <li>90% to the winner (split pot in case of a tie)</li>
             <li>5% to the actual top horse (TS user selected by the winner)</li>
             <li>Maximum entries per wallet: Unlimited</li>
           </ul>
@@ -373,13 +370,14 @@ export default function Fastbreak() {
                   <> | <strong>Linked TS Username:</strong> {linkedUsername}</>
                 ) : (
                   linkChecked && (
-                    <> | <span style={{ color: 'red' }}>No linked TS username</span></>
+                    <> | <span style={{ color: 'orange' }}>Optional: link your TS username for richer stats</span></>
                   )
                 )}
               </p>
+              {/* 🔔 Optional nudge only; no blocking */}
               {!linkedUsername && linkChecked && (
-                <p className="text-danger text-center">
-                  ❗ You must enable account linking to participate.{" "}
+                <p className="text-muted text-center" style={{ fontSize: '0.95rem' }}>
+                  Linking helps us show wallet ↔ username info, but it’s not required.{" "}
                   <a href="https://support.meetdapper.com/hc/en-us/articles/20744347884819-Account-Linking-and-FAQ" target="_blank" rel="noopener noreferrer">
                     Learn more
                   </a>
@@ -421,13 +419,12 @@ export default function Fastbreak() {
               type="text"
               className="form-control"
               value={topshotUsername}
-                onChange={(e) => {
-                  const next = e.target.value;
-                  setTopshotUsername(next);
-                  // keep suggestions visible whenever there is text (even on exact match)
-                  setShowSuggestions(next.trim().length > 0);
-                }}
-
+              onChange={(e) => {
+                const next = e.target.value;
+                setTopshotUsername(next);
+                // keep suggestions visible whenever there is text (even on exact match)
+                setShowSuggestions(next.trim().length > 0);
+              }}
               onFocus={() => {
                 if (topshotUsername.trim().length > 0) setShowSuggestions(true);
               }}
@@ -502,7 +499,8 @@ export default function Fastbreak() {
             <button
               className="btn btn-primary flex-fill"
               onClick={handleBuyIn}
-              disabled={!user.loggedIn || processing || leaderboardData?.status === "STARTED" || !linkedUsername}
+              // 🔓 No longer disabled due to missing linkedUsername
+              disabled={!user.loggedIn || processing || leaderboardData?.status === "STARTED"}
             >
               {processing
                 ? "Processing..."
