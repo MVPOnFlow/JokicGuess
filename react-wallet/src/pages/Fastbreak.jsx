@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import * as fcl from "@onflow/fcl";
 
 let leaderboardRequestToken = 0;
@@ -7,7 +7,6 @@ let leaderboardRequestToken = 0;
  *  Token config & helpers
  *  ========================= */
 
-/** Format to UFix64 (<= 8 dp, keep at least one decimal) */
 function formatUFix64(n) {
   const s = typeof n === "number" ? n.toFixed(8) : String(n);
   const [i, d = "0"] = s.split(".");
@@ -15,18 +14,13 @@ function formatUFix64(n) {
   return fixed.replace(/(\.\d*?[1-9])0+$/g, "$1");
 }
 
-/** Strip a single leading $ if present (for internal use) */
 function stripLeadingDollar(s) {
   return (s || "").replace(/^\$/, "");
 }
-
-/** Always show currency with a leading $ (for UI) */
 function formatCurrencyLabel(s) {
   const stripped = stripLeadingDollar(s);
   return stripped ? `$${stripped}` : "";
 }
-
-/** Map contest currency label -> token key in config */
 function normalizeTokenLabel(label) {
   const x = stripLeadingDollar(label).toUpperCase();
   if (x === "MVP") return "MVP";
@@ -36,7 +30,6 @@ function normalizeTokenLabel(label) {
   return null;
 }
 
-/** MAINNET token wiring */
 const TOKEN_CONFIG = {
   MVP: {
     contractName: "PetJokicsHorses",
@@ -56,7 +49,6 @@ const TOKEN_CONFIG = {
     storagePath: "/storage/TSHOTTokenVault",
     publicReceiverPath: "/public/TSHOTTokenReceiver",
   },
-  // Bridged "BETA" token
   BETA: {
     contractName: "EVMVMBridgedToken_d8ad8ae8375aa31bff541e17dc4b4917014ebdaa",
     contractAddr: "0x1e4aa0b87d10b141",
@@ -93,39 +85,111 @@ transaction(amount: UFix64, recipient: Address) {
 `;
 }
 
-/** One helper to send any supported FT */
-async function sendToken({
-  token,       // 'MVP' | 'FLOW' | 'TSHOT' | 'BETA'
-  amount,      // number|string
-  recipient,   // 0x...
-  limit = 9999
-}) {
+async function sendToken({ token, amount, recipient, limit = 9999 }) {
   const cfg = TOKEN_CONFIG[token];
   if (!cfg) throw new Error(`Unsupported token '${token}'. Supported: ${Object.keys(TOKEN_CONFIG).join(", ")}`);
-
   const cadence = buildTransferCadence(cfg);
   const args = (arg, t) => [arg(formatUFix64(amount), t.UFix64), arg(recipient, t.Address)];
   const authz = fcl.currentUser().authorization;
 
-  return fcl.mutate({
-    cadence,
-    args,
-    proposer: authz,
-    payer: authz,
-    authorizations: [authz],
-    limit,
-  });
+  return fcl.mutate({ cadence, args, proposer: authz, payer: authz, authorizations: [authz], limit });
 }
 
 function simplifyFlowError(e) {
   const msg = String(e?.message || e);
-  if (msg.includes("FungibleToken.Vault.withdraw: Cannot withdraw tokens")) {
-    return "Insufficient balance to complete the transfer.";
-  }
-  if (msg.toLowerCase().includes("missing receiver capability")) {
-    return "Recipient wallet is not set up to receive this token.";
-  }
+  if (msg.includes("FungibleToken.Vault.withdraw: Cannot withdraw tokens")) return "Insufficient balance to complete the transfer.";
+  if (msg.toLowerCase().includes("missing receiver capability")) return "Recipient wallet is not set up to receive this token.";
   return msg;
+}
+
+/** =========================
+ *  Contest helpers
+ *  ========================= */
+
+function byOldestStart(a, b) {
+  const at = Number(a?.lock_timestamp ?? 0);
+  const bt = Number(b?.lock_timestamp ?? 0);
+  return at - bt;
+}
+function isStarted(contest) {
+  const now = Math.floor(Date.now() / 1000);
+  const lt = Number(contest?.lock_timestamp ?? 0);
+  return lt > 0 && now >= lt;
+}
+function startedWithinLastHours(contest, hrs = 8) {
+  if (!isStarted(contest)) return false;
+  const now = Math.floor(Date.now() / 1000);
+  const lt = Number(contest.lock_timestamp);
+  return (now - lt) <= hrs * 3600;
+}
+function startedOverHoursAgo(contest, hrs = 24) {
+  if (!isStarted(contest)) return false;
+  const now = Math.floor(Date.now() / 1000);
+  const lt = Number(contest.lock_timestamp);
+  return (now - lt) > hrs * 3600;
+}
+function nextToStart(contests) {
+  const now = Math.floor(Date.now() / 1000);
+  return contests.filter(c => Number(c.lock_timestamp ?? 0) > now)
+    .sort((a, b) => Number(a.lock_timestamp) - Number(b.lock_timestamp))[0] || null;
+}
+function pickDefaultContest(contests) {
+  if (!Array.isArray(contests) || contests.length === 0) return null;
+  const recent = contests.filter(c => startedWithinLastHours(c, 8))
+    .sort((a, b) => Number(b.lock_timestamp) - Number(a.lock_timestamp));
+  if (recent.length > 0) return recent[0];
+  const upcoming = nextToStart(contests);
+  if (upcoming) return upcoming;
+  return contests.filter(c => Number(c.lock_timestamp ?? 0) > 0)
+    .sort((a, b) => Number(b.lock_timestamp) - Number(a.lock_timestamp))[0] || contests[0];
+}
+function statusBadgeData(contest) {
+  const now = Math.floor(Date.now() / 1000);
+  const lt = Number(contest?.lock_timestamp ?? 0);
+  if (!lt) return { text: "Unknown", color: "#9CA3AF" };
+  if (lt > now) {
+    const diff = lt - now;
+    const h = Math.floor(diff / 3600);
+    const m = Math.floor((diff % 3600) / 60);
+    const txt = h > 0 ? `Starts in ${h}h ${m}m` : `Starts in ${m}m`;
+    return { text: txt, color: "#FDB927" };
+  }
+  if (startedOverHoursAgo(contest, 24)) return { text: "Completed", color: "#6B7280" };
+  return { text: "Started", color: "#10B981" };
+}
+
+/** Query param helpers */
+function getQueryParam(name) {
+  if (typeof window === "undefined") return null;
+  const url = new URL(window.location.href);
+  return url.searchParams.get(name);
+}
+function setQueryParam(name, value) {
+  if (typeof window === "undefined" || !name) return;
+  const url = new URL(window.location.href);
+  if (value === null || value === undefined || value === "") url.searchParams.delete(name);
+  else url.searchParams.set(name, String(value));
+  window.history.replaceState({}, "", url.toString());
+}
+
+/** Carousel refs & centering */
+function useCardRefs(list) {
+  const mapRef = useRef({});
+  return useMemo(() => {
+    const m = {};
+    (list || []).forEach(item => {
+      m[item.id] = (mapRef.current[item.id] ||= React.createRef());
+    });
+    return m;
+  }, [list]);
+}
+function centerCardInView(containerEl, cardEl) {
+  if (!containerEl || !cardEl) return;
+  const cRect = containerEl.getBoundingClientRect();
+  const elRect = cardEl.getBoundingClientRect();
+  const currentScrollLeft = containerEl.scrollLeft;
+  const offset = (elRect.left + elRect.width / 2) - (cRect.left + cRect.width / 2);
+  containerEl.scrollTo({ left: currentScrollLeft + offset, behavior: "smooth" });
 }
 
 /** =========================
@@ -142,21 +206,24 @@ export default function Fastbreak() {
   const [topshotUsername, setTopshotUsername] = useState('');
 
   const [leaderboardData, setLeaderboardData] = useState(null);
+  const [leaderboardLoading, setLeaderboardLoading] = useState(false);
   const [countdown, setCountdown] = useState('');
 
   const [showModal, setShowModal] = useState(false);
   const [modalStats, setModalStats] = useState(null);
 
   const COMMUNITY_WALLET = "0x2459710b1d10aed0";
-
   const [usernames, setUsernames] = useState([]);
 
-  // ✅ Linked TS username (optional now)
-  const [linkedUsername, setLinkedUsername] = useState(null);
-  const [linkChecked, setLinkChecked] = useState(false);
+  // Collapsible Rules section
+  const [showRules, setShowRules] = useState(false);
 
   // Autocomplete visibility
   const [showSuggestions, setShowSuggestions] = useState(false);
+
+  // carousel refs
+  const rowRef = useRef(null);
+  const cardRefs = useCardRefs(contests);
 
   useEffect(() => {
     fetch("https://mvponflow.cc/api/fastbreak_racing_usernames")
@@ -168,20 +235,22 @@ export default function Fastbreak() {
   useEffect(() => {
     fcl.currentUser().subscribe(async (cu) => {
       setUser(cu);
-      if (cu?.addr) {
-        await fetchLinkedUsername(cu.addr);
-      } else {
-        setLinkedUsername(null);
-        setLinkChecked(false);
-      }
+      // Account linking fetch intentionally commented out for UI removal
+      // if (cu?.addr) await fetchLinkedUsername(cu.addr);
     });
     fetchContests();
   }, []);
 
   useEffect(() => {
     if (selectedContest) {
+      setLeaderboardLoading(true);
       fetchLeaderboard(selectedContest.id, user.addr);
+      setQueryParam("contest", selectedContest.id);
+      const container = rowRef.current;
+      const card = cardRefs[selectedContest.id]?.current;
+      if (container && card) centerCardInView(container, card);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, selectedContest]);
 
   useEffect(() => {
@@ -189,11 +258,9 @@ export default function Fastbreak() {
       setCountdown('');
       return;
     }
-
     const interval = setInterval(() => {
       const now = Math.floor(Date.now() / 1000);
       const diff = selectedContest.lock_timestamp - now;
-
       if (diff <= 0) {
         setCountdown('Contest has started!');
         clearInterval(interval);
@@ -204,7 +271,6 @@ export default function Fastbreak() {
         setCountdown(`${hours}:${minutes}:${seconds}`);
       }
     }, 1000);
-
     return () => clearInterval(interval);
   }, [selectedContest]);
 
@@ -212,84 +278,70 @@ export default function Fastbreak() {
     try {
       const res = await fetch("https://mvponflow.cc/api/fastbreak/contests");
       const data = await res.json();
-      setContests(data);
-      if (data.length > 0) setSelectedContest(data[0]);
+      const sorted = [...data].sort(byOldestStart);
+      setContests(sorted);
+
+      // deep link via ?contest=ID
+      const queryId = getQueryParam("contest");
+      let initial = null;
+      if (queryId) {
+        const parsed = Number(queryId);
+        initial = sorted.find(c => Number(c.id) === parsed) || null;
+      }
+      if (!initial) initial = pickDefaultContest(sorted);
+
+      setSelectedContest(initial || sorted[0] || null);
+
+      setTimeout(() => {
+        if (initial) {
+          const container = rowRef.current;
+          const card = cardRefs[initial.id]?.current;
+          if (container && card) centerCardInView(container, card);
+        }
+      }, 50);
     } catch (err) {
       console.error("Failed to load contests", err);
     }
   };
 
   const fetchLeaderboard = async (contestId, userWallet) => {
+    setLeaderboardLoading(true);
     const currentToken = ++leaderboardRequestToken;
     try {
       const res = await fetch(`https://mvponflow.cc/api/fastbreak/contest/${contestId}/prediction-leaderboard?userWallet=${userWallet}`);
       const data = await res.json();
-      if (currentToken === leaderboardRequestToken) {
-        setLeaderboardData(data);
-      }
+      if (currentToken === leaderboardRequestToken) setLeaderboardData(data);
     } catch (err) {
       console.error("Failed to load leaderboard", err);
-    }
-  };
-
-  const fetchLinkedUsername = async (walletAddr) => {
-    try {
-      const res = await fetch(`https://mvponflow.cc/api/linked_username/${walletAddr}`);
-      const data = await res.json();
-      if (data?.username) {
-        setLinkedUsername(data.username);
-      } else {
-        setLinkedUsername(null);
-      }
-    } catch (err) {
-      console.error("Failed to check linked username", err);
-      setLinkedUsername(null);
     } finally {
-      setLinkChecked(true);
+        if (currentToken === leaderboardRequestToken) {
+          setLeaderboardLoading(false); // <-- ADD
+        }
     }
   };
 
-  const handleContestChange = (e) => {
-    const selectedId = parseInt(e.target.value);
-    const contest = contests.find(c => c.id === selectedId);
+  // const fetchLinkedUsername = async (walletAddr) => { ... }  // intentionally omitted from UI
+
+  const handleSelectContest = (contest) => {
     setSelectedContest(contest);
     setLeaderboardData(null);
+    const container = rowRef.current;
+    const card = cardRefs[contest.id]?.current;
+    if (container && card) centerCardInView(container, card);
   };
 
   const handleBuyIn = async () => {
-    if (!user.loggedIn) {
-      setTxStatus("❗ Please connect your wallet first.");
-      return;
-    }
-
-    // 🔓 Account linking is OPTIONAL now — no blocking check here.
-
-    if (!selectedContest) {
-      setTxStatus("❗ Please select a contest.");
-      return;
-    }
-
-    if (!topshotUsername.trim()) {
-      setTxStatus("❗ Please enter your TopShot username prediction.");
-      return;
-    }
+    if (!user.loggedIn) { setTxStatus("❗ Please connect your wallet first."); return; }
+    if (!selectedContest) { setTxStatus("❗ Please select a contest."); return; }
+    if (!topshotUsername.trim()) { setTxStatus("❗ Please enter your TopShot username prediction."); return; }
 
     const tokenKey = normalizeTokenLabel(selectedContest.buy_in_currency);
-    if (!tokenKey) {
-      setTxStatus(`❗ Unsupported token/currency: ${selectedContest.buy_in_currency}`);
-      return;
-    }
+    if (!tokenKey) { setTxStatus(`❗ Unsupported token/currency: ${selectedContest.buy_in_currency}`); return; }
 
     try {
       setProcessing(true);
       setTxStatus("Waiting for wallet approval...");
-
-      const transactionId = await sendToken({
-        token: tokenKey,
-        amount: selectedContest.buy_in_amount,
-        recipient: COMMUNITY_WALLET,
-      });
-
+      const transactionId = await sendToken({ token: tokenKey, amount: selectedContest.buy_in_amount, recipient: COMMUNITY_WALLET });
       setTxStatus(`✅ Transaction submitted! TX ID: <a href="https://flowscan.io/tx/${transactionId}" target="_blank" rel="noopener noreferrer">${transactionId}</a>`);
       await fcl.tx(transactionId).onceSealed();
 
@@ -297,25 +349,19 @@ export default function Fastbreak() {
       await fetch(`https://mvponflow.cc/api/fastbreak/contest/${selectedContest.id}/entries`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          topshotUsernamePrediction: topshotUsername,
-          userWalletAddress: user.addr
-        })
+        body: JSON.stringify({ topshotUsernamePrediction: topshotUsername, userWalletAddress: user.addr })
       });
 
       setTxStatus(`✅ Entry submitted!`);
       setProcessing(false);
       setTopshotUsername('');
       fetchLeaderboard(selectedContest.id, user.addr);
-
     } catch (error) {
       console.error(error);
       setProcessing(false);
-
       const userMsg = simplifyFlowError(error);
       const amount = selectedContest?.buy_in_amount ?? "N/A";
       const tokenLabel = formatCurrencyLabel(selectedContest?.buy_in_currency) ?? "";
-
       if (userMsg.includes("Insufficient balance")) {
         setTxStatus(`❗ Error: You need at least ${amount} ${tokenLabel} in your wallet to buy in.`);
       } else {
@@ -329,16 +375,9 @@ export default function Fastbreak() {
     try {
       const statsRes = await fetch(`https://mvponflow.cc/api/fastbreak_racing_stats/${username}`);
       const statsData = await statsRes.json();
-
-      const lineupRes = await fetch(
-        `https://mvponflow.cc/api/has_lineup?username=${username}&fastbreak_id=${selectedContest.fastbreak_id}`
-      );
+      const lineupRes = await fetch(`https://mvponflow.cc/api/has_lineup?username=${username}&fastbreak_id=${selectedContest.fastbreak_id}`);
       const { hasLineup } = await lineupRes.json();
-
-      setModalStats({
-        ...statsData,
-        hasLineup
-      });
+      setModalStats({ ...statsData, hasLineup });
       setShowModal(true);
     } catch (err) {
       console.error("Failed to fetch stats:", err);
@@ -346,69 +385,162 @@ export default function Fastbreak() {
     }
   };
 
-  const handleCheckStats = () => {
-    openStatsModal(topshotUsername.trim());
+  const ContestCard = ({ contest, selected, onClick }) => {
+    const { text, color } = statusBadgeData(contest);
+    return (
+      <div
+        ref={cardRefs[contest.id]}
+        className="contest-card"
+        onClick={onClick}
+        role="button"
+        style={{
+          width: 240, minWidth: 240, maxWidth: 240,
+          padding: '12px',
+          borderRadius: '14px',
+          // rely on App.css card colors by NOT using .card here; keep our own look but with contrast
+          backgroundColor: selected ? '#0E2240' : '#1C2A3A',
+          border: selected ? '2px solid #FDB927' : '1px solid #273549',
+          color: '#E5E7EB',
+          cursor: 'pointer',
+          boxShadow: selected ? '0 6px 20px rgba(253,185,39,0.25)' : '0 2px 10px rgba(0,0,0,0.25)',
+          transform: selected ? 'scale(1.02)' : 'scale(1)',
+          transition: 'transform .12s ease, box-shadow .12s ease, border .12s ease, background-color .12s ease'
+        }}
+      >
+        <div className="d-flex align-items-start justify-content-between">
+          <div className="fw-bold" style={{ color: '#FDB927', fontSize: '1rem', lineHeight: 1.25 }}>
+            {contest.display_name || contest.fastbreak_id}
+          </div>
+          <span className="badge rounded-pill" style={{ backgroundColor: color, color: '#0B1220', fontWeight: 700 }} title={text}>
+            {text}
+          </span>
+        </div>
+        <div className="mt-2 small">
+          Buy-in: <strong>{contest.buy_in_amount} {formatCurrencyLabel(contest.buy_in_currency)}</strong>
+        </div>
+      </div>
+    );
   };
+
+  const selectedIndex = useMemo(() => {
+    if (!selectedContest) return -1;
+    return contests.findIndex(c => c.id === selectedContest.id);
+  }, [contests, selectedContest]);
+
+  const scrollToIndex = (idx) => {
+    if (idx < 0 || idx >= contests.length) return;
+    const target = contests[idx];
+    if (!target) return;
+    handleSelectContest(target);
+  };
+  const scrollLeft = () => scrollToIndex(selectedIndex - 1);
+  const scrollRight = () => scrollToIndex(selectedIndex + 1);
+  const canBuyIn =
+      user.loggedIn &&
+      !processing &&
+      !leaderboardLoading &&
+      !!leaderboardData &&
+      leaderboardData.status !== "STARTED";
 
   return (
     <div className="container">
+      {/* ===================== RULES (separate card) ===================== */}
       <div className="card shadow mb-4">
         <div className="card-body">
-          <h2 className="mb-4 text-center">Fastbreak Horse Race</h2>
-          <p>🏇 Pick your champion - a Top Shot user you think will finish highest in the selected Fastbreak daily game. Rules are simple:</p>
-          <ul className="text-start ps-4">
-            <li>Submit before lock by choosing a TS user and sending the buy-in</li>
-            <li>90% to the winner (split pot in case of a tie)</li>
-            <li>5% to the actual top horse (TS user selected by the winner)</li>
-            <li>Maximum entries per wallet: Unlimited</li>
-          </ul>
-          {user.loggedIn && (
-            <>
-              <p className="text-info text-center">
-                <strong>Wallet:</strong> {user.addr}{" "}
-                {linkedUsername ? (
-                  <> | <strong>Linked TS Username:</strong> {linkedUsername}</>
-                ) : (
-                  linkChecked && (
-                    <> | <span style={{ color: 'orange' }}>Optional: link your TS username for richer stats</span></>
-                  )
-                )}
-              </p>
-              {/* 🔔 Optional nudge only; no blocking */}
-              {!linkedUsername && linkChecked && (
-                <p className="text-muted text-center" style={{ fontSize: '0.95rem' }}>
-                  Linking helps us show wallet ↔ username info, but it’s not required.{" "}
-                  <a href="https://support.meetdapper.com/hc/en-us/articles/20744347884819-Account-Linking-and-FAQ" target="_blank" rel="noopener noreferrer">
-                    Learn more
-                  </a>
-                </p>
-              )}
-            </>
-          )}
-
-          <div className="mb-3">
-            <label>Select Contest</label>
-            <select className="form-select" onChange={handleContestChange} value={selectedContest?.id || ''}>
-              {contests.map(contest => (
-                <option key={contest.id} value={contest.id}>
-                  {contest.display_name || contest.fastbreak_id} — {contest.buy_in_amount} {formatCurrencyLabel(contest.buy_in_currency)}
-                </option>
-              ))}
-            </select>
+          <h2 className="mb-3 text-center">Fastbreak Horse Race</h2>
+          <div className="mb-2 text-center">
+            <button
+              className="btn"
+              onClick={() => setShowRules(s => !s)}
+              style={{
+                backgroundColor: '#0E2240',
+                color: '#FDB927',
+                border: '1px solid #FDB927',
+                fontWeight: 700,
+                borderRadius: 9999,
+                padding: '8px 16px'
+              }}
+            >
+              {showRules ? 'Hide Rules' : 'Show Rules'}
+            </button>
           </div>
 
-          {/* Username input + autocomplete */}
+          {showRules && (
+            <div className="mt-3 p-3 rounded-3" style={{ backgroundColor: '#1C2A3A', border: '1px solid #273549' }}>
+              <p className="mb-1">🏇 Pick your champion — a Top Shot user you think will finish highest in the selected Fastbreak daily game.</p>
+              <ul className="fastbreak-rules-list">
+                <li>Submit before lock by choosing a TS user and sending the buy-in</li>
+                <li>90% to the winner (split pot in case of a tie)</li>
+                <li>5% to the actual top horse (TS user selected by the winner)</li>
+                <li>Maximum entries per wallet: Unlimited</li>
+              </ul>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* ===================== CONTESTS (separate card) ===================== */}
+      <div className="card shadow mb-4">
+        <div className="card-body">
+          <div className="position-relative">
+            {/* Left Arrow */}
+            <button
+              className="btn position-absolute top-50 translate-middle-y"
+              onClick={scrollLeft}
+              disabled={selectedIndex <= 0}
+              style={{
+                left: -8, zIndex: 2, backgroundColor: '#0E2240', color: '#FDB927',
+                border: '1px solid #FDB927', borderRadius: '50%', width: 40, height: 40,
+                opacity: selectedIndex <= 0 ? 0.6 : 1
+              }}
+              aria-label="Previous contest"
+            >
+              ‹
+            </button>
+
+            {/* Scroll Row */}
+            <div
+              ref={rowRef}
+              className="d-flex gap-3 px-5"
+              style={{ overflow: 'hidden', scrollBehavior: 'smooth', alignItems: 'stretch' }}
+            >
+              {contests.map((c) => (
+                <ContestCard
+                  key={c.id}
+                  contest={c}
+                  selected={selectedContest?.id === c.id}
+                  onClick={() => handleSelectContest(c)}
+                />
+              ))}
+            </div>
+
+            {/* Right Arrow */}
+            <button
+              className="btn position-absolute top-50 translate-middle-y"
+              onClick={scrollRight}
+              disabled={selectedIndex >= contests.length - 1}
+              style={{
+                right: -8, zIndex: 2, backgroundColor: '#0E2240', color: '#FDB927',
+                border: '1px solid #FDB927', borderRadius: '50%', width: 40, height: 40,
+                opacity: selectedIndex >= contests.length - 1 ? 0.6 : 1
+              }}
+              aria-label="Next contest"
+            >
+              ›
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* ===================== USERNAME (separate card) ===================== */}
+      <div className="card shadow mb-4">
+        <div className="card-body">
           <div className="mb-3 position-relative">
             <label>
-              TopShot Username prediction (Need help choosing?{" "}
+              TopShot Username Prediction (Need help choosing?{" "}
               <span
                 onClick={() => (window.location.href = "/horsestats")}
-                style={{
-                  color: "#FDB927",
-                  fontWeight: "bold",
-                  textDecoration: "underline",
-                  cursor: "pointer",
-                }}
+                style={{ color: "#FDB927", fontWeight: "bold", textDecoration: "underline", cursor: "pointer" }}
               >
                 Investigate detailed stats
               </span>
@@ -422,64 +554,34 @@ export default function Fastbreak() {
               onChange={(e) => {
                 const next = e.target.value;
                 setTopshotUsername(next);
-                // keep suggestions visible whenever there is text (even on exact match)
                 setShowSuggestions(next.trim().length > 0);
               }}
-              onFocus={() => {
-                if (topshotUsername.trim().length > 0) setShowSuggestions(true);
-              }}
-              onKeyDown={(e) => {
-                if (e.key === "Escape" || e.key === "Enter") {
-                  setShowSuggestions(false);
-                }
-              }}
-              onBlur={() => {
-                // allow click on an item to register before hiding
-                setTimeout(() => setShowSuggestions(false), 120);
-              }}
+              onFocus={() => { if (topshotUsername.trim().length > 0) setShowSuggestions(true); }}
+              onKeyDown={(e) => { if (e.key === "Escape" || e.key === "Enter") setShowSuggestions(false); }}
+              onBlur={() => { setTimeout(() => setShowSuggestions(false), 120); }}
               placeholder="Enter TopShot username of someone you predict does well"
               autoComplete="off"
             />
 
             {showSuggestions && topshotUsername && (
-              <ul
-                className="list-group position-absolute w-100"
-                style={{ zIndex: 1000 }}
-                role="listbox"
-              >
+              <ul className="list-group position-absolute w-100" style={{ zIndex: 1000 }} role="listbox">
                 {usernames
-                  .filter((u) =>
-                    u.toLowerCase().includes(topshotUsername.toLowerCase())
-                  )
+                  .filter((u) => u.toLowerCase().includes(topshotUsername.toLowerCase()))
                   .slice(0, 5)
                   .map((u, idx) => (
                     <li
                       key={idx}
                       className="list-group-item list-group-item-action"
-                      style={{
-                        backgroundColor: "#1C2A3A",
-                        color: "#FDB927",
-                        cursor: "pointer",
-                      }}
-                      onMouseDown={(e) => {
-                        // use onMouseDown so blur doesn’t fire first
-                        e.preventDefault();
-                        setTopshotUsername(u);
-                        setShowSuggestions(false);
-                      }}
+                      style={{ backgroundColor: "#1C2A3A", color: "#FDB927", cursor: "pointer" }}
+                      onMouseDown={(e) => { e.preventDefault(); setTopshotUsername(u); setShowSuggestions(false); }}
                       role="option"
                       aria-selected={u.toLowerCase() === topshotUsername.toLowerCase()}
                     >
                       {u}
                     </li>
                   ))}
-                {usernames.filter((u) =>
-                  u.toLowerCase().includes(topshotUsername.toLowerCase())
-                ).length === 0 && (
-                  <li
-                    className="list-group-item"
-                    style={{ backgroundColor: "#1C2A3A", color: "#ADB5BD" }}
-                  >
+                {usernames.filter((u) => u.toLowerCase().includes(topshotUsername.toLowerCase())).length === 0 && (
+                  <li className="list-group-item" style={{ backgroundColor: "#1C2A3A", color: "#ADB5BD" }}>
                     No matches — press Enter to use “{topshotUsername}”
                   </li>
                 )}
@@ -492,19 +594,20 @@ export default function Fastbreak() {
               className="btn btn-outline-light flex-fill"
               style={{ backgroundColor: '#0E2240', color: '#FDB927', border: '1px solid #FDB927', fontWeight: '600' }}
               disabled={!topshotUsername.trim()}
-              onClick={handleCheckStats}
+              onClick={() => openStatsModal(topshotUsername.trim())}
             >
               📊 Check Their Stats
             </button>
             <button
               className="btn btn-primary flex-fill"
               onClick={handleBuyIn}
-              // 🔓 No longer disabled due to missing linkedUsername
-              disabled={!user.loggedIn || processing || leaderboardData?.status === "STARTED"}
+              disabled={!canBuyIn} // <-- CHANGE
             >
               {processing
                 ? "Processing..."
-                : `Buy In for ${selectedContest?.buy_in_amount || ''} ${formatCurrencyLabel(selectedContest?.buy_in_currency) || ''}`}
+                : leaderboardLoading || !leaderboardData
+                  ? "Loading contest info..." // <-- Better feedback while disabled
+                  : `Buy In for ${selectedContest?.buy_in_amount || ''} ${formatCurrencyLabel(selectedContest?.buy_in_currency) || ''}`}
             </button>
           </div>
 
@@ -516,45 +619,11 @@ export default function Fastbreak() {
         </div>
       </div>
 
-      {/* Modal */}
-      {showModal && modalStats && (
-        <div className="modal show d-block" tabIndex="-1" style={{ backgroundColor: 'rgba(0, 0, 0, 0.6)' }}>
-          <div className="modal-dialog modal-dialog-centered modal-lg">
-            <div className="modal-content" style={{ backgroundColor: '#1C2A3A', color: '#E5E7EB', border: '1px solid #273549' }}>
-              <div className="modal-header border-bottom-0">
-                <h5 className="modal-title" style={{ color: '#FDB927' }}>
-                  📊 Stats for {modalStats.username} for the last 15 classic daily games
-                </h5>
-                <button type="button" className="btn-close" style={{ filter: 'invert(90%)' }} onClick={() => setShowModal(false)} />
-              </div>
-              <div className="modal-body">
-                <div className="d-flex flex-wrap justify-content-around text-center mb-3">
-                  <div><strong style={{ color: '#FDB927' }}>Flow Wallet Address:</strong> {modalStats.flow_wallet || "Account linking not enabled"}</div>
-                </div>
-                <div className="d-flex flex-wrap justify-content-around text-center mb-3">
-                  <div><strong style={{ color: '#FDB927' }}>Best:</strong> {modalStats.best}</div>
-                  <div><strong style={{ color: '#FDB927' }}>Mean:</strong> {modalStats.mean}</div>
-                  <div><strong style={{ color: '#FDB927' }}>Median:</strong> {modalStats.median}</div>
-                  <div><strong style={{ color: '#FDB927' }}>Lineup:</strong> {modalStats.hasLineup ? "✅" : "❌"}</div>
-                </div>
-                <div>
-                  <strong style={{ color: '#FDB927' }}>Recent Ranks:</strong>
-                  <p className="mt-2 text-muted">{modalStats.rankings.map(r => r.rank).join(', ')}</p>
-                </div>
-              </div>
-              <div className="modal-footer border-top-0">
-                <button className="btn btn-outline-light" onClick={() => setShowModal(false)}>Close</button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Leaderboard Section */}
+      {/* ===================== LEADERBOARD ===================== */}
       {leaderboardData && (
         <div className="card shadow mb-4">
           <div className="card-body">
-            <h4 className="mb-3 text-center">📋 Contest Info</h4>
+            <h3 className="card-title">📋 Contest Info</h3>
             {countdown && <p><strong>Contest locks in:</strong> {countdown}</p>}
             <p><strong>Total entries:</strong> {leaderboardData.totalEntries}</p>
             {(() => {
@@ -565,10 +634,7 @@ export default function Fastbreak() {
                 <>
                   <p><strong>Total pot:</strong> {leaderboardData.totalPot.toFixed(2)} {currency}</p>
                   <p className="text-muted">
-                    <em>
-                      Winner gets {winnerShare} {currency},&nbsp;
-                      Selected user earns {pickedShare} {currency}
-                    </em>
+                    <em>Winner gets {winnerShare} {currency}, Selected user earns {pickedShare} {currency}</em>
                   </p>
                 </>
               );
@@ -591,19 +657,10 @@ export default function Fastbreak() {
                     </thead>
                     <tbody>
                       {leaderboardData.entries.map(entry => (
-                        <tr
-                          key={`${entry.wallet}-${entry.prediction}`}
-                          className={entry.isUser ? "mvp-user-row" : ""}
-                        >
+                        <tr key={`${entry.wallet}-${entry.prediction}`} className={entry.isUser ? "mvp-user-row" : ""}>
                           <td>{entry.position}</td>
                           <td>{entry.wallet}</td>
-                          <td
-                            href="#"
-                            className="leaderboard-link"
-                            onClick={() => openStatsModal(entry.prediction)}
-                          >
-                            {entry.prediction}
-                          </td>
+                          <td className="leaderboard-link" onClick={() => openStatsModal(entry.prediction)}>{entry.prediction}</td>
                           <td>{entry.rank}</td>
                           <td>{entry.points}</td>
                           <td>{entry.lineup ? entry.lineup.join(", ") : "N/A"}</td>
