@@ -113,11 +113,11 @@ def api_leaderboard():
 def api_treasury():
     # Hard-coded data
     treasury_data = {
-        "tokens_in_wild": 13276,
-        "common_count": 2254,
-        "rare_count": 125,
+        "tokens_in_wild": 14970,
+        "common_count": 2143,
+        "rare_count": 121,
         "tsd_count": 0,
-        "lego_count": 2,
+        "lego_count": 3,
     }
 
     # Calculating backed supply
@@ -134,7 +134,7 @@ def api_treasury():
     treasury_data["surplus"] = surplus
 
     # 🗓️ Manually updated last_updated text
-    treasury_data['last_updated'] = "2025-09-26 18:00 UTC"
+    treasury_data['last_updated'] = "2025-08-23 15:00 UTC"
     return jsonify(treasury_data)
 
 @app.route("/api/fastbreak/contests", methods=["GET"])
@@ -208,9 +208,9 @@ def get_fastbreak_prediction_leaderboard(contest_id):
     now_ts = int(datetime.datetime.now(datetime.UTC).timestamp())
     is_started = (status == 'CLOSED') or (status == 'OPEN' and int(lock_timestamp) < now_ts)
 
-    # Load all entries
+    # Load all entries (include created_at for tie-breaking)
     cursor.execute(prepare_query('''
-        SELECT userWalletAddress, topshotUsernamePrediction
+        SELECT userWalletAddress, topshotUsernamePrediction, created_at
         FROM fastbreakContestEntries
         WHERE contest_id = ?
     '''), (contest_id,))
@@ -219,32 +219,67 @@ def get_fastbreak_prediction_leaderboard(contest_id):
     total_entries = len(entries)
     total_pot = total_entries * float(buy_in_amount) * 0.95
 
+    def _to_epoch_seconds(dt_val) -> int:
+        """Normalize created_at (datetime or string) to epoch seconds for sorting."""
+        if dt_val is None:
+            return 2_147_483_647  # push unknown to the end
+        if isinstance(dt_val, (int, float)):
+            return int(dt_val)
+        if isinstance(dt_val, datetime.datetime):
+            if dt_val.tzinfo is None:
+                # Assume UTC if tz-naive coming from DB
+                dt_val = dt_val.replace(tzinfo=datetime.UTC)
+            return int(dt_val.timestamp())
+        if isinstance(dt_val, str):
+            # Accept "YYYY-mm-dd HH:MM:SS[.ffffff]" or ISO strings
+            try:
+                # Python's fromisoformat handles both " " and "T"
+                dt = datetime.datetime.fromisoformat(dt_val)
+                if dt.tzinfo is None:
+                    dt = dt.replace(tzinfo=datetime.UTC)
+                return int(dt.timestamp())
+            except Exception:
+                return 2_147_483_647
+        return 2_147_483_647
+
     if is_started:
-        # Contest STARTED: build leaderboard
+        # Contest STARTED: build leaderboard with created_at as tie-breaker
         result_entries = []
         for e in entries:
-            wallet = e[0].lower()
+            wallet = (e[0] or "").lower()
             prediction = e[1]
+            created_at = e[2]
+            created_epoch = _to_epoch_seconds(created_at)
 
-            # Call your helper with fastbreak_id
             fastbreak_data = get_rank_and_lineup_for_user(prediction, fastbreak_id)
-            # Expected: { "rank": int, "lineup": [player1, player2, ...] }
+            rank = fastbreak_data.get("rank")
+            points = fastbreak_data.get("points")
+            players = fastbreak_data.get("players")
 
             result_entries.append({
                 "wallet": wallet,
                 "prediction": prediction,
-                "rank": fastbreak_data.get("rank"),
-                "points": fastbreak_data.get("points"),
-                "lineup": fastbreak_data.get("players"),
-                "isUser": (wallet == user_wallet)
+                "rank": rank,
+                "points": points,
+                "lineup": players,
+                "createdAt": created_at if isinstance(created_at, str)
+                              else (created_at.isoformat() if isinstance(created_at, datetime.datetime) else None),
+                "_createdEpoch": created_epoch,
+                "isUser": (wallet == user_wallet),
             })
 
-        # Sort by fastbreak rank (lowest = better)
-        result_entries.sort(key=lambda x: x["rank"] if x["rank"] is not None else 9999)
+        # Sort key: rank asc (None -> bottom), then created_at asc (earlier first)
+        def sort_key(x):
+            rank = x["rank"]
+            rank_key = rank if isinstance(rank, int) and rank is not None else 1_000_000_000
+            return (rank_key, x["_createdEpoch"])
 
-        # Add position number
+        result_entries.sort(key=sort_key)
+
+        # Add position number and strip internal fields
         for idx, item in enumerate(result_entries):
             item["position"] = idx + 1
+            item.pop("_createdEpoch", None)
 
         return jsonify({
             "status": "STARTED",
@@ -254,21 +289,23 @@ def get_fastbreak_prediction_leaderboard(contest_id):
         })
 
     else:
-        # Contest NOT started
+        # Contest NOT started (optional: include createdAt for user's own entries)
         user_entries = []
         for e in entries:
-            wallet = e[0].lower()
+            wallet = (e[0] or "").lower()
             prediction = e[1]
             if wallet == user_wallet:
                 stats = get_rank_and_lineup_for_user(prediction, fastbreak_id)
+                created_at = e[2]
                 user_entries.append({
                     "wallet": wallet,
                     "prediction": prediction,
                     "rank": stats.get("rank"),
                     "points": stats.get("points"),
-                    "lineup": stats.get("players")
+                    "lineup": stats.get("players"),
+                    "createdAt": created_at if isinstance(created_at, str)
+                                  else (created_at.isoformat() if isinstance(created_at, datetime.datetime) else None),
                 })
-
 
         return jsonify({
             "status": "NOT_STARTED",
