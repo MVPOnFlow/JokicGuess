@@ -32,6 +32,7 @@ jobs:
       - name: Stage React build
         run: |
           cp -r react-wallet/dist react-build
+          rm -rf react-wallet/node_modules
 
       # ---------- Backend (Python) ----------
       - name: Set up Python
