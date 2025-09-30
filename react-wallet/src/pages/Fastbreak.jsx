@@ -619,6 +619,69 @@ export default function Fastbreak() {
         </div>
       </div>
 
+      {/* ===================== MODAL ===================== */}
+      {showModal && modalStats && (
+        <div
+          className="modal show d-block"
+          tabIndex="-1"
+          style={{ backgroundColor: 'rgba(0, 0, 0, 0.6)' }}
+          aria-modal="true"
+          role="dialog"
+        >
+          <div className="modal-dialog modal-dialog-centered modal-lg">
+            <div
+              className="modal-content"
+              style={{ backgroundColor: '#1C2A3A', color: '#E5E7EB', border: '1px solid #273549' }}
+            >
+              <div className="modal-header border-bottom-0">
+                <h5 className="modal-title" style={{ color: '#FDB927' }}>
+                  📊 Stats for {modalStats.username} for the last 15 classic daily games
+                </h5>
+                <button
+                  type="button"
+                  className="btn-close"
+                  style={{ filter: 'invert(90%)' }}
+                  onClick={() => setShowModal(false)}
+                  aria-label="Close"
+                />
+              </div>
+
+              <div className="modal-body">
+                <div className="d-flex flex-wrap justify-content-around text-center mb-3">
+                  <div>
+                    <strong style={{ color: '#FDB927' }}>Flow Wallet Address:</strong>{' '}
+                    {modalStats.flow_wallet || 'Account linking not enabled'}
+                  </div>
+                </div>
+
+                <div className="d-flex flex-wrap justify-content-around text-center mb-3">
+                  <div><strong style={{ color: '#FDB927' }}>Best:</strong> {modalStats.best}</div>
+                  <div><strong style={{ color: '#FDB927' }}>Mean:</strong> {modalStats.mean}</div>
+                  <div><strong style={{ color: '#FDB927' }}>Median:</strong> {modalStats.median}</div>
+                  <div><strong style={{ color: '#FDB927' }}>Lineup:</strong> {modalStats.hasLineup ? '✅' : '❌'}</div>
+                </div>
+
+                <div>
+                  <strong style={{ color: '#FDB927' }}>Recent Ranks:</strong>
+                  <p className="mt-2 text-muted">
+                    {Array.isArray(modalStats.rankings)
+                      ? modalStats.rankings.map(r => r.rank).join(', ')
+                      : 'N/A'}
+                  </p>
+                </div>
+              </div>
+
+              <div className="modal-footer border-top-0">
+                <button className="btn btn-outline-light" onClick={() => setShowModal(false)}>
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+
       {/* ===================== LEADERBOARD ===================== */}
       {leaderboardData && (
         <div className="card shadow mb-4">
