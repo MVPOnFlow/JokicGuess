@@ -31,7 +31,6 @@ jobs:
 
       - name: Stage React build
         run: |
-          rm -rf react-build
           cp -r react-wallet/dist react-build
 
       # ---------- Backend (Python) ----------
