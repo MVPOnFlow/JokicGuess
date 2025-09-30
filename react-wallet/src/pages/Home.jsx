@@ -28,7 +28,7 @@ export default function Home() {
         <div className="card-body">
           <h2 className="card-title text-center mb-3">💰 $MVP Tokenomics, Exchange and Rewards</h2>
           <p className="card-text text-center">
-            Learn how $MVP works: swap Jokic moments, earn rewards, and power community events.
+            Learn how $MVP works: buy, sell or swap Jokic moments using $MVP
           </p>
           <div className="text-center mt-3">
             <img
