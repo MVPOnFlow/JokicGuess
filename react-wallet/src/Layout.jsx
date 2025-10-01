@@ -55,6 +55,7 @@ export default function Layout() {
             <Nav className="me-auto mb-2 mb-lg-0">
               <Nav.Link as={NavLink} to="/">Home</Nav.Link>
               <Nav.Link as={NavLink} to="/swapfest">Swapfest</Nav.Link>
+              <Nav.Link as={NavLink} to="/stables">Stables</Nav.Link>
               <Nav.Link as={NavLink} to="/treasury">Treasury</Nav.Link>
               <Nav.Link as={NavLink} to="/vote">Vote</Nav.Link>
 
