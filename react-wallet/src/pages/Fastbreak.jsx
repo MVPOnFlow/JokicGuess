@@ -262,7 +262,7 @@ export default function Fastbreak() {
       const now = Math.floor(Date.now() / 1000);
       const diff = selectedContest.lock_timestamp - now;
       if (diff <= 0) {
-        setCountdown('Contest has started!');
+        setCountdown('Contest has started, no more entries!');
         clearInterval(interval);
       } else {
         const hours = String(Math.floor(diff / 3600)).padStart(2, '0');
