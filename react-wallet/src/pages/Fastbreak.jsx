@@ -216,7 +216,7 @@ export default function Fastbreak() {
   const [usernames, setUsernames] = useState([]);
 
   // Collapsible Rules section
-  const [showRules, setShowRules] = useState(false);
+  const [showRules, setShowRules] = useState(true);
 
   // Autocomplete visibility
   const [showSuggestions, setShowSuggestions] = useState(false);
@@ -342,7 +342,7 @@ export default function Fastbreak() {
       setProcessing(true);
       setTxStatus("Waiting for wallet approval...");
       const transactionId = await sendToken({ token: tokenKey, amount: selectedContest.buy_in_amount, recipient: COMMUNITY_WALLET });
-      setTxStatus(`✅ Transaction submitted! TX ID: <a href="https://flowscan.io/tx/${transactionId}" target="_blank" rel="noopener noreferrer">${transactionId}</a>`);
+      setTxStatus(`✅ Transaction submitted (DO NOT REFRESH)! TX ID: <a href="https://flowscan.io/tx/${transactionId}" target="_blank" rel="noopener noreferrer">${transactionId}</a>`);
       await fcl.tx(transactionId).onceSealed();
 
       setTxStatus(`✅ Transaction sealed! Registering your entry...`);
@@ -466,16 +466,48 @@ export default function Fastbreak() {
           </div>
 
           {showRules && (
-            <div className="mt-3 p-3 rounded-3" style={{ backgroundColor: '#1C2A3A', border: '1px solid #273549' }}>
-              <p className="mb-1">🏇 Pick your champion — a Top Shot user you think will finish highest in the selected Fastbreak daily game.</p>
-              <ul className="fastbreak-rules-list">
-                <li>Submit before lock by choosing a TS user and sending the buy-in</li>
-                <li>90% to the winner (split pot in case of a tie)</li>
-                <li>5% to the actual top horse (TS user selected by the winner)</li>
-                <li>Maximum entries per wallet: Unlimited</li>
+            <div
+              className="mt-4 p-4 rounded-3 text-light"
+              style={{
+                backgroundColor: "#1C2A3A",
+                border: "1px solid #273549",
+                lineHeight: "1.6",
+              }}
+            >
+              <h5 className="mb-3 text-warning">🏇 How It Works</h5>
+              <p className="mb-3">
+                Pick a <strong>Top Shot user</strong> you think will finish highest in the
+                selected Fastbreak daily game. You can bet on yourself or choose someone else.
+              </p>
+
+              <ul className="fastbreak-rules-list mb-4">
+                <li>Submit before lock by selecting a TS user and sending the buy-in</li>
+                <li>Highest-ranked among selected users wins the contest</li>
+                <li>Unlimited entries per wallet</li>
               </ul>
+
+              <h5 className="mb-3 text-warning">💰 Prizes</h5>
+              <ul className="fastbreak-rules-list mb-4">
+                <li>🏆 90% of the pot to the winner (split if tied)</li>
+                <li>🐎 5% to the actual top horse (TS user picked by the winner)</li>
+                <li>🎁 Pack reward for the winner (tie-breaker: earlier entry wins)</li>
+                <li>🎲 Pack reward for one random entry</li>
+              </ul>
+
+              <div className="text-center">
+                <img
+                  src="/images/RIB1970wave3.png"
+                  alt="RIB 1970 Pack Reward"
+                  className="img-fluid rounded shadow mb-2"
+                  style={{ maxWidth: "350px" }}
+                />
+                <p className="text-muted small mb-0">
+                  🎁 <em>Run It Back: 1970s Chance Hit Pack (wave 3) -> two pack rewards in all daily historic run games.</em>
+                </p>
+              </div>
             </div>
           )}
+
         </div>
       </div>
 
@@ -559,7 +591,7 @@ export default function Fastbreak() {
               onFocus={() => { if (topshotUsername.trim().length > 0) setShowSuggestions(true); }}
               onKeyDown={(e) => { if (e.key === "Escape" || e.key === "Enter") setShowSuggestions(false); }}
               onBlur={() => { setTimeout(() => setShowSuggestions(false), 120); }}
-              placeholder="Enter TopShot username of someone you predict does well"
+              placeholder="Enter TopShot username of someone who will win the daily fastbreak"
               autoComplete="off"
             />
 
