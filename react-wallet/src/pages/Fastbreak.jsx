@@ -27,6 +27,8 @@ function normalizeTokenLabel(label) {
   if (x === "FLOW") return "FLOW";
   if (x === "TSHOT") return "TSHOT";
   if (x === "BETA") return "BETA";
+  if (x === "FROTH") return "FROTH";
+  if (x === "JUICE") return "JUICE";
   return null;
 }
 
@@ -55,7 +57,25 @@ const TOKEN_CONFIG = {
     storagePath: "/storage/EVMVMBridgedToken_d8ad8ae8375aa31bff541e17dc4b4917014ebdaaVault",
     publicReceiverPath: "/public/EVMVMBridgedToken_d8ad8ae8375aa31bff541e17dc4b4917014ebdaaReceiver",
   },
+
+  // NEW: FROTH (A.1e4aa0b87d10b141.EVMVMBridgedToken_b73bf8e6a4477a952e0338e6cc00cc0ce5ad04ba.Vault)
+  FROTH: {
+    contractName:
+      "EVMVMBridgedToken_b73bf8e6a4477a952e0338e6cc00cc0ce5ad04ba",
+    contractAddr: "0x1e4aa0b87d10b141",
+    storagePath: "/storage/EVMVMBridgedToken_b73bf8e6a4477a952e0338e6cc00cc0ce5ad04baVault",
+    publicReceiverPath: "/public/EVMVMBridgedToken_b73bf8e6a4477a952e0338e6cc00cc0ce5ad04baReceiver",
+  },
+
+  // NEW: JUICE (A.9db94c9564243ba7.aiSportsJuice.Vault)
+  JUICE: {
+    contractName: "aiSportsJuice",
+    contractAddr: "0x9db94c9564243ba7",
+    storagePath: "/storage/aiSportsJuiceVault",
+    publicReceiverPath: "/public/aiSportsJuiceReceiver",
+  },
 };
+
 
 function buildTransferCadence({ contractName, contractAddr, storagePath, publicReceiverPath }) {
   return `
