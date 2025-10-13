@@ -53,39 +53,9 @@ export default function Layout() {
 
           <Navbar.Collapse id="navbarNav">
             <Nav className="me-auto mb-2 mb-lg-0">
-              <Nav.Link as={NavLink} to="/">Home</Nav.Link>
-              <Nav.Link as={NavLink} to="/swapfest">Swapfest</Nav.Link>
-              <Nav.Link as={NavLink} to="/stables">Stables</Nav.Link>
-              <Nav.Link as={NavLink} to="/treasury">Treasury</Nav.Link>
-              <Nav.Link as={NavLink} to="/vote">Vote</Nav.Link>
-
-              <Dropdown as={Nav.Item}>
-                <Dropdown.Toggle as={Nav.Link} className="nav-link fastbreak-dropdown-toggle d-flex align-items-center">
-                  <span>Fastbreak</span>
-                  <span className="ms-2 badge bg-warning text-dark" style={{ fontSize: '0.65rem' }}>BETA</span>
-                </Dropdown.Toggle>
-                <Dropdown.Menu className="fastbreak-dropdown-menu">
-                  <Dropdown.Item as={NavLink} to="/fastbreak">
-                    Race Track
-                  </Dropdown.Item>
-                  <Dropdown.Item as={NavLink} to="/horsestats">
-                    Horse Stats
-                  </Dropdown.Item>
-                </Dropdown.Menu>
-              </Dropdown>
-                {/* Buy $MVP button */}
-                <Nav.Link
-                  id="buy-mvp"
-                  href="https://app.increment.fi/swap?in=A.1654653399040a61.FlowToken&out=A.6fd2465f3a22e34c.PetJokicsHorses"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="btn btn-sm ms-lg-2 mt-2 mt-lg-0"
-                  style={{ fontWeight: 600, borderRadius: '8px' }}
-                  onClick={(e) => e.currentTarget.blur()}   // drop focus so it doesn’t look “stuck”
-                >
-                  💰 Buy $MVP
-                </Nav.Link>
-
+              <Nav.Link as={NavLink} to="/stables">Stables (Petting Zoo)</Nav.Link>
+              <Nav.Link as={NavLink} to="/stablses">Race track</Nav.Link>
+              <Nav.Link as={NavLink} to="/stablses">Vet's office</Nav.Link>
             </Nav>
 
             <div className="d-flex align-items-center">
