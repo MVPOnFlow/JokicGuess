@@ -46,8 +46,8 @@ def serve_react(path):
 @app.route("/api/leaderboard")
 def api_leaderboard():
     # Define event period in UTC
-    start_time = '2025-08-25 21:00:00'
-    end_time = '2025-09-22 00:00:00'
+    start_time = '2025-09-25 21:00:00'
+    end_time = '2025-10-22 00:00:00'
 
     # Multiplier cutoffs (UTC)
     boost1_cutoff = '2025-09-05 00:00:00'  # 1.4x before this
@@ -1493,8 +1493,8 @@ async def list_petting_rewards(interaction: discord.Interaction):
 )
 async def gift_leaderboard(interaction: discord.Interaction):
     # Define the event window in UTC
-    start_time = '2025-08-25 21:00:00'
-    end_time   = '2025-09-22 00:00:00'
+    start_time = '2025-09-25 21:00:00'
+    end_time   = '2025-10-22 00:00:00'
 
     # Multiplier cutoffs (UTC)
     boost1_cutoff = '2025-09-05 00:00:00'  # 1.4x before this
