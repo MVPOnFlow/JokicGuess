@@ -102,7 +102,7 @@ def api_leaderboard():
         if index in prize_percentages:
             percent = prize_percentages[index]
             pet_count = math.ceil(prize_pool * (percent / 100))
-            entry["prize"] = f"{ordinal(index)} pick + Pet your horse {pet_count} times"
+            entry["prize"] = f"{entry["points"]} sweepstake entries + Pet your horse {pet_count} times"
         else:
             entry["prize"] = "-"
 
