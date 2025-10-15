@@ -249,3 +249,112 @@ hr {
 .spinner-border {
   color: var(--flow-green);
 }
+.youtube-wrapper {
+  position: relative;
+  padding-bottom: 56.25%; /* 16:9 ratio */
+  height: 0;
+  overflow: hidden;
+  border-radius: 12px;
+  box-shadow: 0 0 25px rgba(0, 239, 139, 0.35);
+  border: 1px solid rgba(0, 239, 139, 0.15);
+  max-width: 720px;
+  margin: 0 auto 1rem auto;
+}
+.youtube-wrapper iframe {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+}
+.now-playing-container {
+  animation: fadeIn 0.8s ease;
+}
+.progress-bar {
+  background-color: var(--flow-green);
+  color: #0b0f0e;
+  font-weight: 600;
+}
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.youtube-player iframe {
+  border-radius: 12px;
+  box-shadow: 0 0 25px rgba(0, 239, 139, 0.35);
+  border: 1px solid rgba(0, 239, 139, 0.15);
+  width: 100%;
+  max-width: 720px;
+  margin: 0 auto;
+  display: block;
+}
+
+.now-playing-container {
+  animation: fadeIn 0.8s ease;
+}
+
+.next-song-timer {
+  font-size: 1.1rem;
+  color: var(--flow-green);
+  font-weight: 600;
+  text-shadow: 0 0 6px rgba(0, 239, 139, 0.3);
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.list-group-item {
+  background-color: #10231f;
+  border-color: var(--flow-border);
+  color: var(--flow-light);
+}
+
+.list-group-item .fw-semibold {
+  color: var(--flow-green);
+  font-weight: 600;
+}
+
+.list-group-item .text-muted {
+  color: #b8e8d2 !important; /* softer green-gray */
+}
+.hero p strong {
+  color: var(--flow-green);
+  font-weight: 700;
+}
+
+.hero .text-muted {
+  color: #b8e8d2 !important;
+  font-weight: 500;
+}
+.jukebox-queue-item {
+  background-color: #0f221d;
+  border: 1px solid #1b3c33;
+  transition: all 0.2s ease;
+}
+
+.jukebox-queue-item:hover {
+  background-color: #16362e;
+  transform: translateY(-1px);
+}
+
+.jukebox-queue-item .small {
+  font-size: 0.85rem;
+  color: #a8dfc3;
+}
+
+

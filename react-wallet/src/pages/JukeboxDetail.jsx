@@ -1,5 +1,5 @@
 import { useParams } from "react-router-dom";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import * as fcl from "@onflow/fcl";
 import {
   Card,
@@ -11,6 +11,7 @@ import {
   InputGroup,
   Badge,
 } from "react-bootstrap";
+import YouTube from "react-youtube";
 import { TX_ADD_ENTRY, SCRIPT_GET_JUKEBOX_INFO } from "../flow/cadence";
 
 export default function JukeboxDetail() {
@@ -188,8 +189,8 @@ export default function JukeboxDetail() {
     <div className="container">
       <div className="hero mb-4">
         <h1>🎧 {info?.queueIdentifier || `Jukebox #${code}`}</h1>
-        <p className="text-muted mb-1">
-          Created by <strong>{info?.sessionOwner}</strong>
+        <p className="text-black mb-1">
+          Created by {info?.sessionOwner}
         </p>
         <Badge bg="dark-gray">{formatTimeLeft(timeLeft)}</Badge>
       </div>
@@ -201,7 +202,7 @@ export default function JukeboxDetail() {
           <Card className="mb-4 text-center">
             <Card.Body>
               <h2 className="text-green mb-3">Now Playing</h2>
-              {renderNowPlaying(info.nowPlaying, remainingSec)}
+              <NowPlaying np={info.nowPlaying} remainingSec={remainingSec} />
             </Card.Body>
           </Card>
 
@@ -229,7 +230,7 @@ export default function JukeboxDetail() {
                           Backing: {formatInt(e.totalBacking)} $FLOW
                         </Badge>
                         <Badge bg="dark-gray">
-                          Duration: {formatDurationMMSS(e.duration)}
+                          Playback Duration: {formatDurationMMSS(e.duration)}
                         </Badge>
                         <Button
                           variant="outline-light"
@@ -290,7 +291,7 @@ export default function JukeboxDetail() {
               </InputGroup>
             </Form.Group>
             <Form.Group>
-              <Form.Label>Duration (sec)</Form.Label>
+              <Form.Label>Playback Duration (sec)</Form.Label>
               <Form.Control
                 type="number"
                 min={15}
@@ -420,18 +421,61 @@ function formatTimeLeft(seconds) {
   const m = Math.floor((sec % 3600) / 60);
   return `${h}h ${m}m left`;
 }
-function renderNowPlaying(np, remainingSec) {
+function extractYouTubeId(url) {
+  if (!url) return null;
+  try {
+    const reg =
+      /(?:youtu\.be\/|youtube\.com\/(?:embed\/|watch\?v=|shorts\/))([\w-]{11})/;
+    const match = url.match(reg);
+    return match ? match[1] : null;
+  } catch {
+    return null;
+  }
+}
+
+/* ---------- NowPlaying Component (Memoized) ---------- */
+function NowPlaying({ np, remainingSec }) {
   if (!np) return <p>No song currently playing.</p>;
+
   const display = np.displayName ?? np?.value?.displayName ?? "Unknown";
   const link = np.value ?? np?.value?.value ?? "";
   const dur = asNumber(np.duration ?? np?.value?.duration) ?? 0;
   const start = np.startTime ?? np?.value?.startTime;
   const startedAt = new Date(start * 1000).toLocaleTimeString();
+  const now = Date.now() / 1000;
+  const elapsed = Math.max(0, now - start);
+  const videoId = extractYouTubeId(link);
+  const startSeconds = Math.floor(elapsed);
   const progress = dur > 0 ? ((dur - (remainingSec ?? dur)) / dur) * 100 : 0;
+  const nextSongIn = Math.max(0, dur - elapsed);
+
+
+  const videoBlock = useMemo(() => {
+    if (!videoId) return null;
+    return (
+      <div className="youtube-player mb-3">
+        <YouTube
+          videoId={videoId}
+          opts={{
+            width: "100%",
+            playerVars: {
+              autoplay: 1,
+              controls: 0,
+              start: startSeconds,
+              modestbranding: 1,
+              rel: 0,
+              disablekb: 1,
+            },
+          }}
+        />
+      </div>
+    );
+  }, [videoId]);
+
   return (
-    <>
-      <h3>{display}</h3>
-      {link && (
+    <div className="now-playing-container">
+      <h3 className="mb-3">{display}</h3>
+      {videoBlock || (
         <p>
           <a href={link} target="_blank" rel="noreferrer">
             {link}
@@ -439,15 +483,15 @@ function renderNowPlaying(np, remainingSec) {
         </p>
       )}
       <p className="text-muted">
-        Started: <strong>{startedAt}</strong> | Duration:{" "}
+        Started: <strong>{startedAt}</strong> | Playback Duration:{" "}
         {formatDurationMMSS(dur)}
       </p>
-      <ProgressBar
-        now={progress}
-        label={`${Math.max(0, remainingSec).toFixed(0)}s left`}
-        animated
-        variant="success"
-      />
-    </>
+      <div className="mt-3 next-song-timer">
+        ⏱️ Next song in:{" "}
+        <strong>
+          {nextSongIn > 1 ? `${Math.floor(nextSongIn)}s` : "Starting soon..."}
+        </strong>
+      </div>
+    </div>
   );
 }
