@@ -1,235 +1,251 @@
-/* ===============================
-   Global Styles — Flow Jukebox
-   =============================== */
+/* ==========================================
+   Flow Jukebox — Unified Bright Flow Theme
+   ========================================== */
 
 :root {
   --flow-green: #00ef8b;
+  --flow-accent: #1de9b6;
   --flow-teal: #00bfa5;
   --flow-dark: #0c1b18;
   --flow-darker: #08110f;
-  --flow-gray: #e0f2ef;
-  --flow-accent: #1de9b6;
-  --flow-border: #00bfa526;
+  --flow-mid: #14231c;
+  --flow-gray: #d5f5ea;
+  --flow-gray-muted: #a7d9c5;
+  --flow-border: rgba(0, 239, 139, 0.25);
+  --flow-badge-gray: #244235;
+  --flow-light: #eafff5;
 }
 
-/* Global Body */
+/* ------------------------------
+   Base / Global
+   ------------------------------ */
 body {
-  background: linear-gradient(180deg, var(--flow-darker) 0%, var(--flow-dark) 100%);
+  background: linear-gradient(180deg, var(--flow-darker), var(--flow-dark));
   color: var(--flow-gray);
-  font-family: 'Inter', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  font-family: "Inter", "Helvetica Neue", Helvetica, Arial, sans-serif;
   margin: 0;
   padding: 0;
-  width: 100%;
   min-height: 100vh;
 }
 
-/* Root layout */
 #root {
   display: flex;
   flex-direction: column;
   min-height: 100vh;
-  width: 100%;
 }
 
-/* ===============================
+/* Links */
+a {
+  color: var(--flow-green);
+  text-decoration: none;
+  transition: color 0.2s ease;
+}
+a:hover {
+  color: var(--flow-accent);
+}
+
+/* Muted text fix */
+.text-muted {
+  color: var(--flow-gray-muted) !important;
+}
+
+/* --------------------------------
    Navbar
-   =============================== */
+   -------------------------------- */
 .navbar {
-  background: linear-gradient(90deg, #00291e 0%, #004e3a 100%);
-  flex-shrink: 0;
+  background: linear-gradient(90deg, #013122 0%, #005d43 100%);
   box-shadow: 0 2px 12px rgba(0, 239, 139, 0.25);
   border-bottom: 1px solid var(--flow-border);
 }
-
 .navbar-brand,
 .navbar-nav .nav-link {
   color: var(--flow-green) !important;
   font-weight: 600;
   letter-spacing: 0.02em;
 }
-
-.navbar-brand img {
-  height: 40px;
-  border-radius: 8px;
-  background-color: #fff;
-  padding: 2px;
-  box-shadow: 0 2px 6px rgba(0, 239, 139, 0.3);
-}
-
 .navbar-nav .nav-link.active {
   border-bottom: 2px solid var(--flow-green);
 }
-
 .navbar-nav .nav-link:hover {
   color: var(--flow-accent) !important;
 }
 
-/* Burger icon tweaks */
-.navbar-toggler {
-  border-color: var(--flow-green) !important;
-}
-
-.navbar-toggler-icon {
-  filter: invert(80%) sepia(100%) saturate(1000%) hue-rotate(100deg);
-}
-
-/* ===============================
+/* --------------------------------
    Hero Section
-   =============================== */
+   -------------------------------- */
 .hero {
-  background: linear-gradient(135deg, #00ef8b 0%, #00bfa5 100%);
-  color: #0b0f0e;
+  background: linear-gradient(135deg, var(--flow-green), var(--flow-accent));
+  color: #04120c;
   padding: 3rem 1rem;
   text-align: center;
-  border-radius: 10px;
-  box-shadow: 0 8px 30px rgba(0, 239, 139, 0.35);
-  margin-bottom: 2rem;
+  border-radius: 12px;
+  box-shadow: 0 8px 25px rgba(0, 239, 139, 0.35);
 }
-
 .hero h1 {
   font-size: 2.6rem;
   font-weight: 800;
-  margin-bottom: 0.5rem;
 }
-
 .hero p {
   font-size: 1.2rem;
-  opacity: 0.9;
+  opacity: 0.95;
 }
 
-/* ===============================
+/* --------------------------------
    Cards
-   =============================== */
+   -------------------------------- */
 .card {
-  background-color: #10231f;
+  background-color: var(--flow-mid);
   border: 1px solid var(--flow-border);
   border-radius: 12px;
   box-shadow: 0 4px 12px rgba(0, 239, 139, 0.15);
-  color: var(--flow-gray);
+  color: var(--flow-light);
 }
-
-.card-title, .card-body h2, .text-green {
+.card h2,
+.card-title,
+.text-green {
   color: var(--flow-green);
 }
 
-/* ===============================
-   Tables
-   =============================== */
-.table {
-  color: var(--flow-gray);
-  background-color: #10231f;
-}
-
-.table thead {
-  background-color: #004e3a;
-  color: var(--flow-green);
-}
-
-.table-hover tbody tr:hover {
-  background-color: #13332c;
-}
-
-/* ===============================
+/* --------------------------------
    Buttons
-   =============================== */
-.btn-primary, .btn-wallet {
-  background: linear-gradient(90deg, var(--flow-green), var(--flow-teal));
-  color: #0b0f0e;
+   -------------------------------- */
+.btn-primary,
+.btn-wallet {
+  background: linear-gradient(90deg, var(--flow-green), var(--flow-accent));
+  color: #05150d;
   font-weight: 600;
   border: none;
   border-radius: 8px;
-  transition: all 0.2s ease-in-out;
+  transition: all 0.25s ease-in-out;
 }
-
-.btn-primary:hover, .btn-wallet:hover {
+.btn-primary:hover,
+.btn-wallet:hover {
   background: linear-gradient(90deg, var(--flow-accent), var(--flow-green));
-  box-shadow: 0 0 10px rgba(0, 239, 139, 0.5);
-  color: #0b0f0e;
+  box-shadow: 0 0 10px rgba(0, 239, 139, 0.6);
+  color: #05150d;
 }
-
 .btn-outline-light {
   border: 1px solid var(--flow-green);
   color: var(--flow-green);
 }
-
 .btn-outline-light:hover {
   background-color: var(--flow-green);
-  color: #0b0f0e;
+  color: #05150d;
 }
 
-/* ===============================
-   Lists & Queue
-   =============================== */
-.list-group-item {
-  background-color: #10231f;
-  border-color: var(--flow-border);
-  color: var(--flow-gray);
+/* --------------------------------
+   Inputs & Forms
+   -------------------------------- */
+input,
+.form-control {
+  background-color: #183428 !important;
+  border: 1px solid var(--flow-border) !important;
+  color: var(--flow-light) !important;
+}
+input::placeholder,
+.form-control::placeholder {
+  color: var(--flow-gray-muted) !important;
+}
+.form-control:focus {
+  border-color: var(--flow-green) !important;
+  box-shadow: 0 0 6px rgba(0, 239, 139, 0.4);
 }
 
-.list-group-item.active {
+/* --------------------------------
+   Queue Items
+   -------------------------------- */
+.jukebox-queue-item {
+  background-color: #10231b;
+  border: 1px solid #204132;
+  border-radius: 10px;
+  margin-bottom: 8px;
+  transition: all 0.2s ease;
+}
+.jukebox-queue-item:hover {
+  background-color: #183829;
+  transform: translateY(-1px);
+}
+
+/* --------------------------------
+   Badges
+   -------------------------------- */
+.badge.bg-dark-green {
   background-color: var(--flow-green) !important;
-  color: #0b0f0e !important;
+  color: #032012;
   font-weight: 700;
 }
+.badge.bg-dark-gray {
+  background-color: var(--flow-badge-gray) !important;
+  color: var(--flow-light);
+  font-weight: 600;
+}
 
-/* ===============================
+/* --------------------------------
+   Modals
+   -------------------------------- */
+.modal-header-green,
+.modal-footer-green {
+  background: linear-gradient(135deg, var(--flow-mid), var(--flow-dark));
+  color: var(--flow-green);
+  border: none;
+}
+.modal-header-success {
+  background-color: rgba(0, 239, 139, 0.15);
+  color: var(--flow-green);
+}
+.modal-header-error {
+  background-color: rgba(255, 80, 80, 0.15);
+  color: #ff6b6b;
+}
+.modal-header-progress {
+  background: linear-gradient(135deg, var(--flow-mid), var(--flow-dark));
+  color: var(--flow-green);
+}
+.modal-footer-green {
+  background: linear-gradient(135deg, var(--flow-dark), var(--flow-mid));
+}
+
+/* --------------------------------
+   Tables
+   -------------------------------- */
+.table {
+  background-color: var(--flow-mid);
+  color: var(--flow-light);
+}
+.table thead {
+  background-color: #004e3a;
+  color: var(--flow-green);
+}
+.table-hover tbody tr:hover {
+  background-color: #16342a;
+}
+
+/* --------------------------------
    Footer
-   =============================== */
+   -------------------------------- */
 .footer {
   margin-top: 4rem;
   padding: 1rem 0;
   text-align: center;
   font-size: 0.9rem;
-  color: #9feacb;
-  background: linear-gradient(90deg, #00291e 0%, #004e3a 100%);
+  color: var(--flow-gray-muted);
+  background: linear-gradient(90deg, #013122, #005d43);
   border-top: 1px solid var(--flow-border);
 }
-
 .footer a {
   color: var(--flow-green);
   margin: 0 10px;
-  text-decoration: none;
 }
-
 .footer a:hover {
   color: var(--flow-accent);
 }
 
-/* ===============================
-   Utility & Misc
-   =============================== */
-.text-muted {
-  color: #a0cfc0 !important;
-}
-
-.text-gold {
-  color: var(--flow-green) !important;
-}
-
-input, .form-control {
-  background-color: #13332c !important;
-  border: 1px solid var(--flow-border) !important;
-  color: var(--flow-gray) !important;
-}
-
-input::placeholder {
-  color: #a0cfc0 !important;
-}
-
-.form-control:focus {
-  border-color: var(--flow-green) !important;
-  box-shadow: 0 0 6px rgba(0, 239, 139, 0.4);
-  outline: none;
-}
-
+/* --------------------------------
+   Utilities
+   -------------------------------- */
 hr {
   border-color: var(--flow-border);
 }
-
-a {
+.spinner-border {
   color: var(--flow-green);
-}
-
-a:hover {
-  color: var(--flow-accent);
 }
