@@ -1,112 +1,124 @@
 // src/flow/cadence.js
-// Uses explicit address imports (no quotes) to avoid the mixed-import invariant error.
+// Flow Jukebox — Testnet bindings
+// Contract deployed to 0x7a017e02df4c4819
 
-// =========================
-//   SCRIPT: Get My Horses
-// =========================
-export const GET_MY_HORSES = `
-import NonFungibleToken from 0x631e88ae7f1d7c20
-import HorseNFTDevV0    from 0xc3ba56ba02913297
+export const TX_CREATE_AND_START = `
+import FlowJukeBox from 0x7a017e02df4c4819
+import FlowToken from 0x7e60df042a9c0868
+import FungibleToken from 0x9a0766d93b6608b7
 
-access(all) fun main(addr: Address): [{String: AnyStruct}] {
-    let col = getAccount(addr).capabilities.borrow<&{NonFungibleToken.Collection}>(
-        HorseNFTDevV0.CollectionPublicPath
-    ) ?? panic("Account has no HorseNFTDevV0 collection capability")
+// Mints the Jukebox NFT and immediately starts autoplay by calling playNextOrPayout.
+transaction(queueIdentifier: String, queueDuration: UFix64) {
+    let payerVault: auth(FungibleToken.Withdraw) &FlowToken.Vault
+    let recipient: Address
+
+    prepare(signer: auth(BorrowValue) &Account) {
+        self.payerVault = signer.storage.borrow<auth(FungibleToken.Withdraw) &FlowToken.Vault>(
+            from: /storage/flowTokenVault
+        ) ?? panic("Missing FlowToken vault at /storage/flowTokenVault")
+        self.recipient = signer.address
+    }
+
+    execute {
+        let newId = FlowJukeBox.createJukeboxSession(
+            sessionOwner: self.recipient,
+            queueIdentifier: queueIdentifier,
+            queueDuration: queueDuration,
+            payerVault: self.payerVault
+        )
+        var _ = FlowJukeBox.playNextOrPayout(nftID: newId)
+        log("✅ Created and started FlowJukeBox #".concat(newId.toString()))
+    }
+}
+`;
+
+export const TX_ADD_ENTRY = `
+import FlowJukeBox from 0x7a017e02df4c4819
+import FlowToken from 0x7e60df042a9c0868
+import FungibleToken from 0x9a0766d93b6608b7
+
+transaction(nftID: UInt64, value: String, displayName: String, duration: UFix64, amount: UFix64) {
+    prepare(signer: auth(BorrowValue, FungibleToken.Withdraw) &Account) {
+        let vaultRef = signer.storage.borrow<
+            auth(FungibleToken.Withdraw) &FlowToken.Vault
+        >(from: /storage/flowTokenVault)
+            ?? panic("Missing FlowToken vault")
+
+        let payment <- vaultRef.withdraw(amount: amount)
+        FlowJukeBox.depositBacking(
+            nftID: nftID,
+            from: signer.address,
+            value: value,
+            displayName: displayName,
+            duration: duration,
+            payment: <- payment
+        )
+    }
+
+    execute {
+        log("✅ Added entry ".concat(displayName))
+    }
+}
+`;
+
+export const SCRIPT_GET_USERS_JUKEBOXES = `
+import FlowJukeBox from 0x7a017e02df4c4819
+
+access(all) fun main(user: Address): [{String: AnyStruct}] {
+    let col = getAccount(FlowJukeBox.contractAddress)
+        .capabilities.borrow<&FlowJukeBox.Collection>(FlowJukeBox.CollectionPublicPath)
+        ?? panic("Public collection not found")
 
     let ids = col.getIDs()
-    let out: [{String: AnyStruct}] = []
-    let now = getCurrentBlock().timestamp
-
+    var out: [{String: AnyStruct}] = []
     for id in ids {
-        let h = col.borrowNFT(id) as! &HorseNFTDevV0.NFT
-        let next = h.lastPetTime + 86400.0
-        let remaining: UFix64 = now >= next ? 0.0 : next - now
-        out.append({
-            "id": h.id,
-            "name": h.name,
-            "speed": h.speed,
-            "stamina": h.stamina,
-            "strength": h.strength,
-            "lastPetTime": h.lastPetTime,
-            "cooldownRemaining": remaining
-        })
+        let nft = col.borrowJukeboxNFT(id)!
+        if nft.sessionOwner == user {
+            out.append({
+                "id": id,
+                "queueIdentifier": nft.queueIdentifier,
+                "queueDuration": nft.queueDuration,
+                "totalBacking": nft.totalBacking,
+                "totalDuration": nft.totalDuration,
+                "nowPlaying": nft.nowPlaying
+            })
+        }
     }
     return out
 }
-`
+`;
 
-// =========================
-//   TX: Mint With Flow
-//   - Auto-setup collection if minting to self
-// =========================
-export const TX_MINT_WITH_FLOW = `
-import HorseNFTDevV0    from 0xc3ba56ba02913297
-import NonFungibleToken from 0x631e88ae7f1d7c20
-import FungibleToken    from 0x9a0766d93b6608b7
-import FlowToken        from 0x7e60df042a9c0868
+export const SCRIPT_GET_JUKEBOX_INFO = `
+import FlowJukeBox from 0x7a017e02df4c4819
 
-transaction(name: String, recipient: Address) {
+access(all) fun main(nftID: UInt64): {String: AnyStruct} {
+    let col = getAccount(FlowJukeBox.contractAddress)
+        .capabilities.borrow<&FlowJukeBox.Collection>(FlowJukeBox.CollectionPublicPath)
+        ?? panic("Public collection not found")
 
-    let payerVault: auth(FungibleToken.Withdraw) &FlowToken.Vault
+    let nft = col.borrowJukeboxNFT(nftID)
+        ?? panic("NFT not found")
 
-    prepare(signer: auth(BorrowValue, SaveValue, IssueStorageCapabilityController, PublishCapability) &Account) {
-        self.payerVault = signer.storage.borrow<auth(FungibleToken.Withdraw) &FlowToken.Vault>(
-            from: /storage/flowTokenVault
-        ) ?? panic("FlowToken vault not found in signer's storage")
-
-        // If minting to self, ensure collection exists and is published
-        if recipient == signer.address {
-            if signer.storage.borrow<&HorseNFTDevV0.Collection>(from: HorseNFTDevV0.CollectionStoragePath) == nil {
-                let col <- HorseNFTDevV0.createEmptyCollection(nftType: Type<@HorseNFTDevV0.NFT>())
-                signer.storage.save(<- col, to: HorseNFTDevV0.CollectionStoragePath)
-
-                let cap = signer.capabilities.storage.issue<&HorseNFTDevV0.Collection>(HorseNFTDevV0.CollectionStoragePath)
-                signer.capabilities.publish(cap, at: HorseNFTDevV0.CollectionPublicPath)
-            }
-        }
+    var entries: [{String: AnyStruct}] = []
+    for e in nft.queueEntries {
+        entries.append({
+            "value": e.value,
+            "displayName": e.displayName,
+            "duration": e.duration,
+            "totalBacking": e.totalBacking,
+            "latestBacking": e.latestBacking
+        })
     }
 
-    execute {
-        let newID = HorseNFTDevV0.mintWithFlow(
-            name: name,
-            payerVault: self.payerVault,
-            recipient: recipient
-        )
-        log(newID)
+    return {
+        "id": nft.id,
+        "queueIdentifier": nft.queueIdentifier,
+        "sessionOwner": nft.sessionOwner,
+        "queueDuration": nft.queueDuration,
+        "totalBacking": nft.totalBacking,
+        "totalDuration": nft.totalDuration,
+        "nowPlaying": nft.nowPlaying,
+        "entries": entries
     }
 }
-`
-
-// =========================
-//   TX: Pet Horse
-//   - Charges 1.0 FLOW, enforces 24h cooldown
-// =========================
-export const TX_PET = `
-import HorseNFTDevV0    from 0xc3ba56ba02913297
-import NonFungibleToken from 0x631e88ae7f1d7c20
-import FungibleToken    from 0x9a0766d93b6608b7
-import FlowToken        from 0x7e60df042a9c0868
-
-transaction(horseID: UInt64) {
-
-    let col: auth(NonFungibleToken.Update) &HorseNFTDevV0.Collection
-    let payerVault: auth(FungibleToken.Withdraw) &FlowToken.Vault
-
-    prepare(signer: auth(BorrowValue) &Account) {
-        self.col = signer.storage.borrow<auth(NonFungibleToken.Update) &HorseNFTDevV0.Collection>(
-            from: HorseNFTDevV0.CollectionStoragePath
-        ) ?? panic("Owner collection not found")
-
-        self.payerVault = signer.storage.borrow<auth(FungibleToken.Withdraw) &FlowToken.Vault>(
-            from: /storage/flowTokenVault
-        ) ?? panic("FlowToken vault not found in signer's storage")
-    }
-
-    execute {
-        let horseRef = self.col.borrowHorseForUpdate(horseID)
-            ?? panic("Horse not found or wrong type")
-        let outcome = HorseNFTDevV0.pet(horse: horseRef, payerVault: self.payerVault)
-        log(outcome)
-    }
-}
-`
+`;

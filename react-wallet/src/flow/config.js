@@ -1,12 +1,12 @@
 import * as fcl from "@onflow/fcl";
 import { init } from "@onflow/fcl-wc";
 
-const WC_PROJECT_ID = "56fce212e878d76623e53be15ab998c5";
+const WC_PROJECT_ID = "958ae97fbbc50c43c633aa1bcf5959ee";
 
 // 1️⃣ Standard FCL configuration
 fcl.config()
-  .put("app.detail.title", "MVP on Flow")
-  .put("app.detail.icon", "https://mvponflow.cc/favicon.png")
+  .put("app.detail.title", "Flow Jukebox")
+  .put("app.detail.icon", "https://raw.githubusercontent.com/bogdang989/FlowJukeBoxNFT/refs/heads/main/FlowJukeboxLogo.png")
   .put("accessNode.api", "https://rest-testnet.onflow.org")
   .put("discovery.wallet", "https://fcl-discovery.onflow.org/authn")
   .put("flow.network", "testnet")
@@ -17,10 +17,10 @@ fcl.config()
 init({
   projectId: WC_PROJECT_ID,
   metadata: {
-    name: "MVP on Flow",
-    description: "Fan-powered Jokic project",
-    url: "https://mvponflow.cc",
-    icons: ["https://mvponflow.cc/favicon.png"]
+    name: "Flow Jukebox",
+    description: "Online jukebox powered by Flow blockchain",
+    url: "https://raw.githubusercontent.com/bogdang989/FlowJukeBoxNFT/refs/heads/main/FlowJukeboxLogo.png",
+    icons: ["https://raw.githubusercontent.com/bogdang989/FlowJukeBoxNFT/refs/heads/main/FlowJukeboxLogo.png"]
   }
 }).then(({ FclWcServicePlugin }) => {
   fcl.pluginRegistry.add(FclWcServicePlugin);

@@ -53,9 +53,7 @@ export default function Layout() {
 
           <Navbar.Collapse id="navbarNav">
             <Nav className="me-auto mb-2 mb-lg-0">
-              <Nav.Link as={NavLink} to="/stables">Stables (Petting Zoo)</Nav.Link>
-              <Nav.Link as={NavLink} to="/stablses">Race track</Nav.Link>
-              <Nav.Link as={NavLink} to="/stablses">Vet's office</Nav.Link>
+              <Nav.Link as={NavLink} to="/jukebox">🎵 Jukebox</Nav.Link>
             </Nav>
 
             <div className="d-flex align-items-center">
@@ -90,13 +88,13 @@ export default function Layout() {
       {/* Footer */}
       <div className="footer mt-auto">
         <p>
-          This is a fan project and is not affiliated with NBA TopShot, Nikola Jokić, or any official organization.
+          Copyright Flow Jukebox 2025
         </p>
         <div className="d-flex justify-content-center align-items-center gap-3 mt-2">
-          <a href="https://discord.gg/3p3ff9PHqW" target="_blank" aria-label="Discord" rel="noreferrer">
+          <a href="https://discord.gg/" target="_blank" aria-label="Discord" rel="noreferrer">
             <i className="bi bi-discord" style={{ fontSize: '1.5rem' }}></i>
           </a>
-          <a href="https://x.com/petjokicshorses" target="_blank" aria-label="Twitter" rel="noreferrer">
+          <a href="https://x.com/" target="_blank" aria-label="Twitter" rel="noreferrer">
             <i className="bi bi-twitter-x" style={{ fontSize: '1.5rem' }}></i>
           </a>
         </div>
