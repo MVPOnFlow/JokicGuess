@@ -262,21 +262,51 @@ export default function JukeboxDetail() {
         <Modal.Body>
           <Form>
             <Form.Group className="mb-3">
-              <Form.Label>Song URL</Form.Label>
+              <Form.Label>YouTube Link</Form.Label>
               <Form.Control
-                placeholder="https://..."
+                placeholder="https://youtube.com/watch?v=..."
                 value={song}
-                onChange={(e) => setSong(e.target.value)}
+                onChange={async (e) => {
+                  const url = e.target.value;
+                  setSong(url);
+                  const id = extractYouTubeId(url);
+                  if (id) {
+                    try {
+                      const data = await fetchYouTubeVideoDetails(id);
+                      setDisplayName(data.title || "Unknown Title");
+                      setDuration(data.duration || 30);
+                    } catch (err) {
+                      console.warn("Failed to fetch video info", err);
+                      setDisplayName("Unknown Title");
+                      setDuration(30);
+                    }
+                  } else {
+                    setDisplayName("");
+                    setDuration(30);
+                  }
+                }}
               />
             </Form.Group>
-            <Form.Group className="mb-3">
-              <Form.Label>Display Name</Form.Label>
-              <Form.Control
-                placeholder="Song Title"
-                value={displayName}
-                onChange={(e) => setDisplayName(e.target.value)}
-              />
-            </Form.Group>
+
+            {extractYouTubeId(song) && (
+              <>
+                <div className="text-center mb-3">
+                  <img
+                    src={`https://img.youtube.com/vi/${extractYouTubeId(song)}/hqdefault.jpg`}
+                    alt="Preview"
+                    className="rounded shadow-sm"
+                    style={{ width: "100%", maxWidth: "300px" }}
+                  />
+                </div>
+                <div className="mb-2">
+                  <strong>Title:</strong> {displayName || "Loading..."}
+                </div>
+                <div className="mb-3">
+                  <strong>Duration:</strong> {formatDurationMMSS(duration)}
+                </div>
+              </>
+            )}
+
             <Form.Group className="mb-3">
               <Form.Label>Backing ($FLOW)</Form.Label>
               <InputGroup>
@@ -289,19 +319,6 @@ export default function JukeboxDetail() {
                 />
                 <InputGroup.Text>$FLOW</InputGroup.Text>
               </InputGroup>
-            </Form.Group>
-            <Form.Group>
-              <Form.Label>Playback Duration (sec)</Form.Label>
-              <Form.Control
-                type="number"
-                min={15}
-                max={300}
-                step={1}
-                value={duration}
-                onChange={(e) =>
-                  setDuration(clamp(asInt(e.target.value), 15, 300))
-                }
-              />
             </Form.Group>
           </Form>
         </Modal.Body>
@@ -433,7 +450,36 @@ function extractYouTubeId(url) {
   }
 }
 
-/* ---------- NowPlaying Component (Memoized) ---------- */
+async function fetchYouTubeVideoDetails(videoId) {
+  const apiKey = import.meta.env.VITE_YOUTUBE_API_KEY;
+  if (!apiKey) throw new Error("Missing YouTube API key (REACT_APP_YOUTUBE_API_KEY)");
+  const url = `https://www.googleapis.com/youtube/v3/videos?id=${videoId}&part=snippet,contentDetails&key=${apiKey}`;
+  const res = await fetch(url);
+  const json = await res.json();
+
+  // 👇 Add this for debugging
+  console.log("YouTube API response:", json);
+
+  const video = json.items?.[0];
+  if (!video) throw new Error("Video not found or invalid ID");
+
+  const title = video.snippet?.title || "Untitled";
+  const durationISO = video.contentDetails?.duration || "PT30S";
+  const durationSec = parseISODuration(durationISO);
+  return { title, duration: durationSec };
+}
+
+
+// parse ISO 8601 duration (e.g., PT4M13S -> 253)
+function parseISODuration(iso) {
+  const match = iso.match(/PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/);
+  const h = parseInt(match?.[1] || 0, 10);
+  const m = parseInt(match?.[2] || 0, 10);
+  const s = parseInt(match?.[3] || 0, 10);
+  return h * 3600 + m * 60 + s;
+}
+
+/* ---------- NowPlaying Component ---------- */
 function NowPlaying({ np, remainingSec }) {
   if (!np) return <p>No song currently playing.</p>;
 
@@ -448,7 +494,6 @@ function NowPlaying({ np, remainingSec }) {
   const startSeconds = Math.floor(elapsed);
   const progress = dur > 0 ? ((dur - (remainingSec ?? dur)) / dur) * 100 : 0;
   const nextSongIn = Math.max(0, dur - elapsed);
-
 
   const videoBlock = useMemo(() => {
     if (!videoId) return null;
