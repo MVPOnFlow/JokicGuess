@@ -9,7 +9,6 @@ import {
   Form,
   InputGroup,
   Badge,
-  ListGroup,
 } from "react-bootstrap";
 import YouTube from "react-youtube";
 import { TX_ADD_ENTRY, SCRIPT_GET_JUKEBOX_INFO } from "../flow/cadence";
@@ -31,17 +30,17 @@ export default function JukeboxDetail() {
   const [modalTitle, setModalTitle] = useState("");
   const [modalMsg, setModalMsg] = useState("");
 
-  // Add Song (search) state
-  const [searchQuery, setSearchQuery] = useState("");
-  const [searchResults, setSearchResults] = useState([]);
+  // Add Song (URL mode)
+  const [youtubeUrl, setYoutubeUrl] = useState("");
   const [selected, setSelected] = useState(null);
   const [amount, setAmount] = useState(5);
   const [duration, setDuration] = useState(30);
   const [boostAmount, setBoostAmount] = useState(5);
+  const [isCheckingEmbed, setIsCheckingEmbed] = useState(false);
+  const [isEmbeddable, setIsEmbeddable] = useState(null);
 
   const tickTimerRef = useRef(null);
   const refreshTimerRef = useRef(null);
-  const searchDebounceRef = useRef(null);
 
   useEffect(() => fcl.currentUser().subscribe(setUser), []);
   useEffect(() => {
@@ -123,7 +122,7 @@ export default function JukeboxDetail() {
     if (!user.loggedIn)
       return openModal("error", "Wallet Required", "Connect your wallet first.");
     if (!selected || !selected.videoId || !selected.title)
-      return openModal("error", "Missing Info", "Select a song first.");
+      return openModal("error", "Missing Info", "Provide a valid YouTube URL and check it first.");
 
     try {
       const amt = clampToStep(amount, 5);
@@ -183,48 +182,21 @@ export default function JukeboxDetail() {
     }
   }
 
-  /* ---------------- YouTube API helpers inside component ---------------- */
+  /* ---------------- YouTube oEmbed helpers ---------------- */
 
-  function getYouTubeApiKey() {
-    if (typeof import.meta !== "undefined" && import.meta.env?.VITE_YOUTUBE_API_KEY)
-      return import.meta.env.VITE_YOUTUBE_API_KEY;
-    if (typeof process !== "undefined" && process.env?.REACT_APP_YOUTUBE_API_KEY)
-      return process.env.REACT_APP_YOUTUBE_API_KEY;
-    return null;
-  }
+  async function fetchYouTubeVideoDetails(url) {
+    const id = extractYouTubeId(url);
+    if (!id) throw new Error("Invalid YouTube URL");
 
-  async function fetchYouTubeSearch(query) {
-    const apiKey = getYouTubeApiKey();
-    if (!apiKey) throw new Error("Missing YouTube API key for search");
-    const url = `https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&maxResults=5&q=${encodeURIComponent(
-      query
-    )}&key=${apiKey}`;
-    const res = await fetch(url);
+    const oembedUrl = `https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=${id}&format=json`;
+    const res = await fetch(oembedUrl);
+    if (!res.ok) throw new Error("Video cannot be embedded or is restricted");
+
     const js = await res.json();
-    if (!js.items) {
-      setSearchResults([]);
-      return;
-    }
-    const results = js.items.map((item) => ({
-      videoId: item.id.videoId,
-      title: item.snippet.title,
-      thumbnailUrl: item.snippet.thumbnails?.default?.url,
-    }));
-    setSearchResults(results);
-  }
-
-  async function fetchYouTubeVideoDetails(videoId) {
-    const apiKey = getYouTubeApiKey();
-    if (!apiKey) throw new Error("Missing YouTube API key");
-    const url = `https://www.googleapis.com/youtube/v3/videos?id=${videoId}&part=snippet,contentDetails&key=${apiKey}`;
-    const res = await fetch(url);
-    const js = await res.json();
-    const vid = js.items?.[0];
-    if (!vid) throw new Error("Video not found");
-    const title = vid.snippet?.title || "Untitled";
-    const durationISO = vid.contentDetails?.duration || "PT30S";
-    const durationSec = parseISODuration(durationISO);
-    return { title, duration: durationSec };
+    const title = js.title || "Untitled";
+    const thumbnailUrl = js.thumbnail_url;
+    const duration = 180; // default 3 min
+    return { videoId: id, title, thumbnailUrl, duration };
   }
 
   /* ---------------- Render UI ---------------- */
@@ -300,7 +272,7 @@ export default function JukeboxDetail() {
         </>
       )}
 
-      {/* Add Song Modal with Search */}
+      {/* Add Song Modal (Paste URL + oEmbed) */}
       <Modal show={showAdd} onHide={() => setShowAdd(false)} centered>
         <Modal.Header closeButton className="modal-header-green">
           <Modal.Title>Add a Song</Modal.Title>
@@ -308,72 +280,56 @@ export default function JukeboxDetail() {
         <Modal.Body>
           <Form>
             <Form.Group className="mb-3">
-              <Form.Label>Search YouTube</Form.Label>
-              <Form.Control
-                placeholder="Type song name or artist"
-                value={searchQuery}
-                onChange={(e) => {
-                  const q = e.target.value;
-                  setSearchQuery(q);
-                  if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
-                  searchDebounceRef.current = setTimeout(() => {
-                    if (q.trim().length > 0) fetchYouTubeSearch(q.trim()).catch(console.warn);
-                    else setSearchResults([]);
-                  }, 300);
-                }}
-              />
+              <Form.Label>YouTube URL</Form.Label>
+              <InputGroup>
+                <Form.Control
+                  placeholder="Paste a YouTube video URL"
+                  value={youtubeUrl}
+                  onChange={(e) => setYoutubeUrl(e.target.value)}
+                />
+                <Button
+                  variant="outline-secondary"
+                  onClick={async () => {
+                    if (!youtubeUrl.trim()) return;
+                    setIsCheckingEmbed(true);
+                    setIsEmbeddable(null);
+                    try {
+                      const det = await fetchYouTubeVideoDetails(youtubeUrl.trim());
+                      setSelected(det);
+                      setDuration(det.duration);
+                      setIsEmbeddable(true);
+                    } catch (err) {
+                      console.warn(err);
+                      setSelected(null);
+                      setIsEmbeddable(false);
+                    } finally {
+                      setIsCheckingEmbed(false);
+                    }
+                  }}
+                >
+                  Check
+                </Button>
+              </InputGroup>
             </Form.Group>
 
-            {searchResults.length > 0 && (
-              <ListGroup className="mb-3">
-                {searchResults.map((vid) => (
-                  <ListGroup.Item
-                    key={vid.videoId}
-                    action
-                    active={selected?.videoId === vid.videoId}
-                    onClick={async () => {
-                      // keep local flag to ignore async state updates if unmounted
-                      let active = true;
-
-                      // set initial selection immediately
-                      setSelected(vid);
-                      setSearchResults([]); // close dropdown early
-
-                      try {
-                        const det = await fetchYouTubeVideoDetails(vid.videoId);
-                        if (!active) return; // stop if component unmounted
-                        setDuration(clamp(det.duration, 15, 300));
-                        setSelected((p) => (p ? { ...p, title: det.title } : { ...vid, title: det.title }));
-                      } catch (err) {
-                        console.warn("Detail fetch failed", err);
-                        if (active) setDuration(30);
-                      }
-
-                      // cleanup guard
-                      return () => {
-                        active = false;
-                      };
-                    }}
-                  >
-                    <div className="d-flex align-items-center">
-                      <img
-                        src={vid.thumbnailUrl}
-                        alt="thumb"
-                        style={{ width: 60, height: 45, marginRight: 10 }}
-                      />
-                      <span>{vid.title}</span>
-                    </div>
-                  </ListGroup.Item>
-                ))}
-              </ListGroup>
+            {isCheckingEmbed && (
+              <div className="text-center my-3">
+                <Spinner animation="border" />
+              </div>
             )}
 
-            {selected && (
+            {isEmbeddable === false && (
+              <div className="alert alert-danger text-center py-2">
+                🚫 This video cannot be embedded. Try another one.
+              </div>
+            )}
+
+            {selected && isEmbeddable && (
               <>
                 <div className="text-center mb-3">
                   <img
                     src={selected.thumbnailUrl}
-                    alt="Selected Thumbnail"
+                    alt="Thumbnail"
                     className="rounded shadow-sm"
                     style={{ width: "100%", maxWidth: "300px" }}
                   />
@@ -406,8 +362,12 @@ export default function JukeboxDetail() {
           <Button variant="outline-light" onClick={() => setShowAdd(false)}>
             Cancel
           </Button>
-          <Button variant="primary" onClick={handleAddSongSubmit}>
-            Confirm Add
+          <Button
+            variant="primary"
+            onClick={handleAddSongSubmit}
+            disabled={!isEmbeddable || isCheckingEmbed}
+          >
+            {isCheckingEmbed ? "Checking..." : "Confirm Add"}
           </Button>
         </Modal.Footer>
       </Modal>
@@ -511,13 +471,6 @@ function formatTimeLeft(seconds) {
   const h = Math.floor(sec / 3600);
   const m = Math.floor((sec % 3600) / 60);
   return `${h}h ${m}m left`;
-}
-function parseISODuration(iso) {
-  const match = iso.match(/PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/);
-  const h = parseInt(match?.[1] || 0, 10);
-  const m = parseInt(match?.[2] || 0, 10);
-  const s = parseInt(match?.[3] || 0, 10);
-  return h * 3600 + m * 60 + s;
 }
 function extractYouTubeId(url) {
   if (!url) return null;
