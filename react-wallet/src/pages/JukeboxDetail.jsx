@@ -5,11 +5,11 @@ import {
   Card,
   Button,
   Spinner,
-  ProgressBar,
   Modal,
   Form,
   InputGroup,
   Badge,
+  ListGroup,
 } from "react-bootstrap";
 import YouTube from "react-youtube";
 import { TX_ADD_ENTRY, SCRIPT_GET_JUKEBOX_INFO } from "../flow/cadence";
@@ -31,22 +31,24 @@ export default function JukeboxDetail() {
   const [modalTitle, setModalTitle] = useState("");
   const [modalMsg, setModalMsg] = useState("");
 
-  // Add Song form
-  const [song, setSong] = useState("");
-  const [displayName, setDisplayName] = useState("");
+  // Add Song (search) state
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState([]);
+  const [selected, setSelected] = useState(null);
   const [amount, setAmount] = useState(5);
   const [duration, setDuration] = useState(30);
   const [boostAmount, setBoostAmount] = useState(5);
 
   const tickTimerRef = useRef(null);
   const refreshTimerRef = useRef(null);
+  const searchDebounceRef = useRef(null);
 
   useEffect(() => fcl.currentUser().subscribe(setUser), []);
   useEffect(() => {
     if (code) fetchInfo();
   }, [code]);
 
-  // Refresh jukebox info every 15s
+  // Refresh periodically
   useEffect(() => {
     if (!code) return;
     const id = setInterval(fetchInfo, 15000);
@@ -69,7 +71,7 @@ export default function JukeboxDetail() {
     }
   }
 
-  // Countdown for song duration
+  // Countdown for current song
   useEffect(() => {
     if (tickTimerRef.current) clearInterval(tickTimerRef.current);
     const np = info?.nowPlaying;
@@ -98,7 +100,7 @@ export default function JukeboxDetail() {
     return () => clearInterval(tickTimerRef.current);
   }, [info]);
 
-  // Countdown for jukebox expiration
+  // Countdown for queue expiration
   useEffect(() => {
     if (!info?.queueDuration) return;
     const interval = setInterval(() => {
@@ -107,7 +109,6 @@ export default function JukeboxDetail() {
     return () => clearInterval(interval);
   }, [info]);
 
-  // Modal helpers
   function openModal(kind, title, msg) {
     setModalKind(kind);
     setModalTitle(title);
@@ -121,19 +122,20 @@ export default function JukeboxDetail() {
   async function handleAddSongSubmit() {
     if (!user.loggedIn)
       return openModal("error", "Wallet Required", "Connect your wallet first.");
-    if (!song.trim() || !displayName.trim())
-      return openModal("error", "Missing Info", "Please fill all fields.");
+    if (!selected || !selected.videoId || !selected.title)
+      return openModal("error", "Missing Info", "Select a song first.");
 
     try {
       const amt = clampToStep(amount, 5);
       const dur = clamp(duration, 15, 300);
       openModal("progress", "Adding Song", "Please approve in your wallet.");
+      const url = `https://www.youtube.com/watch?v=${selected.videoId}`;
       const txId = await fcl.mutate({
         cadence: TX_ADD_ENTRY,
         args: (arg, t) => [
           arg(code, t.UInt64),
-          arg(song.trim(), t.String),
-          arg(displayName.trim(), t.String),
+          arg(url, t.String),
+          arg(selected.title, t.String),
           arg(toUFix64(dur), t.UFix64),
           arg(toUFix64(amt), t.UFix64),
         ],
@@ -144,7 +146,7 @@ export default function JukeboxDetail() {
       });
       await fcl.tx(txId).onceSealed();
       setShowAdd(false);
-      openModal("success", "Song Added", `Your song "${displayName}" was added successfully.`);
+      openModal("success", "Song Added", `Your song "${selected.title}" was added successfully.`);
       fetchInfo();
     } catch (e) {
       console.error(e);
@@ -181,6 +183,52 @@ export default function JukeboxDetail() {
     }
   }
 
+  /* ---------------- YouTube API helpers inside component ---------------- */
+
+  function getYouTubeApiKey() {
+    if (typeof import.meta !== "undefined" && import.meta.env?.VITE_YOUTUBE_API_KEY)
+      return import.meta.env.VITE_YOUTUBE_API_KEY;
+    if (typeof process !== "undefined" && process.env?.REACT_APP_YOUTUBE_API_KEY)
+      return process.env.REACT_APP_YOUTUBE_API_KEY;
+    return null;
+  }
+
+  async function fetchYouTubeSearch(query) {
+    const apiKey = getYouTubeApiKey();
+    if (!apiKey) throw new Error("Missing YouTube API key for search");
+    const url = `https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&maxResults=5&q=${encodeURIComponent(
+      query
+    )}&key=${apiKey}`;
+    const res = await fetch(url);
+    const js = await res.json();
+    if (!js.items) {
+      setSearchResults([]);
+      return;
+    }
+    const results = js.items.map((item) => ({
+      videoId: item.id.videoId,
+      title: item.snippet.title,
+      thumbnailUrl: item.snippet.thumbnails?.default?.url,
+    }));
+    setSearchResults(results);
+  }
+
+  async function fetchYouTubeVideoDetails(videoId) {
+    const apiKey = getYouTubeApiKey();
+    if (!apiKey) throw new Error("Missing YouTube API key");
+    const url = `https://www.googleapis.com/youtube/v3/videos?id=${videoId}&part=snippet,contentDetails&key=${apiKey}`;
+    const res = await fetch(url);
+    const js = await res.json();
+    const vid = js.items?.[0];
+    if (!vid) throw new Error("Video not found");
+    const title = vid.snippet?.title || "Untitled";
+    const durationISO = vid.contentDetails?.duration || "PT30S";
+    const durationSec = parseISODuration(durationISO);
+    return { title, duration: durationSec };
+  }
+
+  /* ---------------- Render UI ---------------- */
+
   const sortedEntries = (info?.entries || []).slice().sort(
     (a, b) => (b.totalBacking || 0) - (a.totalBacking || 0)
   );
@@ -189,9 +237,7 @@ export default function JukeboxDetail() {
     <div className="container">
       <div className="hero mb-4">
         <h1>🎧 {info?.queueIdentifier || `Jukebox #${code}`}</h1>
-        <p className="text-black mb-1">
-          Created by {info?.sessionOwner}
-        </p>
+        <p className="text-black mb-1">Created by {info?.sessionOwner}</p>
         <Badge bg="dark-gray">{formatTimeLeft(timeLeft)}</Badge>
       </div>
 
@@ -254,7 +300,7 @@ export default function JukeboxDetail() {
         </>
       )}
 
-      {/* Add Song Modal */}
+      {/* Add Song Modal with Search */}
       <Modal show={showAdd} onHide={() => setShowAdd(false)} centered>
         <Modal.Header closeButton className="modal-header-green">
           <Modal.Title>Add a Song</Modal.Title>
@@ -262,44 +308,78 @@ export default function JukeboxDetail() {
         <Modal.Body>
           <Form>
             <Form.Group className="mb-3">
-              <Form.Label>YouTube Link</Form.Label>
+              <Form.Label>Search YouTube</Form.Label>
               <Form.Control
-                placeholder="https://youtube.com/watch?v=..."
-                value={song}
-                onChange={async (e) => {
-                  const url = e.target.value;
-                  setSong(url);
-                  const id = extractYouTubeId(url);
-                  if (id) {
-                    try {
-                      const data = await fetchYouTubeVideoDetails(id);
-                      setDisplayName(data.title || "Unknown Title");
-                      setDuration(data.duration || 30);
-                    } catch (err) {
-                      console.warn("Failed to fetch video info", err);
-                      setDisplayName("Unknown Title");
-                      setDuration(30);
-                    }
-                  } else {
-                    setDisplayName("");
-                    setDuration(30);
-                  }
+                placeholder="Type song name or artist"
+                value={searchQuery}
+                onChange={(e) => {
+                  const q = e.target.value;
+                  setSearchQuery(q);
+                  if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
+                  searchDebounceRef.current = setTimeout(() => {
+                    if (q.trim().length > 0) fetchYouTubeSearch(q.trim()).catch(console.warn);
+                    else setSearchResults([]);
+                  }, 300);
                 }}
               />
             </Form.Group>
 
-            {extractYouTubeId(song) && (
+            {searchResults.length > 0 && (
+              <ListGroup className="mb-3">
+                {searchResults.map((vid) => (
+                  <ListGroup.Item
+                    key={vid.videoId}
+                    action
+                    active={selected?.videoId === vid.videoId}
+                    onClick={async () => {
+                      // keep local flag to ignore async state updates if unmounted
+                      let active = true;
+
+                      // set initial selection immediately
+                      setSelected(vid);
+                      setSearchResults([]); // close dropdown early
+
+                      try {
+                        const det = await fetchYouTubeVideoDetails(vid.videoId);
+                        if (!active) return; // stop if component unmounted
+                        setDuration(clamp(det.duration, 15, 300));
+                        setSelected((p) => (p ? { ...p, title: det.title } : { ...vid, title: det.title }));
+                      } catch (err) {
+                        console.warn("Detail fetch failed", err);
+                        if (active) setDuration(30);
+                      }
+
+                      // cleanup guard
+                      return () => {
+                        active = false;
+                      };
+                    }}
+                  >
+                    <div className="d-flex align-items-center">
+                      <img
+                        src={vid.thumbnailUrl}
+                        alt="thumb"
+                        style={{ width: 60, height: 45, marginRight: 10 }}
+                      />
+                      <span>{vid.title}</span>
+                    </div>
+                  </ListGroup.Item>
+                ))}
+              </ListGroup>
+            )}
+
+            {selected && (
               <>
                 <div className="text-center mb-3">
                   <img
-                    src={`https://img.youtube.com/vi/${extractYouTubeId(song)}/hqdefault.jpg`}
-                    alt="Preview"
+                    src={selected.thumbnailUrl}
+                    alt="Selected Thumbnail"
                     className="rounded shadow-sm"
                     style={{ width: "100%", maxWidth: "300px" }}
                   />
                 </div>
                 <div className="mb-2">
-                  <strong>Title:</strong> {displayName || "Loading..."}
+                  <strong>Title:</strong> {selected.title}
                 </div>
                 <div className="mb-3">
                   <strong>Duration:</strong> {formatDurationMMSS(duration)}
@@ -368,11 +448,7 @@ export default function JukeboxDetail() {
       </Modal>
 
       {/* Status Modal */}
-      <Modal
-        show={showModal}
-        onHide={modalKind === "progress" ? undefined : closeModal}
-        centered
-      >
+      <Modal show={showModal} onHide={modalKind === "progress" ? undefined : closeModal} centered>
         <Modal.Header className={`modal-header-${modalKind}`}>
           <Modal.Title>{modalTitle}</Modal.Title>
         </Modal.Header>
@@ -381,9 +457,7 @@ export default function JukeboxDetail() {
             <div className="d-flex align-items-center gap-3">
               <Spinner animation="border" />
               <div>
-                <div className="fw-semibold text-green">
-                  Awaiting wallet approval
-                </div>
+                <div className="fw-semibold text-green">Awaiting wallet approval</div>
                 <div className="text-muted">{modalMsg}</div>
               </div>
             </div>
@@ -403,7 +477,7 @@ export default function JukeboxDetail() {
   );
 }
 
-/* ---------- helpers ---------- */
+/* ---------- global helpers ---------- */
 function asNumber(x) {
   const n = parseFloat(x);
   return Number.isFinite(n) ? n : null;
@@ -438,45 +512,22 @@ function formatTimeLeft(seconds) {
   const m = Math.floor((sec % 3600) / 60);
   return `${h}h ${m}m left`;
 }
-function extractYouTubeId(url) {
-  if (!url) return null;
-  try {
-    const reg =
-      /(?:youtu\.be\/|youtube\.com\/(?:embed\/|watch\?v=|shorts\/))([\w-]{11})/;
-    const match = url.match(reg);
-    return match ? match[1] : null;
-  } catch {
-    return null;
-  }
-}
-
-async function fetchYouTubeVideoDetails(videoId) {
-  const apiKey = import.meta.env.VITE_YOUTUBE_API_KEY;
-  if (!apiKey) throw new Error("Missing YouTube API key (REACT_APP_YOUTUBE_API_KEY)");
-  const url = `https://www.googleapis.com/youtube/v3/videos?id=${videoId}&part=snippet,contentDetails&key=${apiKey}`;
-  const res = await fetch(url);
-  const json = await res.json();
-
-  // 👇 Add this for debugging
-  console.log("YouTube API response:", json);
-
-  const video = json.items?.[0];
-  if (!video) throw new Error("Video not found or invalid ID");
-
-  const title = video.snippet?.title || "Untitled";
-  const durationISO = video.contentDetails?.duration || "PT30S";
-  const durationSec = parseISODuration(durationISO);
-  return { title, duration: durationSec };
-}
-
-
-// parse ISO 8601 duration (e.g., PT4M13S -> 253)
 function parseISODuration(iso) {
   const match = iso.match(/PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/);
   const h = parseInt(match?.[1] || 0, 10);
   const m = parseInt(match?.[2] || 0, 10);
   const s = parseInt(match?.[3] || 0, 10);
   return h * 3600 + m * 60 + s;
+}
+function extractYouTubeId(url) {
+  if (!url) return null;
+  try {
+    const reg = /(?:youtu\.be\/|youtube\.com\/(?:embed\/|watch\?v=|shorts\/))([\w-]{11})/;
+    const match = url.match(reg);
+    return match ? match[1] : null;
+  } catch {
+    return null;
+  }
 }
 
 /* ---------- NowPlaying Component ---------- */
@@ -492,7 +543,6 @@ function NowPlaying({ np, remainingSec }) {
   const elapsed = Math.max(0, now - start);
   const videoId = extractYouTubeId(link);
   const startSeconds = Math.floor(elapsed);
-  const progress = dur > 0 ? ((dur - (remainingSec ?? dur)) / dur) * 100 : 0;
   const nextSongIn = Math.max(0, dur - elapsed);
 
   const videoBlock = useMemo(() => {
