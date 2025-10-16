@@ -28,14 +28,16 @@ export default function Layout() {
       {/* Navbar */}
       <Navbar expand="lg" className="navbar mb-3">
         <Container fluid>
-          <Navbar.Brand as={NavLink} to="/">
+          <Navbar.Brand as={NavLink} to="/" className="d-flex align-items-center">
             <img
-              src="/favicon.png"
-              alt="MVP on Flow Logo"
+              src="/favicon2.png"
+              alt="Flow Jukebox Logo"
               height="40"
               className="me-2"
             />
+            <span className="brand-text">Flow Jukebox</span>
           </Navbar.Brand>
+
 
           {/* Burger toggle with gold color */}
           <Navbar.Toggle
