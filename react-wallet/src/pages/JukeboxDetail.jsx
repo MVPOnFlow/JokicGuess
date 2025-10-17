@@ -652,7 +652,16 @@ function NowPlaying({ np, remainingSec }) {
   const videoBlock = useMemo(() => {
     if (!videoId) return null;
     return (
-      <div className="youtube-player">
+      <div
+        className="youtube-player mb-3 mx-auto"
+        style={{
+          maxWidth: "640px",
+          aspectRatio: "16 / 9",
+          borderRadius: "12px",
+          overflow: "hidden",
+          boxShadow: "0 0 20px rgba(0,0,0,0.15)",
+        }}
+      >
         <YouTube
           videoId={videoId}
           opts={{
@@ -660,7 +669,6 @@ function NowPlaying({ np, remainingSec }) {
             playerVars: {
               autoplay: 1,
               controls: 0,
-              start: startSeconds,
               modestbranding: 1,
               rel: 0,
               disablekb: 1,
@@ -668,6 +676,7 @@ function NowPlaying({ np, remainingSec }) {
           }}
         />
       </div>
+
     );
   }, [videoId]);
 
