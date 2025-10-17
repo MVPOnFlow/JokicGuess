@@ -30,11 +30,11 @@ export default function JukeboxDetail() {
   const [modalTitle, setModalTitle] = useState("");
   const [modalMsg, setModalMsg] = useState("");
 
-  // Add Song (URL mode)
+  // Add Song
   const [youtubeUrl, setYoutubeUrl] = useState("");
   const [selected, setSelected] = useState(null);
   const [amount, setAmount] = useState(5);
-  const [duration, setDuration] = useState(30);
+  const [duration, setDuration] = useState(180);
   const [boostAmount, setBoostAmount] = useState(5);
   const [isCheckingEmbed, setIsCheckingEmbed] = useState(false);
   const [isEmbeddable, setIsEmbeddable] = useState(null);
@@ -47,7 +47,6 @@ export default function JukeboxDetail() {
     if (code) fetchInfo();
   }, [code]);
 
-  // Refresh periodically
   useEffect(() => {
     if (!code) return;
     const id = setInterval(fetchInfo, 15000);
@@ -99,7 +98,6 @@ export default function JukeboxDetail() {
     return () => clearInterval(tickTimerRef.current);
   }, [info]);
 
-  // Countdown for queue expiration
   useEffect(() => {
     if (!info?.queueDuration) return;
     const interval = setInterval(() => {
@@ -122,7 +120,7 @@ export default function JukeboxDetail() {
     if (!user.loggedIn)
       return openModal("error", "Wallet Required", "Connect your wallet first.");
     if (!selected || !selected.videoId || !selected.title)
-      return openModal("error", "Missing Info", "Provide a valid YouTube URL and check it first.");
+      return openModal("error", "Missing Info", "Provide a valid song first.");
 
     try {
       const amt = clampToStep(amount, 5);
@@ -182,15 +180,37 @@ export default function JukeboxDetail() {
     }
   }
 
-  /* ---------------- YouTube oEmbed helpers ---------------- */
+  /* ---------------- YouTube Helpers ---------------- */
 
-  const YT_API_KEY = import.meta.env.VITE_YT_API_KEY; // store key in .env
+  const YT_API_KEY = import.meta.env.VITE_YT_API_KEY;
+
+  function isYouTubeUrl(text) {
+    const urlPattern = /(?:youtu\.be\/|youtube\.com\/)/i;
+    return urlPattern.test(text);
+  }
+
+  async function fetchYouTubeSearchResult(query) {
+    if (!YT_API_KEY) throw new Error("YouTube API key missing");
+    const apiUrl = `https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&maxResults=1&q=${encodeURIComponent(
+      query
+    )}&key=${YT_API_KEY}`;
+    const res = await fetch(apiUrl);
+    if (!res.ok) throw new Error("Search failed");
+    const data = await res.json();
+    const first = data.items?.[0];
+    if (!first) throw new Error("No results found");
+    return {
+      videoId: first.id.videoId,
+      title: first.snippet.title,
+      thumbnailUrl: first.snippet.thumbnails?.high?.url,
+    };
+  }
 
   async function fetchYouTubeVideoDetails(url) {
     const id = extractYouTubeId(url);
     if (!id) throw new Error("Invalid YouTube URL");
 
-    // --- 1️⃣ Get oEmbed info for title + thumbnail ---
+    // oEmbed info
     const oembedUrl = `https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=${id}&format=json`;
     const res = await fetch(oembedUrl);
     if (!res.ok) throw new Error("Video cannot be embedded or is restricted");
@@ -199,8 +219,8 @@ export default function JukeboxDetail() {
     const title = meta.title || "Untitled";
     const thumbnailUrl = meta.thumbnail_url;
 
-    // --- 2️⃣ Try to get exact duration from YouTube Data API ---
-    let durationSec = 180; // default 3 min fallback
+    // Duration
+    let durationSec = 180; // fallback
     if (YT_API_KEY) {
       try {
         const apiUrl = `https://www.googleapis.com/youtube/v3/videos?part=contentDetails&id=${id}&key=${YT_API_KEY}`;
@@ -209,8 +229,6 @@ export default function JukeboxDetail() {
           const apiJs = await apiRes.json();
           const iso = apiJs?.items?.[0]?.contentDetails?.duration;
           if (iso) durationSec = parseYouTubeDuration(iso);
-        } else {
-          console.warn("YouTube Data API request failed:", apiRes.status);
         }
       } catch (err) {
         console.warn("Duration fetch error, using default:", err);
@@ -220,7 +238,6 @@ export default function JukeboxDetail() {
     return { videoId: id, title, thumbnailUrl, duration: durationSec };
   }
 
-  // Helper for ISO 8601 → seconds
   function parseYouTubeDuration(iso) {
     const m = iso.match(/PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/);
     const h = parseInt(m?.[1] || 0, 10);
@@ -229,8 +246,7 @@ export default function JukeboxDetail() {
     return h * 3600 + min * 60 + sec;
   }
 
-
-  /* ---------------- Render UI ---------------- */
+  /* ---------------- Render ---------------- */
 
   const sortedEntries = (info?.entries || []).slice().sort(
     (a, b) => (b.totalBacking || 0) - (a.totalBacking || 0)
@@ -303,7 +319,7 @@ export default function JukeboxDetail() {
         </>
       )}
 
-      {/* Add Song Modal (Paste URL + oEmbed) */}
+      {/* Add Song Modal */}
       <Modal show={showAdd} onHide={() => setShowAdd(false)} centered>
         <Modal.Header closeButton className="modal-header-green">
           <Modal.Title>Add a Song</Modal.Title>
@@ -311,42 +327,51 @@ export default function JukeboxDetail() {
         <Modal.Body>
           <Form>
             <Form.Group className="mb-3">
-              <Form.Label>YouTube URL</Form.Label>
-                <InputGroup>
-                  <Form.Control
-                    placeholder="Paste a YouTube video URL"
-                    value={youtubeUrl}
-                    onChange={async (e) => {
-                      const url = e.target.value.trim();
-                      setYoutubeUrl(url);
-                      if (!url) {
-                        setSelected(null);
-                        setIsEmbeddable(null);
-                        return;
-                      }
-                      setIsCheckingEmbed(true);
-                      try {
-                        const det = await fetchYouTubeVideoDetails(url);
-                        setSelected(det);
-                        setDuration(det.duration);
-                        setIsEmbeddable(true);
-                      } catch (err) {
-                        console.warn(err);
-                        setSelected(null);
-                        setIsEmbeddable(false);
-                      } finally {
-                        setIsCheckingEmbed(false);
-                      }
-                    }}
-                  />
-                </InputGroup>
-            </Form.Group>
+              <Form.Label>🎵 YouTube Link or Song Title</Form.Label>
+              <InputGroup>
+                <Form.Control
+                  placeholder="Paste a YouTube link or type a song title..."
+                  value={youtubeUrl}
+                  onChange={(e) => {
+                    setYoutubeUrl(e.target.value);
+                    setSelected(null);
+                    setIsEmbeddable(null);
+                  }}
+                />
+                <Button
+                  variant="primary"
+                  disabled={!youtubeUrl || isCheckingEmbed}
+                  onClick={async () => {
+                    const text = youtubeUrl.trim();
+                    if (!text) return;
+                    setIsCheckingEmbed(true);
+                    setIsEmbeddable(null);
 
-            {isCheckingEmbed && (
-              <div className="text-center my-3">
-                <Spinner animation="border" />
-              </div>
-            )}
+                    try {
+                      let det = null;
+                      if (isYouTubeUrl(text)) {
+                        det = await fetchYouTubeVideoDetails(text);
+                      } else {
+                        const hit = await fetchYouTubeSearchResult(text);
+                        const url = `https://www.youtube.com/watch?v=${hit.videoId}`;
+                        det = await fetchYouTubeVideoDetails(url);
+                      }
+                      setSelected(det);
+                      setDuration(det.duration);
+                      setIsEmbeddable(true);
+                    } catch (err) {
+                      console.warn("Embed/search error:", err);
+                      setSelected(null);
+                      setIsEmbeddable(false);
+                    } finally {
+                      setIsCheckingEmbed(false);
+                    }
+                  }}
+                >
+                  {isCheckingEmbed ? "Searching..." : "Search"}
+                </Button>
+              </InputGroup>
+            </Form.Group>
 
             {isEmbeddable === false && (
               <div className="alert alert-danger text-center py-2">
@@ -368,60 +393,50 @@ export default function JukeboxDetail() {
                   <strong>Title:</strong> {selected.title}
                 </div>
                 <div className="mb-3">
-                  <Form.Group className="mb-3">
-                    <Form.Label>Duration</Form.Label>
-                    <div className="d-flex gap-2">
-                      <Form.Control
-                        type="number"
-                        min={0}
-                        max={4}
-                        value={Math.floor(duration / 60)}
-                        onChange={(e) => {
-                          const m = Math.min(4, Math.max(0, parseInt(e.target.value || 0)));
-                          setDuration(m * 60 + (duration % 60));
-                        }}
-                        style={{ width: "80px", textAlign: "center" }}
-                      />
-                      <span className="align-self-center">:</span>
-                      <Form.Control
-                        type="number"
-                        min={0}
-                        max={59}
-                        value={duration % 60}
-                        onChange={(e) => {
-                          const s = Math.min(59, Math.max(0, parseInt(e.target.value || 0)));
-                          setDuration(Math.floor(duration / 60) * 60 + s);
-                        }}
-                        style={{ width: "80px", textAlign: "center" }}
-                      />
-                    </div>
-                    <small className="text-muted">Minutes & seconds (max 4:59)</small>
-                  </Form.Group>
+                  <Form.Label>Duration</Form.Label>
+                  <div className="d-flex gap-2">
+                    <Form.Control
+                      type="number"
+                      min={0}
+                      max={4}
+                      value={Math.floor(duration / 60)}
+                      onChange={(e) => {
+                        const m = Math.min(4, Math.max(0, parseInt(e.target.value || 0)));
+                        setDuration(m * 60 + (duration % 60));
+                      }}
+                      style={{ width: "80px", textAlign: "center" }}
+                    />
+                    <span className="align-self-center">:</span>
+                    <Form.Control
+                      type="number"
+                      min={0}
+                      max={59}
+                      value={duration % 60}
+                      onChange={(e) => {
+                        const s = Math.min(59, Math.max(0, parseInt(e.target.value || 0)));
+                        setDuration(Math.floor(duration / 60) * 60 + s);
+                      }}
+                      style={{ width: "80px", textAlign: "center" }}
+                    />
+                  </div>
+                  <small className="text-muted">Minutes & seconds (max 4:59)</small>
                 </div>
               </>
             )}
 
+            {/* Backing section stays the same */}
             <Form.Group className="mb-3">
-             <Form.Group className="mb-3">
               <Form.Label>Backing ($FLOW)</Form.Label>
               <div className="d-flex align-items-center flex-wrap gap-2">
-                {/* Decrease */}
                 <Button
                   variant="outline-secondary"
                   className="rounded-circle fw-bold"
-                  style={{
-                    width: "38px",
-                    height: "38px",
-                    fontSize: "1.2rem",
-                    lineHeight: "1rem",
-                  }}
+                  style={{ width: "38px", height: "38px", fontSize: "1.2rem" }}
                   onClick={() => setAmount((prev) => Math.max(5, prev - 5))}
                   disabled={amount <= 5}
                 >
                   –
                 </Button>
-
-                {/* Display */}
                 <Form.Control
                   type="text"
                   value={amount}
@@ -438,8 +453,6 @@ export default function JukeboxDetail() {
                     boxShadow: "inset 0 0 0 1px var(--jukebox-border)",
                   }}
                 />
-
-                {/* Increment buttons */}
                 <div className="d-flex gap-2">
                   <Button
                     variant="primary"
@@ -452,7 +465,6 @@ export default function JukeboxDetail() {
                   >
                     +5
                   </Button>
-
                   <Button
                     variant="primary"
                     style={{
@@ -464,7 +476,6 @@ export default function JukeboxDetail() {
                   >
                     +50
                   </Button>
-
                   <Button
                     variant="primary"
                     style={{
@@ -477,20 +488,9 @@ export default function JukeboxDetail() {
                     +500
                   </Button>
                 </div>
-
-                {/* Unit label */}
-                <span
-                  style={{
-                    fontWeight: 600,
-                    color: "var(--jukebox-dark-purple)",
-                    marginLeft: "4px",
-                  }}
-                >
-                  $FLOW
-                </span>
+                <span style={{ fontWeight: 600, marginLeft: "4px" }}>$FLOW</span>
               </div>
               <small className="text-muted">Must be multiples of 5 $FLOW</small>
-            </Form.Group>
             </Form.Group>
           </Form>
         </Modal.Body>
@@ -507,6 +507,7 @@ export default function JukeboxDetail() {
           </Button>
         </Modal.Footer>
       </Modal>
+
 
       {/* Boost Modal */}
       <Modal show={showBoost} onHide={() => setShowBoost(false)} centered>
