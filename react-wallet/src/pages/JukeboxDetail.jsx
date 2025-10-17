@@ -260,21 +260,19 @@ export default function JukeboxDetail() {
 
   return (
     <div className="container">
-      <div className="hero mb-4">
-        <h1>🎧 {info?.queueIdentifier || `Jukebox #${code}`}</h1>
-        <p className="text-black mb-1">Created by {info?.sessionOwner}</p>
+      <div className="jukebox-hero">
+        <h2>🎧 {info?.queueIdentifier || `Jukebox #${code}`}</h2>
+        <p>Created by {info?.sessionOwner}</p>
         <div>
-          <Badge bg="dark-gray">
-            ⏳ {formatTimeLeft(timeLeft)}
-          </Badge>
+          <Badge bg="dark-gray">⏳ {formatTimeLeft(timeLeft)}</Badge>
           {Number(info?.totalBacking) > 0 && (
             <Badge bg="dark-green" className="ms-2">
               💰 Total Backing: {formatInt(info.totalBacking)} $FLOW
             </Badge>
           )}
         </div>
-
       </div>
+
 
       {loading && <Spinner animation="border" />}
 
@@ -654,7 +652,7 @@ function NowPlaying({ np, remainingSec }) {
   const videoBlock = useMemo(() => {
     if (!videoId) return null;
     return (
-      <div className="youtube-player mb-3">
+      <div className="youtube-player">
         <YouTube
           videoId={videoId}
           opts={{

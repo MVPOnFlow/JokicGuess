@@ -314,3 +314,42 @@ hr {
   0%, 100% { opacity: 0.4; transform: scale(1); }
   50% { opacity: 1; transform: scale(1.2); }
 }
+.jukebox-hero {
+  text-align: center;
+  margin-bottom: 1rem;
+  padding: 0.75rem 0;
+  line-height: 1.2;
+}
+
+.jukebox-hero h1,
+.jukebox-hero h2 {
+  font-size: 1.8rem;
+  font-weight: 600;
+  margin-bottom: 0.25rem;
+}
+
+.jukebox-hero p {
+  color: #aaa;
+  font-size: 0.95rem;
+  margin-bottom: 0.5rem;
+}
+
+.jukebox-hero .badge {
+  font-size: 0.85rem;
+  padding: 0.4em 0.6em;
+}
+.youtube-player {
+  max-width: 640px;
+  aspect-ratio: 16 / 9;
+  border-radius: 12px;
+  overflow: hidden;
+  margin: 0 auto 1.5rem auto; /* centers & adds bottom space */
+  box-shadow: 0 0 20px rgba(0, 0, 0, 0.15);
+}
+
+.youtube-player iframe {
+  width: 100%;
+  height: 100%;
+  border: 0;
+  border-radius: 12px;
+}
