@@ -78,6 +78,7 @@ access(all) fun main(user: Address): [{String: AnyStruct}] {
                 "id": id,
                 "queueIdentifier": nft.queueIdentifier,
                 "queueDuration": nft.queueDuration,
+                "queueStartTime": nft.createdAt,
                 "totalBacking": nft.totalBacking,
                 "totalDuration": nft.totalDuration,
                 "nowPlaying": nft.nowPlaying
@@ -115,6 +116,7 @@ access(all) fun main(nftID: UInt64): {String: AnyStruct} {
         "queueIdentifier": nft.queueIdentifier,
         "sessionOwner": nft.sessionOwner,
         "queueDuration": nft.queueDuration,
+        "queueStartTime": nft.createdAt,
         "totalBacking": nft.totalBacking,
         "totalDuration": nft.totalDuration,
         "nowPlaying": nft.nowPlaying,

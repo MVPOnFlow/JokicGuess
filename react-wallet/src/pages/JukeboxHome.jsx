@@ -46,6 +46,10 @@ export default function JukeboxHome() {
         args: (arg, t) => [arg(user.addr, t.Address)],
       });
       setJukeboxes(res || []);
+      useEffect(() => {
+        const timer = setInterval(() => setJukeboxes((prev) => [...prev]), 60000);
+        return () => clearInterval(timer);
+      }, []);
     } catch (e) {
       console.error("Error fetching jukeboxes:", e);
     } finally {
@@ -238,7 +242,7 @@ export default function JukeboxHome() {
                       {formatInt(j.totalBacking)} $FLOW
                     </Badge>
                     <Badge bg="dark-gray">
-                      {formatTimeLeft(j.queueDuration)}
+                      {formatTimeLeft(j.queueStartTime, j.queueDuration)}
                     </Badge>
                   </div>
                 </Card.Body>
@@ -296,10 +300,17 @@ function formatInt(x) {
   if (!Number.isFinite(n)) return "0";
   return Math.round(n).toString();
 }
-function formatTimeLeft(queueDuration) {
-  const dur = Number(queueDuration) || 0;
-  if (dur <= 0) return "Expired";
-  const h = Math.floor(dur / 3600);
-  const m = Math.floor((dur % 3600) / 60);
+function formatTimeLeft(createdAt, queueDuration) {
+  const start = Number(createdAt) || 0;
+  const duration = Number(queueDuration) || 0;
+  if (start <= 0 || duration <= 0) return "Expired";
+
+  const now = Math.floor(Date.now() / 1000);
+  const remaining = Math.max(0, start + duration - now);
+
+  if (remaining <= 0) return "Expired";
+  const h = Math.floor(remaining / 3600);
+  const m = Math.floor((remaining % 3600) / 60);
   return `${h}h ${m}m left`;
 }
+

@@ -61,7 +61,13 @@ export default function JukeboxDetail() {
         args: (arg, t) => [arg(code, t.UInt64)],
       });
       setInfo(res);
-      if (res?.queueDuration) setTimeLeft(Number(res.queueDuration));
+      if (res?.queueDuration && res?.queueStartTime) {
+        const startTime = Number(res.queueStartTime); // already UNIX timestamp in seconds
+        const duration = Number(res.queueDuration);   // already in seconds
+        const now = Math.floor(Date.now() / 1000);
+        const remaining = Math.max(0, startTime + duration - now);
+        setTimeLeft(remaining);
+      }
     } catch (e) {
       console.error("Failed to fetch info:", e);
     } finally {
@@ -257,7 +263,17 @@ export default function JukeboxDetail() {
       <div className="hero mb-4">
         <h1>🎧 {info?.queueIdentifier || `Jukebox #${code}`}</h1>
         <p className="text-black mb-1">Created by {info?.sessionOwner}</p>
-        <Badge bg="dark-gray">{formatTimeLeft(timeLeft)}</Badge>
+        <div>
+          <Badge bg="dark-gray">
+            ⏳ {formatTimeLeft(timeLeft)}
+          </Badge>
+          {Number(info?.totalBacking) > 0 && (
+            <Badge bg="dark-green" className="ms-2">
+              💰 Total Backing: {formatInt(info.totalBacking)} $FLOW
+            </Badge>
+          )}
+        </div>
+
       </div>
 
       {loading && <Spinner animation="border" />}
