@@ -184,20 +184,51 @@ export default function JukeboxDetail() {
 
   /* ---------------- YouTube oEmbed helpers ---------------- */
 
+  const YT_API_KEY = import.meta.env.VITE_YT_API_KEY; // store key in .env
+
   async function fetchYouTubeVideoDetails(url) {
     const id = extractYouTubeId(url);
     if (!id) throw new Error("Invalid YouTube URL");
 
+    // --- 1️⃣ Get oEmbed info for title + thumbnail ---
     const oembedUrl = `https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=${id}&format=json`;
     const res = await fetch(oembedUrl);
     if (!res.ok) throw new Error("Video cannot be embedded or is restricted");
 
-    const js = await res.json();
-    const title = js.title || "Untitled";
-    const thumbnailUrl = js.thumbnail_url;
-    const duration = 180; // default 3 min
-    return { videoId: id, title, thumbnailUrl, duration };
+    const meta = await res.json();
+    const title = meta.title || "Untitled";
+    const thumbnailUrl = meta.thumbnail_url;
+
+    // --- 2️⃣ Try to get exact duration from YouTube Data API ---
+    let durationSec = 180; // default 3 min fallback
+    if (YT_API_KEY) {
+      try {
+        const apiUrl = `https://www.googleapis.com/youtube/v3/videos?part=contentDetails&id=${id}&key=${YT_API_KEY}`;
+        const apiRes = await fetch(apiUrl);
+        if (apiRes.ok) {
+          const apiJs = await apiRes.json();
+          const iso = apiJs?.items?.[0]?.contentDetails?.duration;
+          if (iso) durationSec = parseYouTubeDuration(iso);
+        } else {
+          console.warn("YouTube Data API request failed:", apiRes.status);
+        }
+      } catch (err) {
+        console.warn("Duration fetch error, using default:", err);
+      }
+    }
+
+    return { videoId: id, title, thumbnailUrl, duration: durationSec };
   }
+
+  // Helper for ISO 8601 → seconds
+  function parseYouTubeDuration(iso) {
+    const m = iso.match(/PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/);
+    const h = parseInt(m?.[1] || 0, 10);
+    const min = parseInt(m?.[2] || 0, 10);
+    const sec = parseInt(m?.[3] || 0, 10);
+    return h * 3600 + min * 60 + sec;
+  }
+
 
   /* ---------------- Render UI ---------------- */
 
@@ -281,35 +312,34 @@ export default function JukeboxDetail() {
           <Form>
             <Form.Group className="mb-3">
               <Form.Label>YouTube URL</Form.Label>
-              <InputGroup>
-                <Form.Control
-                  placeholder="Paste a YouTube video URL"
-                  value={youtubeUrl}
-                  onChange={(e) => setYoutubeUrl(e.target.value)}
-                />
-                <Button
-                  variant="outline-secondary"
-                  onClick={async () => {
-                    if (!youtubeUrl.trim()) return;
-                    setIsCheckingEmbed(true);
-                    setIsEmbeddable(null);
-                    try {
-                      const det = await fetchYouTubeVideoDetails(youtubeUrl.trim());
-                      setSelected(det);
-                      setDuration(det.duration);
-                      setIsEmbeddable(true);
-                    } catch (err) {
-                      console.warn(err);
-                      setSelected(null);
-                      setIsEmbeddable(false);
-                    } finally {
-                      setIsCheckingEmbed(false);
-                    }
-                  }}
-                >
-                  Check
-                </Button>
-              </InputGroup>
+                <InputGroup>
+                  <Form.Control
+                    placeholder="Paste a YouTube video URL"
+                    value={youtubeUrl}
+                    onChange={async (e) => {
+                      const url = e.target.value.trim();
+                      setYoutubeUrl(url);
+                      if (!url) {
+                        setSelected(null);
+                        setIsEmbeddable(null);
+                        return;
+                      }
+                      setIsCheckingEmbed(true);
+                      try {
+                        const det = await fetchYouTubeVideoDetails(url);
+                        setSelected(det);
+                        setDuration(det.duration);
+                        setIsEmbeddable(true);
+                      } catch (err) {
+                        console.warn(err);
+                        setSelected(null);
+                        setIsEmbeddable(false);
+                      } finally {
+                        setIsCheckingEmbed(false);
+                      }
+                    }}
+                  />
+                </InputGroup>
             </Form.Group>
 
             {isCheckingEmbed && (
@@ -338,23 +368,129 @@ export default function JukeboxDetail() {
                   <strong>Title:</strong> {selected.title}
                 </div>
                 <div className="mb-3">
-                  <strong>Duration:</strong> {formatDurationMMSS(duration)}
+                  <Form.Group className="mb-3">
+                    <Form.Label>Duration</Form.Label>
+                    <div className="d-flex gap-2">
+                      <Form.Control
+                        type="number"
+                        min={0}
+                        max={4}
+                        value={Math.floor(duration / 60)}
+                        onChange={(e) => {
+                          const m = Math.min(4, Math.max(0, parseInt(e.target.value || 0)));
+                          setDuration(m * 60 + (duration % 60));
+                        }}
+                        style={{ width: "80px", textAlign: "center" }}
+                      />
+                      <span className="align-self-center">:</span>
+                      <Form.Control
+                        type="number"
+                        min={0}
+                        max={59}
+                        value={duration % 60}
+                        onChange={(e) => {
+                          const s = Math.min(59, Math.max(0, parseInt(e.target.value || 0)));
+                          setDuration(Math.floor(duration / 60) * 60 + s);
+                        }}
+                        style={{ width: "80px", textAlign: "center" }}
+                      />
+                    </div>
+                    <small className="text-muted">Minutes & seconds (max 4:59)</small>
+                  </Form.Group>
                 </div>
               </>
             )}
 
             <Form.Group className="mb-3">
+             <Form.Group className="mb-3">
               <Form.Label>Backing ($FLOW)</Form.Label>
-              <InputGroup>
+              <div className="d-flex align-items-center flex-wrap gap-2">
+                {/* Decrease */}
+                <Button
+                  variant="outline-secondary"
+                  className="rounded-circle fw-bold"
+                  style={{
+                    width: "38px",
+                    height: "38px",
+                    fontSize: "1.2rem",
+                    lineHeight: "1rem",
+                  }}
+                  onClick={() => setAmount((prev) => Math.max(5, prev - 5))}
+                  disabled={amount <= 5}
+                >
+                  –
+                </Button>
+
+                {/* Display */}
                 <Form.Control
-                  type="number"
-                  min={5}
-                  step={5}
+                  type="text"
                   value={amount}
-                  onChange={(e) => setAmount(asInt(e.target.value))}
+                  readOnly
+                  style={{
+                    width: "100px",
+                    textAlign: "center",
+                    fontWeight: 700,
+                    fontSize: "1.3rem",
+                    background: "var(--jukebox-light-purple)",
+                    border: "none",
+                    color: "var(--jukebox-dark-purple)",
+                    borderRadius: "12px",
+                    boxShadow: "inset 0 0 0 1px var(--jukebox-border)",
+                  }}
                 />
-                <InputGroup.Text>$FLOW</InputGroup.Text>
-              </InputGroup>
+
+                {/* Increment buttons */}
+                <div className="d-flex gap-2">
+                  <Button
+                    variant="primary"
+                    style={{
+                      background: "linear-gradient(90deg, #7b61ff, #9c8cff)",
+                      border: "none",
+                      fontWeight: 600,
+                    }}
+                    onClick={() => setAmount((prev) => prev + 5)}
+                  >
+                    +5
+                  </Button>
+
+                  <Button
+                    variant="primary"
+                    style={{
+                      background: "linear-gradient(90deg, #7b61ff, #9c8cff)",
+                      border: "none",
+                      fontWeight: 600,
+                    }}
+                    onClick={() => setAmount((prev) => prev + 50)}
+                  >
+                    +50
+                  </Button>
+
+                  <Button
+                    variant="primary"
+                    style={{
+                      background: "linear-gradient(90deg, #7b61ff, #9c8cff)",
+                      border: "none",
+                      fontWeight: 600,
+                    }}
+                    onClick={() => setAmount((prev) => prev + 500)}
+                  >
+                    +500
+                  </Button>
+                </div>
+
+                {/* Unit label */}
+                <span
+                  style={{
+                    fontWeight: 600,
+                    color: "var(--jukebox-dark-purple)",
+                    marginLeft: "4px",
+                  }}
+                >
+                  $FLOW
+                </span>
+              </div>
+              <small className="text-muted">Must be multiples of 5 $FLOW</small>
+            </Form.Group>
             </Form.Group>
           </Form>
         </Modal.Body>

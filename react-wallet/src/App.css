@@ -290,3 +290,27 @@ hr {
 * {
   font-family: "Montserrat", "Helvetica Neue", Helvetica, Arial, sans-serif !important;
 }
+.badge.bg-dark-gray {
+  background-color: #333 !important;
+  color: var(--jukebox-white) !important;
+  font-weight: 600;
+  border-radius: 12px;
+  padding: 0.4em 0.8em;
+}
+.badge.bg-dark-green {
+  background-color: #007a5c !important;
+  color: var(--jukebox-white) !important;
+}
+.hero {
+  backdrop-filter: blur(10px);
+  background: linear-gradient(135deg, rgba(123, 97, 255, 0.9), rgba(156, 140, 255, 0.9));
+}
+.hero h1::after {
+  content: "🎶";
+  animation: pulse 1.8s infinite ease-in-out;
+  margin-left: 8px;
+}
+@keyframes pulse {
+  0%, 100% { opacity: 0.4; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.2); }
+}
