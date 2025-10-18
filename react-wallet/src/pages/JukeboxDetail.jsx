@@ -302,15 +302,15 @@ export default function JukeboxDetail() {
     <div className="container">
       <div className="jukebox-hero">
         <h2>🎧 {info?.queueIdentifier || `Jukebox #${code}`}</h2>
-        <p>Created by {info?.sessionOwner}</p>
-        <div>
-          <Badge bg="dark-gray">⏳ {formatTimeLeft(timeLeft)}</Badge>
-          {Number(info?.totalBacking) > 0 && (
-            <Badge bg="dark-green" className="ms-2">
-              💰 Total Backing: {formatInt(info.totalBacking)} $FLOW
-            </Badge>
-          )}
-        </div>
+{/*         <p>Created by {info?.sessionOwner}</p> */}
+{/*         <div> */}
+{/*           <Badge bg="dark-gray">⏳ {formatTimeLeft(timeLeft)}</Badge> */}
+{/*           {Number(info?.totalBacking) > 0 && ( */}
+{/*             <Badge bg="dark-green" className="ms-2"> */}
+{/*               💰 Total Backing: {formatInt(info.totalBacking)} $FLOW */}
+{/*             </Badge> */}
+{/*           )} */}
+{/*         </div> */}
       </div>
 
 
@@ -340,9 +340,9 @@ export default function JukeboxDetail() {
                       {/* Left side: song name + backing stacked */}
                       <div className="queue-left">
                         <div className="fw-semibold">{e.displayName}</div>
-                        <Badge bg="dark-green">
-                          Backing: {formatInt(e.totalBacking)} $FLOW
-                        </Badge>
+                        <div className="queue-backing">
+                          <i className="bi bi-cash-coin"></i> {formatInt(e.totalBacking)} $FLOW
+                        </div>
                       </div>
 
                       {/* Right side: Boost button only */}
@@ -739,11 +739,6 @@ function NowPlaying({ np, remainingSec }) {
       ) : (
         videoBlock
       )}
-
-      <p className="text-muted">
-        Started: <strong>{startedAt}</strong> | Playback Duration:{" "}
-        {formatDurationMMSS(dur)}
-      </p>
       <div className="mt-3 next-song-timer">
         ⏱️ Next song in:{" "}
         <strong>

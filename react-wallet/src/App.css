@@ -411,3 +411,18 @@ hr {
     margin-top: 6px;
   }
 }
+.queue-backing {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--jukebox-purple);
+  background: none;
+  border: none;
+  padding: 0;
+  margin-top: 2px;
+  letter-spacing: 0.02em;
+}
+.queue-backing::before {
+  content: "Backing: ";
+  color: var(--jukebox-dark-purple);
+  font-weight: 700;
+}
