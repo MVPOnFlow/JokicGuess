@@ -336,23 +336,19 @@ export default function JukeboxDetail() {
               {sortedEntries.length ? (
                 <ul className="list-group">
                   {sortedEntries.map((e, i) => (
-                    <li
-                      key={i}
-                      className="list-group-item d-flex justify-content-between align-items-center flex-wrap jukebox-queue-item"
-                    >
-                      <div>
+                    <li key={i} className="list-group-item jukebox-queue-item">
+                      {/* Left side: song name + backing stacked */}
+                      <div className="queue-left">
                         <div className="fw-semibold">{e.displayName}</div>
-                        <div className="small text-muted">{e.value}</div>
-                      </div>
-                      <div className="d-flex gap-3 align-items-center">
                         <Badge bg="dark-green">
                           Backing: {formatInt(e.totalBacking)} $FLOW
                         </Badge>
-                        <Badge bg="dark-gray">
-                          Playback Duration: {formatDurationMMSS(e.duration)}
-                        </Badge>
+                      </div>
+
+                      {/* Right side: Boost button only */}
+                      <div className="queue-right">
                         <Button
-                          variant="outline-light"
+                          className="boost-btn"
                           onClick={() => {
                             setBoostEntry(e);
                             setBoostAmount(5);
@@ -364,6 +360,7 @@ export default function JukeboxDetail() {
                       </div>
                     </li>
                   ))}
+
                 </ul>
               ) : (
                 <p>No songs queued yet.</p>

@@ -338,3 +338,76 @@ hr {
   font-size: 0.85rem;
   padding: 0.4em 0.6em;
 }
+/* --- Responsive Jukebox Queue Layout --- */
+@media (max-width: 768px) {
+  .jukebox-queue-item {
+    display: grid !important;
+    grid-template-columns: 1fr auto; /* Left = song/backing, right = boost */
+    align-items: center;
+    padding: 0.9rem 1rem !important;
+    gap: 0.4rem 0.75rem;
+  }
+
+  /* Left side: song + backing stacked vertically */
+  .jukebox-queue-item > div:first-child {
+    grid-column: 1 / 2;
+    justify-self: start;
+    display: flex;
+    flex-direction: column; /* stack title above backing */
+    align-items: flex-start;
+  }
+
+  .jukebox-queue-item .fw-semibold {
+    font-size: 1.05rem;
+    color: var(--jukebox-dark-purple);
+    font-weight: 700;
+    margin-bottom: 4px; /* small gap before backing */
+    line-height: 1.2;
+    word-break: break-word;
+  }
+
+  .jukebox-queue-item .badge.bg-dark-green {
+    display: inline-block;
+    font-size: 0.85rem;
+    padding: 0.35em 0.7em;
+    border-radius: 10px;
+    margin-top: 0; /* no extra top margin needed now */
+  }
+
+  /* Right side: Boost button centered vertically and aligned right */
+  .jukebox-queue-item > div:last-child {
+    grid-column: 2 / 3;
+    justify-self: end;
+    align-self: center;
+  }
+
+  /* Hide URL and duration badges */
+  .jukebox-queue-item .text-muted,
+  .jukebox-queue-item .badge.bg-dark-gray {
+    display: none !important;
+  }
+
+  /* ✨ Styled Boost button */
+  .jukebox-queue-item button {
+    background: linear-gradient(90deg, var(--jukebox-purple), var(--jukebox-accent));
+    border: none;
+    border-radius: 14px;
+    padding: 6px 18px;
+    font-weight: 700;
+    font-size: 0.95rem;
+    color: var(--jukebox-white);
+    box-shadow: 0 3px 10px rgba(123, 97, 255, 0.35);
+    transition: all 0.25s ease-in-out;
+  }
+
+  .jukebox-queue-item button:hover {
+    background: linear-gradient(90deg, var(--jukebox-accent), var(--jukebox-purple));
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(123, 97, 255, 0.45);
+  }
+
+  /* Slightly tighter spacing between queue items */
+  .jukebox-queue-item + .jukebox-queue-item {
+    margin-top: 6px;
+  }
+}
