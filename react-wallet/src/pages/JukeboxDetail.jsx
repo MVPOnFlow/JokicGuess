@@ -273,6 +273,7 @@ export default function JukeboxDetail() {
         // Duration parsing
         if (content.duration) {
           durationSec = parseYouTubeDuration(content.duration);
+          if (durationSec > 300) durationSec = 299;
         }
       } else {
         console.warn("YouTube Data API request failed:", apiRes.status);
@@ -674,6 +675,7 @@ function extractYouTubeId(url) {
 }
 
 /* ---------- NowPlaying Component ---------- */
+
 function NowPlaying({ np, remainingSec }) {
   if (!np) return <p>No song currently playing.</p>;
 
@@ -688,8 +690,16 @@ function NowPlaying({ np, remainingSec }) {
   const startSeconds = Math.floor(elapsed);
   const nextSongIn = Math.max(0, dur - elapsed);
 
+  // ✅ Detect mobile reliably (run only on client)
+  const [isMobile, setIsMobile] = useState(false);
+  useEffect(() => {
+    if (typeof navigator !== "undefined") {
+      setIsMobile(/Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent));
+    }
+  }, []);
+
   const videoBlock = useMemo(() => {
-    if (!videoId) return null;
+    if (!videoId || isMobile) return null;
     return (
       <div
         className="youtube-player mb-3 mx-auto"
@@ -715,20 +725,24 @@ function NowPlaying({ np, remainingSec }) {
           }}
         />
       </div>
-
     );
-  }, [videoId]);
+  }, [videoId, isMobile]);
 
   return (
     <div className="now-playing-container">
       <h3 className="mb-3">{display}</h3>
-      {videoBlock || (
+
+      {/* ✅ On mobile, always show a link instead of an embed */}
+      {isMobile || !videoId ? (
         <p>
           <a href={link} target="_blank" rel="noreferrer">
-            {link}
+            ▶️ Watch on YouTube
           </a>
         </p>
+      ) : (
+        videoBlock
       )}
+
       <p className="text-muted">
         Started: <strong>{startedAt}</strong> | Playback Duration:{" "}
         {formatDurationMMSS(dur)}
