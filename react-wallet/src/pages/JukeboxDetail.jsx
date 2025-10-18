@@ -233,7 +233,7 @@ export default function JukeboxDetail() {
     const id = extractYouTubeId(url);
     if (!id) throw new Error("Invalid YouTube URL");
 
-    // oEmbed info
+    // --- 1️⃣ Get oEmbed info for basic metadata ---
     const oembedUrl = `https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=${id}&format=json`;
     const res = await fetch(oembedUrl);
     if (!res.ok) throw new Error("Video cannot be embedded or is restricted");
@@ -242,24 +242,46 @@ export default function JukeboxDetail() {
     const title = meta.title || "Untitled";
     const thumbnailUrl = meta.thumbnail_url;
 
-    // Duration
-    let durationSec = 180; // fallback
-    if (YT_API_KEY) {
-      try {
-        const apiUrl = `https://www.googleapis.com/youtube/v3/videos?part=contentDetails&id=${id}&key=${YT_API_KEY}`;
-        const apiRes = await fetch(apiUrl);
-        if (apiRes.ok) {
-          const apiJs = await apiRes.json();
-          const iso = apiJs?.items?.[0]?.contentDetails?.duration;
-          if (iso) durationSec = parseYouTubeDuration(iso);
+    // --- 2️⃣ Check full video info (embeddable, age, region, duration) ---
+    const apiKey = import.meta.env.VITE_YT_API_KEY;
+    let durationSec = 180; // default 3 min fallback
+
+    if (apiKey) {
+      const apiUrl = `https://www.googleapis.com/youtube/v3/videos?part=contentDetails,status&id=${id}&key=${apiKey}`;
+      const apiRes = await fetch(apiUrl);
+      if (apiRes.ok) {
+        const apiJs = await apiRes.json();
+        const item = apiJs?.items?.[0];
+        if (!item) throw new Error("Video not found");
+
+        // Embeddability / region / age checks
+        const status = item.status || {};
+        const content = item.contentDetails || {};
+
+        if (status.embeddable === false) {
+          throw new Error("Video is not embeddable");
         }
-      } catch (err) {
-        console.warn("Duration fetch error, using default:", err);
+
+        if (content.regionRestriction && content.regionRestriction.blocked) {
+          throw new Error("Video is blocked in your region");
+        }
+
+        if (content.contentRating?.ytRating === "ytAgeRestricted") {
+          throw new Error("Video is age-restricted");
+        }
+
+        // Duration parsing
+        if (content.duration) {
+          durationSec = parseYouTubeDuration(content.duration);
+        }
+      } else {
+        console.warn("YouTube Data API request failed:", apiRes.status);
       }
     }
 
     return { videoId: id, title, thumbnailUrl, duration: durationSec };
   }
+
 
   function parseYouTubeDuration(iso) {
     const m = iso.match(/PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/);
