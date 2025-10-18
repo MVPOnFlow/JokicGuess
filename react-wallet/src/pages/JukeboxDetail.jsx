@@ -195,22 +195,39 @@ export default function JukeboxDetail() {
     return urlPattern.test(text);
   }
 
-  async function fetchYouTubeSearchResult(query) {
-    if (!YT_API_KEY) throw new Error("YouTube API key missing");
-    const apiUrl = `https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&maxResults=1&q=${encodeURIComponent(
+  async function fetchYouTubeSearchWithFallback(query) {
+    const apiKey = import.meta.env.VITE_YT_API_KEY;
+    const url = `https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&maxResults=5&q=${encodeURIComponent(
       query
-    )}&key=${YT_API_KEY}`;
-    const res = await fetch(apiUrl);
-    if (!res.ok) throw new Error("Search failed");
-    const data = await res.json();
-    const first = data.items?.[0];
-    if (!first) throw new Error("No results found");
-    return {
-      videoId: first.id.videoId,
-      title: first.snippet.title,
-      thumbnailUrl: first.snippet.thumbnails?.high?.url,
-    };
+    )}&key=${apiKey}`;
+
+    try {
+      const res = await fetch(url);
+      if (!res.ok) throw new Error("Search failed");
+      const data = await res.json();
+
+      // Go through top 5 search hits
+      for (const item of data.items || []) {
+        const vid = item.id.videoId;
+        const videoUrl = `https://www.youtube.com/watch?v=${vid}`;
+        try {
+          const det = await fetchYouTubeVideoDetails(videoUrl);
+          if (det) {
+            console.log("✅ Found embeddable:", det.title);
+            return det; // stop at first valid one
+          }
+        } catch (err) {
+          console.warn("Skipping unembeddable:", vid, err.message);
+        }
+      }
+
+      throw new Error("No embeddable videos found for this query");
+    } catch (err) {
+      console.error("YouTube search fallback failed:", err);
+      throw err;
+    }
   }
+
 
   async function fetchYouTubeVideoDetails(url) {
     const id = extractYouTubeId(url);
@@ -366,7 +383,7 @@ export default function JukeboxDetail() {
                       if (isYouTubeUrl(text)) {
                         det = await fetchYouTubeVideoDetails(text);
                       } else {
-                        const hit = await fetchYouTubeSearchResult(text);
+                        const hit = await fetchYouTubeSearchWithFallback(text);
                         const url = `https://www.youtube.com/watch?v=${hit.videoId}`;
                         det = await fetchYouTubeVideoDetails(url);
                       }
