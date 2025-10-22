@@ -521,7 +521,7 @@ export default function Fastbreak() {
                   style={{ maxWidth: "350px" }}
                 />
                 <p className="text-muted small mb-0">
-                  🎁 <em>Heroes of the game: Chase pull -> pack reward raffled to a random entry in all daily historic run games.</em>
+                  🎁 <em>Heroes of the game: Chase pull - pack reward raffled to a random entry in all daily historic run games.</em>
                 </p>
               </div>
             </div>
