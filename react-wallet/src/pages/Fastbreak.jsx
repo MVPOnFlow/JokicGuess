@@ -509,20 +509,19 @@ export default function Fastbreak() {
               <h5 className="mb-3 text-warning">💰 Prizes</h5>
               <ul className="fastbreak-rules-list mb-4">
                 <li>🏆 90% of the pot to the winner (split if tied)</li>
-                <li>🐎 5% to the actual top horse (TS user picked by the winner)</li>
-                <li>🎁 Pack reward for the winner (tie-breaker: earlier entry wins)</li>
+                <li>🐎 5% to the top horse (TS user picked by the winner)</li>
                 <li>🎲 Pack reward for one random entry</li>
               </ul>
 
               <div className="text-center">
                 <img
-                  src="/images/RIB1970wave3.png"
-                  alt="RIB 1970 Pack Reward"
+                  src="/images/HOTGChasePull.png"
+                  alt="Pack Reward"
                   className="img-fluid rounded shadow mb-2"
                   style={{ maxWidth: "350px" }}
                 />
                 <p className="text-muted small mb-0">
-                  🎁 <em>Run It Back: 1970s Chance Hit Pack (wave 3) -> two pack rewards in all daily historic run games.</em>
+                  🎁 <em>Heroes of the game: Chase pull -> pack reward raffled to a random entry in all daily historic run games.</em>
                 </p>
               </div>
             </div>
