@@ -513,17 +513,6 @@ export default function Fastbreak() {
                 <li>🎲 Pack reward for one random entry</li>
               </ul>
 
-              <div className="text-center">
-                <img
-                  src="/images/HOTGChasePull.png"
-                  alt="Pack Reward"
-                  className="img-fluid rounded shadow mb-2"
-                  style={{ maxWidth: "350px" }}
-                />
-                <p className="text-muted small mb-0">
-                  🎁 <em>Heroes of the game: Chase pull - pack reward raffled to a random entry in all daily historic run games.</em>
-                </p>
-              </div>
             </div>
           )}
 
