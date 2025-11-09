@@ -14,7 +14,10 @@ import math
 from flask_cors import CORS
 from flask import send_from_directory, request
 from concurrent.futures import ThreadPoolExecutor, as_completed
-
+SWAPFEST_START_TIME = '2025-10-23 21:00:00'
+SWAPFEST_END_TIME   = '2025-11-24 00:00:00'
+SWAPFEST_BOOST1_CUTOFF = '2025-10-17 00:00:00'  # 1.4x before this
+SWAPFEST_BOOST2_CUTOFF = '2025-10-21 00:00:00'  # 1.2x before this 
 
 # Run mock on port 8000 for Azure
 app = Flask(__name__)
@@ -46,12 +49,12 @@ def serve_react(path):
 @app.route("/api/leaderboard")
 def api_leaderboard():
     # Define event period in UTC
-    start_time = '2025-09-25 21:00:00'
-    end_time = '2025-10-22 00:00:00'
+    start_time = SWAPFEST_START_TIME
+    end_time = SWAPFEST_END_TIME
 
     # Multiplier cutoffs (UTC)
-    boost1_cutoff = '2025-09-05 00:00:00'  # 1.4x before this
-    boost2_cutoff = '2025-09-16 00:00:00'  # 1.2x before this (and on/after Sept 4)
+    boost1_cutoff = SWAPFEST_BOOST1_CUTOFF
+    boost2_cutoff = SWAPFEST_BOOST2_CUTOFF
 
     db = get_db()
     cursor = db.cursor()
@@ -1493,12 +1496,12 @@ async def list_petting_rewards(interaction: discord.Interaction):
 )
 async def gift_leaderboard(interaction: discord.Interaction):
     # Define the event window in UTC
-    start_time = '2025-09-25 21:00:00'
-    end_time   = '2025-10-22 00:00:00'
+    start_time = SWAPFEST_START_TIME
+    end_time   = SWAPFEST_END_TIME
 
     # Multiplier cutoffs (UTC)
-    boost1_cutoff = '2025-09-05 00:00:00'  # 1.4x before this
-    boost2_cutoff = '2025-09-16 00:00:00'  # 1.2x before this (and on/after Sept 4)
+    boost1_cutoff = SWAPFEST_BOOST1_CUTOFF
+    boost2_cutoff = SWAPFEST_BOOST2_CUTOFF
 
     # Query with date-based multipliers:
     # - < Sept 04 => 1.4x
