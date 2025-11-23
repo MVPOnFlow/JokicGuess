@@ -45,6 +45,24 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
+      # ---------- Tests ----------
+      - name: Install test dependencies
+        run: |
+          pip install pytest pytest-cov pytest-asyncio
+
+      - name: Run unit tests
+        run: |
+          pytest tests/ -v --cov=. --cov-report=term-missing --cov-report=xml
+        continue-on-error: false
+
+      - name: Upload coverage reports
+        uses: codecov/codecov-action@v3
+        with:
+          file: ./coverage.xml
+          flags: unittests
+          name: codecov-umbrella
+        if: always()
+
       # ---------- Deploy ----------
       - name: Deploy to Azure Web App
         uses: azure/webapps-deploy@v2
