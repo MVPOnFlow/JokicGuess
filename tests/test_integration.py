@@ -111,17 +111,54 @@ class TestModuleStructure:
 class TestEnvironmentConfiguration:
     """Test environment-based configuration."""
 
-    @patch.dict('os.environ', {'DATABASE_URL': 'postgresql://test'})
     def test_postgresql_mode_when_database_url_set(self):
         """Test that PostgreSQL mode is used when DATABASE_URL is set."""
-        from config import DATABASE_URL
-        assert DATABASE_URL == 'postgresql://test'
+        import os
+        # Save original value
+        original_value = os.environ.get('DATABASE_URL')
+        
+        try:
+            # Set test value
+            os.environ['DATABASE_URL'] = 'postgresql://test'
+            
+            # Re-import config to pick up new value
+            import importlib
+            import config
+            importlib.reload(config)
+            
+            # Check the value was picked up
+            assert config.DATABASE_URL == 'postgresql://test'
+        finally:
+            # Restore original value
+            if original_value is None:
+                os.environ.pop('DATABASE_URL', None)
+            else:
+                os.environ['DATABASE_URL'] = original_value
+            # Reload config again to restore state
+            import config
+            importlib.reload(config)
 
-    @patch.dict('os.environ', {}, clear=True)
     def test_sqlite_mode_when_database_url_not_set(self):
         """Test that SQLite mode is used when DATABASE_URL is not set."""
-        # Re-import to get fresh config
-        import importlib
-        import config
-        importlib.reload(config)
-        assert config.DATABASE_URL is None
+        import os
+        # Save original value
+        original_value = os.environ.get('DATABASE_URL')
+        
+        try:
+            # Remove DATABASE_URL
+            os.environ.pop('DATABASE_URL', None)
+            
+            # Re-import to get fresh config
+            import importlib
+            import config
+            importlib.reload(config)
+            
+            # Should be None when not set
+            assert config.DATABASE_URL is None
+        finally:
+            # Restore original value
+            if original_value is not None:
+                os.environ['DATABASE_URL'] = original_value
+            # Reload config again to restore state
+            import config
+            importlib.reload(config)

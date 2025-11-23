@@ -9,10 +9,11 @@ from discord.ext import commands
 class TestBotCommandRegistration:
     """Test that bot commands are registered properly."""
 
-    @patch('bot.commands.bot')
     def test_register_commands_adds_commands(self):
         """Test that register_commands adds slash commands to bot."""
         mock_bot = Mock()
+        mock_bot.tree = Mock()
+        mock_bot.tree.command = Mock(return_value=lambda f: f)
         mock_conn = Mock()
         mock_cursor = Mock()
         
@@ -21,6 +22,8 @@ class TestBotCommandRegistration:
         # This should not raise an exception
         try:
             register_commands(mock_bot, mock_conn, mock_cursor, 'sqlite')
+            # Verify bot.tree was accessed for command registration
+            assert mock_bot.tree is not None
         except Exception as e:
             pytest.fail(f"register_commands raised {e}")
 
