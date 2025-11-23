@@ -1316,6 +1316,111 @@ async def pet(interaction: discord.Interaction):
     ), (new_balance, new_daily_pets_remaining, today, user_id))
     conn.commit()
 
+@bot.tree.command(name="pet_all", description="Use all available pets at once and earn rewards!")
+async def pet_all(interaction: discord.Interaction):
+    if interaction.channel_id != PETTING_ALLOWED_CHANNEL_ID:
+        return await interaction.response.send_message(
+            "You can only pet your horse in the petting zoo.", ephemeral=True
+        )
+
+    user_id = interaction.user.id
+    today = datetime.datetime.now(datetime.UTC).strftime("%Y-%m-%d")
+
+    # Function to check for special reward
+    def check_special_reward():
+        cursor.execute(prepare_query("SELECT id, name, probability, amount FROM special_rewards"))
+        rewards = cursor.fetchall()
+
+        for reward_id, name, probability, amount in rewards:
+            if random.random() <= probability:
+                if amount > 0:
+                    cursor.execute(prepare_query(
+                        f"UPDATE special_rewards SET amount = {amount - 1} WHERE id = ?"
+                    ), (reward_id,))
+                    conn.commit()
+                    if amount - 1 == 0:
+                        cursor.execute(prepare_query(
+                            "DELETE FROM special_rewards WHERE name = ?"
+                        ), (name,))
+                        conn.commit()
+                    return name
+        return None
+
+    # Fetch user data from the database
+    cursor.execute(prepare_query(
+        "SELECT balance, daily_pets_remaining, last_pet_date FROM user_rewards WHERE user_id = ?"
+    ), (user_id,))
+    user_data = cursor.fetchone()
+
+    if not user_data:
+        cursor.execute(prepare_query(
+            "INSERT INTO user_rewards (user_id, balance, daily_pets_remaining, last_pet_date) VALUES (?, ?, ?, ?)"
+        ), (user_id, 0, 0, None))
+        conn.commit()
+        user_data = (0, 0, None)
+
+    balance, daily_pets_remaining, last_pet_date = user_data
+
+    # Reset pets if it's a new day
+    if last_pet_date != today:
+        daily_pets_remaining += DEFAULT_FREE_DAILY_PETS
+
+    if daily_pets_remaining <= 0:
+        await interaction.response.send_message(
+            "Hold your horses! You've used all your pets for today! Try again tomorrow.", ephemeral=True
+        )
+        return
+
+    # Process all available pets
+    total_mvp_reward = 0
+    special_rewards_won = []
+    pets_used = daily_pets_remaining
+
+    for _ in range(daily_pets_remaining):
+        # Check for special reward first
+        special_reward = check_special_reward()
+        if special_reward:
+            special_rewards_won.append(special_reward)
+        else:
+            # Add MVP reward
+            reward = custom_reward()
+            total_mvp_reward += reward
+
+    # Update user data
+    new_balance = balance + total_mvp_reward
+    new_daily_pets_remaining = 0  # All pets used
+
+    cursor.execute(prepare_query(
+        "UPDATE user_rewards SET balance = ?, daily_pets_remaining = ?, last_pet_date = ? WHERE user_id = ?"
+    ), (new_balance, new_daily_pets_remaining, today, user_id))
+    conn.commit()
+
+    # Build response message
+    response_parts = [f"🐴 You used **{pets_used}** pets! 🐴\n"]
+
+    # Add special rewards messages
+    if special_rewards_won:
+        response_parts.append("🎉 **Special Rewards Won:** 🎉")
+        for reward in special_rewards_won:
+            response_parts.append(f"- **{reward}**")
+        response_parts.append(f"<@1261935277753241653> will follow up with the rewards shortly.\n")
+
+    # Add MVP summary
+    if total_mvp_reward > 0:
+        response_parts.append(get_basic_pet_response(total_mvp_reward))
+        response_parts.append(f"Your new balance is **{new_balance} $MVP**.")
+
+    response_parts.append(f"\nDaily pets remaining: **{new_daily_pets_remaining}**.")
+
+    # Determine if message should be public (if special rewards won) or private
+    #is_public = len(special_rewards_won) > 0
+    is_public = True  # Always public for now
+
+    await interaction.response.send_message(
+        "\n".join(response_parts),
+        ephemeral=not is_public
+    )
+
 @bot.tree.command(name="my_rewards", description="View your unclaimed $MVP rewards.")
 async def my_rewards(interaction: discord.Interaction):
     if interaction.channel_id != PETTING_ALLOWED_CHANNEL_ID:
