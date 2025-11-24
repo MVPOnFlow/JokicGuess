@@ -17,15 +17,15 @@ class TestConfig:
         """Test that swapfest times are in correct format."""
         assert isinstance(SWAPFEST_START_TIME, str)
         assert isinstance(SWAPFEST_END_TIME, str)
-        assert len(SWAPFEST_START_TIME) == 19  # YYYY-MM-DD HH:MM:SS
-        assert len(SWAPFEST_END_TIME) == 19
+        assert len(SWAPFEST_START_TIME) == 24  # YYYY-MM-DDTHH:MM:SS.sssZ
+        assert len(SWAPFEST_END_TIME) == 24
 
     def test_swapfest_boost_cutoffs(self):
         """Test that boost cutoffs are properly formatted."""
         assert isinstance(SWAPFEST_BOOST1_CUTOFF, str)
         assert isinstance(SWAPFEST_BOOST2_CUTOFF, str)
-        assert len(SWAPFEST_BOOST1_CUTOFF) == 19
-        assert len(SWAPFEST_BOOST2_CUTOFF) == 19
+        assert len(SWAPFEST_BOOST1_CUTOFF) == 24
+        assert len(SWAPFEST_BOOST2_CUTOFF) == 24
 
     def test_petting_channel_id(self):
         """Test that petting channel ID is an integer."""
