@@ -5,6 +5,112 @@
   background-color: #121826;
 }
 
+/* Dark table styling - Nuggets theme */
+.td-watch-container .table {
+  color: #E5E7EB;
+  background-color: #1C2A3A;
+}
+
+.td-watch-container .table thead {
+  background-color: #0E2240;
+  color: #FDB927;
+}
+
+.td-watch-container .table-striped > tbody > tr:nth-of-type(odd) > * {
+  color: #E5E7EB;
+  background-color: #1A2535;
+}
+
+.td-watch-container .table-hover > tbody > tr:hover > * {
+  color: #F3F4F6;
+  background-color: #273549;
+}
+
+.td-watch-container .table-light {
+  background-color: #273549;
+  color: #F3F4F6;
+}
+
+.td-watch-container .table-success {
+  background-color: rgba(253, 185, 39, 0.15) !important;
+  color: #FDB927 !important;
+}
+
+/* Jokic highlight row */
+.td-watch-container .jokic-highlight {
+  background-color: rgba(253, 185, 39, 0.2) !important;
+  color: #FDB927 !important;
+  font-weight: 600;
+}
+
+/* Leaders table specific styling */
+.td-watch-container .td-leaders-table {
+  margin-bottom: 0 !important;
+}
+
+.td-watch-container .td-leaders-table thead th {
+  background-color: #0E2240;
+  color: #FDB927;
+  border-color: #273549;
+}
+
+.td-watch-container .td-leaders-table tbody td {
+  background-color: #1C2A3A;
+  color: #E5E7EB;
+  border-color: #273549;
+}
+
+.td-watch-container .td-leaders-table tbody tr:nth-of-type(odd) td {
+  background-color: #1A2535;
+}
+
+.td-watch-container .td-leaders-table tbody tr:hover td {
+  background-color: #273549;
+}
+
+/* Schedule table specific styling */
+.td-watch-container .td-schedule-table thead th {
+  background-color: #0E2240;
+  color: #FDB927;
+  border-color: #273549;
+}
+
+.td-watch-container .td-schedule-table tbody td {
+  background-color: #1C2A3A;
+  color: #E5E7EB;
+  border-color: #273549;
+}
+
+.td-watch-container .td-schedule-table tbody tr:hover td {
+  background-color: #273549;
+}
+
+/* Accordion Nuggets theme */
+.td-watch-container .accordion-item {
+  background-color: #1C2A3A;
+  border-color: #273549;
+}
+
+.td-watch-container .accordion-button {
+  background-color: #1A2535;
+  color: #E5E7EB;
+}
+
+.td-watch-container .accordion-button:not(.collapsed) {
+  background-color: #0E2240;
+  color: #FDB927;
+}
+
+.td-watch-container .accordion-button:focus {
+  box-shadow: 0 0 0 0.25rem rgba(253, 185, 39, 0.25);
+  border-color: #FDB927;
+}
+
+.td-watch-container .accordion-body {
+  background-color: #1C2A3A;
+  color: #E5E7EB;
+}
+
 .td-hero {
   background: linear-gradient(135deg, #0E2240, #418FDE);
   border-radius: 10px;
@@ -86,22 +192,9 @@
   color: #0E2240;
 }
 
-.pack-card {
-  transition: all 0.3s ease;
-  cursor: pointer;
-  background-color: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(253, 185, 39, 0.3);
-}
-
-.pack-card:hover {
-  transform: translateY(-5px);
-  box-shadow: 0 10px 25px rgba(253, 185, 39, 0.3);
-  background-color: rgba(255, 255, 255, 0.08);
-  border-color: #FDB927;
-}
-
 .table-success {
-  background-color: rgba(34, 197, 94, 0.2) !important;
+  background-color: rgba(253, 185, 39, 0.15) !important;
+  color: #FDB927 !important;
 }
 
 @media (max-width: 768px) {

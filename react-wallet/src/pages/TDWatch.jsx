@@ -1,4 +1,4 @@
-import { Container, Row, Col, Card, Table, Badge, Alert } from 'react-bootstrap';
+import { Container, Row, Col, Card, Table, Badge, Alert, Accordion } from 'react-bootstrap';
 import './TDWatch.css';
 
 function TDWatch() {
@@ -38,312 +38,297 @@ function TDWatch() {
   ];
 
   // Hardcoded Nuggets schedule (manually update after games)
-  const schedule = [
-    // Completed games with triple-doubles
-    { date: '2024-10-28', opponent: 'Timberwolves', isHome: false, location: 'Target Center', played: true, tripleDouble: true, stats: { points: 27, rebounds: 19, assists: 10 } },
-    { date: '2024-10-30', opponent: 'Pelicans', isHome: true, location: 'Ball Arena', played: true, tripleDouble: true, stats: { points: 21, rebounds: 12, assists: 10 } },
-    { date: '2024-11-06', opponent: 'Heat', isHome: true, location: 'Ball Arena', played: true, tripleDouble: true, stats: { points: 33, rebounds: 15, assists: 16 } },
-    { date: '2024-11-09', opponent: 'Pacers', isHome: true, location: 'Ball Arena', played: true, tripleDouble: true, stats: { points: 32, rebounds: 14, assists: 14 } },
-    { date: '2024-11-18', opponent: 'Bulls', isHome: true, location: 'Ball Arena', played: true, tripleDouble: true, stats: { points: 36, rebounds: 18, assists: 13 } },
-    // Other completed games
-    { date: '2024-10-24', opponent: 'Warriors', isHome: false, location: 'Chase Center', played: true, tripleDouble: false, stats: { points: null, rebounds: 13, assists: null } },
-    { date: '2024-10-26', opponent: 'Suns', isHome: true, location: 'Ball Arena', played: true, tripleDouble: false, stats: { points: null, rebounds: 14, assists: 15 } },
-    { date: '2024-11-01', opponent: 'Trail Blazers', isHome: false, location: 'Moda Center', played: true, tripleDouble: false, stats: { points: null, rebounds: 14, assists: 9 } },
-    { date: '2024-11-04', opponent: 'Kings', isHome: true, location: 'Ball Arena', played: true, tripleDouble: false, stats: { points: 34, rebounds: 7, assists: 14 } },
-    { date: '2024-11-08', opponent: 'Warriors', isHome: true, location: 'Ball Arena', played: true, tripleDouble: false, stats: { points: 26, rebounds: 9, assists: 9 } },
-    { date: '2024-11-12', opponent: 'Kings', isHome: false, location: 'Golden 1 Center', played: true, tripleDouble: false, stats: { points: 35, rebounds: 15, assists: null } },
-    { date: '2024-11-13', opponent: 'Clippers', isHome: false, location: 'Intuit Dome', played: true, tripleDouble: false, stats: { points: 55, rebounds: 12, assists: 6 } },
-    { date: '2024-11-16', opponent: 'Timberwolves', isHome: false, location: 'Target Center', played: true, tripleDouble: false, stats: { points: 27, rebounds: 12, assists: null } },
-    { date: '2024-11-20', opponent: 'Pelicans', isHome: false, location: 'Smoothie King Center', played: true, tripleDouble: false, stats: { points: null, rebounds: null, assists: 12 } },
-    { date: '2024-11-22', opponent: 'Rockets', isHome: false, location: 'Toyota Center', played: true, tripleDouble: false, stats: { points: 34, rebounds: 10, assists: null } },
-    { date: '2024-11-23', opponent: 'Kings', isHome: true, location: 'Ball Arena', played: true, tripleDouble: false, stats: { points: 44, rebounds: 13, assists: null } },
-    // Upcoming games
-    { date: '2024-11-25', opponent: 'Grizzlies', isHome: false, location: 'FedExForum', played: false, tripleDouble: false, stats: null },
-    { date: '2024-11-29', opponent: 'Spurs', isHome: true, location: 'Ball Arena', played: false, tripleDouble: false, stats: null },
-    { date: '2024-11-30', opponent: 'Suns', isHome: false, location: 'Footprint Center', played: false, tripleDouble: false, stats: null },
-    { date: '2024-12-02', opponent: 'Mavericks', isHome: true, location: 'Ball Arena', played: false, tripleDouble: false, stats: null },
-    { date: '2024-12-04', opponent: 'Pacers', isHome: false, location: 'Gainbridge Fieldhouse', played: false, tripleDouble: false, stats: null },
-    { date: '2024-12-06', opponent: 'Hawks', isHome: false, location: 'State Farm Arena', played: false, tripleDouble: false, stats: null },
-    { date: '2024-12-08', opponent: 'Hornets', isHome: false, location: 'Spectrum Center', played: false, tripleDouble: false, stats: null },
-    { date: '2024-12-10', opponent: 'Wizards', isHome: true, location: 'Ball Arena', played: false, tripleDouble: false, stats: null },
-    { date: '2024-12-12', opponent: 'Suns', isHome: true, location: 'Ball Arena', played: false, tripleDouble: false, stats: null },
-    { date: '2024-12-14', opponent: 'Warriors', isHome: false, location: 'Chase Center', played: false, tripleDouble: false, stats: null },
-    { date: '2024-12-16', opponent: 'Clippers', isHome: true, location: 'Ball Arena', played: false, tripleDouble: false, stats: null },
-    { date: '2024-12-19', opponent: 'Magic', isHome: true, location: 'Ball Arena', played: false, tripleDouble: false, stats: null },
-    { date: '2024-12-20', opponent: 'Rockets', isHome: true, location: 'Ball Arena', played: false, tripleDouble: false, stats: null },
-    { date: '2024-12-23', opponent: 'Jazz', isHome: true, location: 'Ball Arena', played: false, tripleDouble: false, stats: null },
-    { date: '2024-12-24', opponent: 'Mavericks', isHome: false, location: 'American Airlines Center', played: false, tripleDouble: false, stats: null },
-    { date: '2024-12-26', opponent: 'Timberwolves', isHome: true, location: 'Ball Arena', played: false, tripleDouble: false, stats: null },
-    { date: '2024-12-28', opponent: 'Magic', isHome: false, location: 'Kia Center', played: false, tripleDouble: false, stats: null },
-    { date: '2024-12-30', opponent: 'Heat', isHome: false, location: 'Kaseya Center', played: false, tripleDouble: false, stats: null },
-    { date: '2025-01-01', opponent: 'Raptors', isHome: false, location: 'Scotiabank Arena', played: false, tripleDouble: false, stats: null },
-    { date: '2025-01-03', opponent: 'Cavaliers', isHome: false, location: 'Rocket Mortgage FieldHouse', played: false, tripleDouble: false, stats: null },
-    { date: '2025-01-04', opponent: 'Nets', isHome: false, location: 'Barclays Center', played: false, tripleDouble: false, stats: null },
-    { date: '2025-01-06', opponent: '76ers', isHome: false, location: 'Wells Fargo Center', played: false, tripleDouble: false, stats: null },
-    { date: '2025-01-08', opponent: 'Celtics', isHome: false, location: 'TD Garden', played: false, tripleDouble: false, stats: null },
-    { date: '2025-01-10', opponent: 'Hawks', isHome: true, location: 'Ball Arena', played: false, tripleDouble: false, stats: null },
-    { date: '2025-01-12', opponent: 'Bucks', isHome: true, location: 'Ball Arena', played: false, tripleDouble: false, stats: null },
-    { date: '2025-01-14', opponent: 'Pelicans', isHome: false, location: 'Smoothie King Center', played: false, tripleDouble: false, stats: null },
-    { date: '2025-01-15', opponent: 'Mavericks', isHome: false, location: 'American Airlines Center', played: false, tripleDouble: false, stats: null },
-    { date: '2025-01-18', opponent: 'Wizards', isHome: true, location: 'Ball Arena', played: false, tripleDouble: false, stats: null },
-    { date: '2025-01-19', opponent: 'Hornets', isHome: true, location: 'Ball Arena', played: false, tripleDouble: false, stats: null },
-    { date: '2025-01-21', opponent: 'Lakers', isHome: true, location: 'Ball Arena', played: false, tripleDouble: false, stats: null },
-    { date: '2025-01-23', opponent: 'Wizards', isHome: false, location: 'Capital One Arena', played: false, tripleDouble: false, stats: null },
-    { date: '2025-01-24', opponent: 'Bucks', isHome: false, location: 'Fiserv Forum', played: false, tripleDouble: false, stats: null },
-    { date: '2025-01-25', opponent: 'Grizzlies', isHome: false, location: 'FedExForum', played: false, tripleDouble: false, stats: null },
-    { date: '2025-01-28', opponent: 'Pistons', isHome: true, location: 'Ball Arena', played: false, tripleDouble: false, stats: null },
-    { date: '2025-01-30', opponent: 'Nets', isHome: true, location: 'Ball Arena', played: false, tripleDouble: false, stats: null },
-    { date: '2025-01-31', opponent: 'Clippers', isHome: true, location: 'Ball Arena', played: false, tripleDouble: false, stats: null },
-    { date: '2025-02-02', opponent: 'Thunder', isHome: true, location: 'Ball Arena', played: false, tripleDouble: false, stats: null },
-    { date: '2025-02-04', opponent: 'Pistons', isHome: false, location: 'Little Caesars Arena', played: false, tripleDouble: false, stats: null },
-    { date: '2025-02-05', opponent: 'Knicks', isHome: false, location: 'Madison Square Garden', played: false, tripleDouble: false, stats: null },
-    { date: '2025-02-08', opponent: 'Bulls', isHome: false, location: 'United Center', played: false, tripleDouble: false, stats: null },
-    { date: '2025-02-10', opponent: 'Cavaliers', isHome: true, location: 'Ball Arena', played: false, tripleDouble: false, stats: null },
-    { date: '2025-02-12', opponent: 'Grizzlies', isHome: true, location: 'Ball Arena', played: false, tripleDouble: false, stats: null },
-    { date: '2025-02-20', opponent: 'Clippers', isHome: false, location: 'Intuit Dome', played: false, tripleDouble: false, stats: null },
-    { date: '2025-02-21', opponent: 'Trail Blazers', isHome: false, location: 'Moda Center', played: false, tripleDouble: false, stats: null },
-    { date: '2025-02-22', opponent: 'Warriors', isHome: false, location: 'Chase Center', played: false, tripleDouble: false, stats: null },
-    { date: '2025-02-26', opponent: 'Celtics', isHome: true, location: 'Ball Arena', played: false, tripleDouble: false, stats: null },
-    { date: '2025-02-28', opponent: 'Thunder', isHome: false, location: 'Paycom Center', played: false, tripleDouble: false, stats: null },
-    { date: '2025-03-01', opponent: 'Timberwolves', isHome: true, location: 'Ball Arena', played: false, tripleDouble: false, stats: null },
-    { date: '2025-03-03', opponent: 'Jazz', isHome: false, location: 'Delta Center', played: false, tripleDouble: false, stats: null },
-    { date: '2025-03-06', opponent: 'Lakers', isHome: true, location: 'Ball Arena', played: false, tripleDouble: false, stats: null },
-    { date: '2025-03-07', opponent: 'Knicks', isHome: true, location: 'Ball Arena', played: false, tripleDouble: false, stats: null },
-    { date: '2025-03-10', opponent: 'Thunder', isHome: false, location: 'Paycom Center', played: false, tripleDouble: false, stats: null },
-    { date: '2025-03-12', opponent: 'Rockets', isHome: true, location: 'Ball Arena', played: false, tripleDouble: false, stats: null },
-    { date: '2025-03-13', opponent: 'Spurs', isHome: false, location: 'Frost Bank Center', played: false, tripleDouble: false, stats: null },
-    { date: '2025-03-15', opponent: 'Lakers', isHome: false, location: 'Crypto.com Arena', played: false, tripleDouble: false, stats: null },
-    { date: '2025-03-18', opponent: '76ers', isHome: true, location: 'Ball Arena', played: false, tripleDouble: false, stats: null },
-    { date: '2025-03-21', opponent: 'Raptors', isHome: true, location: 'Ball Arena', played: false, tripleDouble: false, stats: null },
-    { date: '2025-03-22', opponent: 'Trail Blazers', isHome: true, location: 'Ball Arena', played: false, tripleDouble: false, stats: null },
-    { date: '2025-03-25', opponent: 'Suns', isHome: false, location: 'Footprint Center', played: false, tripleDouble: false, stats: null },
-    { date: '2025-03-26', opponent: 'Mavericks', isHome: true, location: 'Ball Arena', played: false, tripleDouble: false, stats: null },
-    { date: '2025-03-28', opponent: 'Jazz', isHome: true, location: 'Ball Arena', played: false, tripleDouble: false, stats: null },
-    { date: '2025-03-30', opponent: 'Warriors', isHome: true, location: 'Ball Arena', played: false, tripleDouble: false, stats: null },
-    { date: '2025-04-02', opponent: 'Jazz', isHome: false, location: 'Delta Center', played: false, tripleDouble: false, stats: null },
-    { date: '2025-04-04', opponent: 'Spurs', isHome: true, location: 'Ball Arena', played: false, tripleDouble: false, stats: null },
-    { date: '2025-04-07', opponent: 'Trail Blazers', isHome: true, location: 'Ball Arena', played: false, tripleDouble: false, stats: null },
-    { date: '2025-04-09', opponent: 'Grizzlies', isHome: true, location: 'Ball Arena', played: false, tripleDouble: false, stats: null },
-    { date: '2025-04-11', opponent: 'Thunder', isHome: true, location: 'Ball Arena', played: false, tripleDouble: false, stats: null },
-    { date: '2025-04-13', opponent: 'Spurs', isHome: false, location: 'Frost Bank Center', played: false, tripleDouble: false, stats: null }
+  // Timestamps are Unix timestamps (seconds since epoch) in UTC
+  const allGames = [
+    // October 2024
+    { timestamp: 1729807200, opponent: 'Warriors', isHome: false, played: true, tripleDouble: false, stats: { points: 21, rebounds: 13, assists: 10 } },
+    { timestamp: 1729980000, opponent: 'Suns', isHome: true, played: true, tripleDouble: false, stats: { points: 14, rebounds: 14, assists: 15 } },
+    { timestamp: 1730152800, opponent: 'Timberwolves', isHome: false, played: true, tripleDouble: true, stats: { points: 25, rebounds: 19, assists: 10 } },
+    { timestamp: 1730325600, opponent: 'Pelicans', isHome: true, played: true, tripleDouble: true, stats: { points: 21, rebounds: 12, assists: 10 } },
+    
+    // November 2024
+    { timestamp: 1730520000, opponent: 'Trail Blazers', isHome: false, played: true, tripleDouble: false, stats: { points: 21, rebounds: 14, assists: 9 } },
+    { timestamp: 1730779200, opponent: 'Kings', isHome: true, played: true, tripleDouble: false, stats: { points: 34, rebounds: 7, assists: 14 } },
+    { timestamp: 1730952000, opponent: 'Heat', isHome: true, played: true, tripleDouble: true, stats: { points: 33, rebounds: 15, assists: 16 } },
+    { timestamp: 1731124800, opponent: 'Warriors', isHome: true, played: true, tripleDouble: false, stats: { points: 26, rebounds: 9, assists: 9 } },
+    { timestamp: 1731211200, opponent: 'Pacers', isHome: true, played: true, tripleDouble: true, stats: { points: 32, rebounds: 14, assists: 14 } },
+    { timestamp: 1731470400, opponent: 'Kings', isHome: false, played: true, tripleDouble: false, stats: { points: 35, rebounds: 15, assists: 7 } },
+    { timestamp: 1731556800, opponent: 'Clippers', isHome: false, played: true, tripleDouble: false, stats: { points: 55, rebounds: 12, assists: 6 } },
+    { timestamp: 1731816000, opponent: 'Timberwolves', isHome: false, played: true, tripleDouble: false, stats: { points: 27, rebounds: 12, assists: 11 } },
+    { timestamp: 1731988800, opponent: 'Bulls', isHome: true, played: true, tripleDouble: true, stats: { points: 36, rebounds: 18, assists: 13 } },
+    { timestamp: 1732161600, opponent: 'Pelicans', isHome: false, played: true, tripleDouble: false, stats: { points: 28, rebounds: 11, assists: 12 } },
+    { timestamp: 1732334400, opponent: 'Rockets', isHome: false, played: true, tripleDouble: false, stats: { points: 34, rebounds: 10, assists: 9 } },
+    { timestamp: 1732420800, opponent: 'Kings', isHome: true, played: true, tripleDouble: false, stats: { points: 44, rebounds: 13, assists: 7 } },
+    { timestamp: 1732593600, opponent: 'Grizzlies', isHome: false, played: false, tripleDouble: false, stats: null },
+    { timestamp: 1732939200, opponent: 'Spurs', isHome: true, played: false, tripleDouble: false, stats: null },
+    { timestamp: 1733025600, opponent: 'Suns', isHome: false, played: false, tripleDouble: false, stats: null },
+    
+    // December 2024
+    { timestamp: 1733198400, opponent: 'Mavericks', isHome: true, played: false, tripleDouble: false, stats: null },
+    { timestamp: 1733371200, opponent: 'Pacers', isHome: false, played: false, tripleDouble: false, stats: null },
+    { timestamp: 1733544000, opponent: 'Hawks', isHome: false, played: false, tripleDouble: false, stats: null },
+    { timestamp: 1733716800, opponent: 'Hornets', isHome: false, played: false, tripleDouble: false, stats: null },
+    { timestamp: 1733889600, opponent: 'Wizards', isHome: true, played: false, tripleDouble: false, stats: null },
+    { timestamp: 1734062400, opponent: 'Suns', isHome: true, played: false, tripleDouble: false, stats: null },
+    { timestamp: 1734235200, opponent: 'Warriors', isHome: false, played: false, tripleDouble: false, stats: null },
+    { timestamp: 1734408000, opponent: 'Clippers', isHome: true, played: false, tripleDouble: false, stats: null },
+    { timestamp: 1734667200, opponent: 'Magic', isHome: true, played: false, tripleDouble: false, stats: null },
+    { timestamp: 1734753600, opponent: 'Rockets', isHome: true, played: false, tripleDouble: false, stats: null },
+    { timestamp: 1735012800, opponent: 'Jazz', isHome: true, played: false, tripleDouble: false, stats: null },
+    { timestamp: 1735099200, opponent: 'Mavericks', isHome: false, played: false, tripleDouble: false, stats: null },
+    { timestamp: 1735272000, opponent: 'Timberwolves', isHome: true, played: false, tripleDouble: false, stats: null },
+    { timestamp: 1735444800, opponent: 'Magic', isHome: false, played: false, tripleDouble: false, stats: null },
+    { timestamp: 1735617600, opponent: 'Heat', isHome: false, played: false, tripleDouble: false, stats: null },
+    
+    // January 2025
+    { timestamp: 1735790400, opponent: 'Raptors', isHome: false, played: false, tripleDouble: false, stats: null },
+    { timestamp: 1735963200, opponent: 'Cavaliers', isHome: false, played: false, tripleDouble: false, stats: null },
+    { timestamp: 1736049600, opponent: 'Nets', isHome: false, played: false, tripleDouble: false, stats: null },
+    { timestamp: 1736222400, opponent: '76ers', isHome: false, played: false, tripleDouble: false, stats: null },
+    { timestamp: 1736395200, opponent: 'Celtics', isHome: false, played: false, tripleDouble: false, stats: null },
+    { timestamp: 1736568000, opponent: 'Hawks', isHome: true, played: false, tripleDouble: false, stats: null },
+    { timestamp: 1736740800, opponent: 'Bucks', isHome: true, played: false, tripleDouble: false, stats: null },
+    { timestamp: 1736913600, opponent: 'Pelicans', isHome: false, played: false, tripleDouble: false, stats: null },
+    { timestamp: 1737000000, opponent: 'Mavericks', isHome: false, played: false, tripleDouble: false, stats: null },
+    { timestamp: 1737259200, opponent: 'Wizards', isHome: true, played: false, tripleDouble: false, stats: null },
+    { timestamp: 1737345600, opponent: 'Hornets', isHome: true, played: false, tripleDouble: false, stats: null },
+    { timestamp: 1737518400, opponent: 'Lakers', isHome: true, played: false, tripleDouble: false, stats: null },
+    { timestamp: 1737691200, opponent: 'Wizards', isHome: false, played: false, tripleDouble: false, stats: null },
+    { timestamp: 1737777600, opponent: 'Bucks', isHome: false, played: false, tripleDouble: false, stats: null },
+    { timestamp: 1737864000, opponent: 'Grizzlies', isHome: false, played: false, tripleDouble: false, stats: null },
+    { timestamp: 1738123200, opponent: 'Pistons', isHome: true, played: false, tripleDouble: false, stats: null },
+    { timestamp: 1738296000, opponent: 'Nets', isHome: true, played: false, tripleDouble: false, stats: null },
+    { timestamp: 1738382400, opponent: 'Clippers', isHome: true, played: false, tripleDouble: false, stats: null },
+    
+    // February 2025
+    { timestamp: 1738555200, opponent: 'Thunder', isHome: true, played: false, tripleDouble: false, stats: null },
+    { timestamp: 1738728000, opponent: 'Pistons', isHome: false, played: false, tripleDouble: false, stats: null },
+    { timestamp: 1738814400, opponent: 'Knicks', isHome: false, played: false, tripleDouble: false, stats: null },
+    { timestamp: 1739073600, opponent: 'Bulls', isHome: false, played: false, tripleDouble: false, stats: null },
+    { timestamp: 1739246400, opponent: 'Cavaliers', isHome: true, played: false, tripleDouble: false, stats: null },
+    { timestamp: 1739419200, opponent: 'Grizzlies', isHome: true, played: false, tripleDouble: false, stats: null },
+    { timestamp: 1740110400, opponent: 'Clippers', isHome: false, played: false, tripleDouble: false, stats: null },
+    { timestamp: 1740196800, opponent: 'Trail Blazers', isHome: false, played: false, tripleDouble: false, stats: null },
+    { timestamp: 1740283200, opponent: 'Warriors', isHome: false, played: false, tripleDouble: false, stats: null },
+    { timestamp: 1740628800, opponent: 'Celtics', isHome: true, played: false, tripleDouble: false, stats: null },
+    { timestamp: 1740801600, opponent: 'Thunder', isHome: false, played: false, tripleDouble: false, stats: null },
+    
+    // March 2025
+    { timestamp: 1740888000, opponent: 'Timberwolves', isHome: true, played: false, tripleDouble: false, stats: null },
+    { timestamp: 1741060800, opponent: 'Jazz', isHome: false, played: false, tripleDouble: false, stats: null },
+    { timestamp: 1741320000, opponent: 'Lakers', isHome: true, played: false, tripleDouble: false, stats: null },
+    { timestamp: 1741406400, opponent: 'Knicks', isHome: true, played: false, tripleDouble: false, stats: null },
+    { timestamp: 1741665600, opponent: 'Thunder', isHome: false, played: false, tripleDouble: false, stats: null },
+    { timestamp: 1741838400, opponent: 'Rockets', isHome: true, played: false, tripleDouble: false, stats: null },
+    { timestamp: 1741924800, opponent: 'Spurs', isHome: false, played: false, tripleDouble: false, stats: null },
+    { timestamp: 1742184000, opponent: 'Lakers', isHome: false, played: false, tripleDouble: false, stats: null },
+    { timestamp: 1742443200, opponent: '76ers', isHome: true, played: false, tripleDouble: false, stats: null },
+    { timestamp: 1742702400, opponent: 'Raptors', isHome: true, played: false, tripleDouble: false, stats: null },
+    { timestamp: 1742788800, opponent: 'Trail Blazers', isHome: true, played: false, tripleDouble: false, stats: null },
+    { timestamp: 1743048000, opponent: 'Suns', isHome: false, played: false, tripleDouble: false, stats: null },
+    { timestamp: 1743134400, opponent: 'Mavericks', isHome: true, played: false, tripleDouble: false, stats: null },
+    { timestamp: 1743307200, opponent: 'Jazz', isHome: true, played: false, tripleDouble: false, stats: null },
+    { timestamp: 1743480000, opponent: 'Warriors', isHome: true, played: false, tripleDouble: false, stats: null },
+    
+    // April 2025
+    { timestamp: 1743739200, opponent: 'Jazz', isHome: false, played: false, tripleDouble: false, stats: null },
+    { timestamp: 1743912000, opponent: 'Spurs', isHome: true, played: false, tripleDouble: false, stats: null },
+    { timestamp: 1744171200, opponent: 'Trail Blazers', isHome: true, played: false, tripleDouble: false, stats: null },
+    { timestamp: 1744344000, opponent: 'Grizzlies', isHome: true, played: false, tripleDouble: false, stats: null },
+    { timestamp: 1744516800, opponent: 'Thunder', isHome: true, played: false, tripleDouble: false, stats: null },
+    { timestamp: 1744689600, opponent: 'Spurs', isHome: false, played: false, tripleDouble: false, stats: null }
   ];
+
+  // Group games by month
+  const gamesByMonth = allGames.reduce((acc, game) => {
+    const date = new Date(game.timestamp * 1000);
+    const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+    const monthName = date.toLocaleDateString('en-US', { year: 'numeric', month: 'long' });
+    
+    if (!acc[monthKey]) {
+      acc[monthKey] = {
+        name: monthName,
+        games: []
+      };
+    }
+    acc[monthKey].games.push(game);
+    return acc;
+  }, {});
+
+  // Get current month key for default open accordion
+  const currentDate = new Date();
+  const currentMonthKey = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}`;
+
+  const formatGameDate = (timestamp) => {
+    const date = new Date(timestamp * 1000);
+    return date.toLocaleDateString('en-US', { 
+      weekday: 'short', 
+      month: 'short', 
+      day: 'numeric',
+      timeZone: 'America/Denver'
+    });
+  };
 
   const progressPercentToSecond = (jokicProgress.current / 181) * 100;
   const progressPercentToFirst = (jokicProgress.current / 205) * 100;
 
   return (
-    <Container className="td-watch-container py-5">
+    <Container className="td-watch-container py-4">
       {/* Hero Section */}
-      <div className="td-hero text-center mb-5">
-        <h1 className="display-3 fw-bold text-primary mb-3">
+      <div className="td-hero text-center mb-3">
+        <h1 className="display-4 fw-bold mb-2">
           🏀 Triple-Double Watch 🏀
         </h1>
-        <p className="lead text-muted mb-4">
+        <p className="lead mb-3">
           Following Nikola Jokić's Historic Chase to #1 All-Time
         </p>
+        <div className="raffle-info-hero mt-3 pt-3 border-top border-light">
+          <h6 className="mb-2">🎁 Triple-Double Raffle</h6>
+          <p className="mb-2 small">
+            After every Jokić triple-double, we raffle <strong>TWO packs</strong>:
+          </p>
+          <div className="d-flex justify-content-center gap-3 flex-wrap small">
+            <div><strong>Pack #1:</strong> Swapfest leaderboard (weighted)</div>
+            <div><strong>Pack #2:</strong> Random FastBreak entry</div>
+          </div>
+        </div>
       </div>
 
-      {/* All-Time Leaders Section */}
-      <Row className="mb-5">
-        <Col lg={8} className="mx-auto">
-          <Card className="shadow-lg border-0">
-            <Card.Header className="bg-primary text-white">
-              <h3 className="mb-0">All-Time NBA Triple-Double Leaders</h3>
+      {/* Pack Pool */}
+      <Row className="mb-4">
+        <Col lg={10} className="mx-auto">
+          <Card className="shadow border-0">
+            <Card.Header className="py-2" style={{backgroundColor: '#FDB927'}}>
+              <h5 className="mb-0" style={{color: '#0E2240'}}>Available Prize Packs</h5>
             </Card.Header>
-            <Card.Body className="p-4">
-              {tdLeaders.map((leader) => (
-                <div
-                  key={leader.rank}
-                  className={`leader-row ${leader.isJokic ? 'jokic-row' : ''} mb-4 p-3 rounded`}
-                >
-                  <Row className="align-items-center">
-                    <Col xs={2} className="text-center">
-                      <div className={`rank-badge rank-${leader.rank}`}>
-                        #{leader.rank}
-                      </div>
-                    </Col>
-                    <Col xs={6}>
-                      <h4 className="mb-0">
+            <Card.Body className="p-2">
+              <p className="mb-2 small px-2" style={{color: '#cbd5e1'}}>
+                When Jokić records a triple-double, we spin the wheel to randomly select which packs to award!
+              </p>
+              <Table responsive hover className="mb-0">
+                <thead>
+                  <tr>
+                    <th>Pack Name</th>
+                    <th className="text-center">Tier</th>
+                    <th className="text-center">Number of Packs</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {packPool.map((pack, idx) => (
+                    <tr key={idx}>
+                      <td className="small">{pack.name}</td>
+                      <td className="text-center">
+                        <Badge bg="secondary" className="small">{pack.rarity}</Badge>
+                      </td>
+                      <td className="text-center fw-semibold">{pack.sealed}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </Table>
+            </Card.Body>
+          </Card>
+        </Col>
+      </Row>
+
+      {/* All-Time Leaders Section */}
+      <Row className="mb-4">
+        <Col lg={6} className="mx-auto">
+          <Card className="shadow border-0">
+            <Card.Header className="py-2" style={{backgroundColor: '#418FDE'}}>
+              <h6 className="mb-0 text-white">All-Time Triple-Double Leaders</h6>
+            </Card.Header>
+            <Card.Body className="p-0">
+              <Table striped hover size="sm" className="mb-0 td-leaders-table">
+                <thead>
+                  <tr>
+                    <th className="text-center" style={{width: '60px'}}>Rank</th>
+                    <th>Player</th>
+                    <th className="text-center" style={{width: '80px'}}>Total</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {tdLeaders.map((leader) => (
+                    <tr key={leader.rank} className={leader.isJokic ? 'jokic-highlight' : ''}>
+                      <td className="text-center">#{leader.rank}</td>
+                      <td>
                         {leader.name}
                         {!leader.active && <span className="text-muted small"> *</span>}
-                        {leader.isJokic && <span className="ms-2">🃏</span>}
-                      </h4>
-                    </Col>
-                    <Col xs={4} className="text-end">
-                      <h2 className="mb-0 fw-bold text-primary">{leader.count}</h2>
-                    </Col>
-                  </Row>
-                </div>
-              ))}
-              <p className="text-muted small mb-0 mt-3">* Hall of Famer</p>
+                      </td>
+                      <td className="text-center fw-bold">{leader.count}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </Table>
             </Card.Body>
           </Card>
-        </Col>
-      </Row>
-
-      {/* Progress Tracker */}
-      <Row className="mb-5">
-        <Col lg={8} className="mx-auto">
-          <Card className="shadow border-0">
-            <Card.Header className="bg-success text-white">
-              <h4 className="mb-0">Jokić's Path to #1</h4>
-            </Card.Header>
-            <Card.Body className="p-4">
-              <div className="mb-4">
-                <div className="d-flex justify-content-between mb-2">
-                  <span className="fw-bold">To Pass Oscar Robertson (#2)</span>
-                  <span className="badge bg-warning text-dark">{jokicProgress.toSecond} TDs needed</span>
-                </div>
-                <div className="progress" style={{ height: '30px' }}>
-                  <div
-                    className="progress-bar bg-success"
-                    role="progressbar"
-                    style={{ width: `${progressPercentToSecond}%` }}
-                    aria-valuenow={progressPercentToSecond}
-                    aria-valuemin="0"
-                    aria-valuemax="100"
-                  >
-                    {jokicProgress.current} / 181
-                  </div>
-                </div>
-              </div>
-
-              <div>
-                <div className="d-flex justify-content-between mb-2">
-                  <span className="fw-bold">To Pass Russell Westbrook (#1)</span>
-                  <span className="badge bg-danger">{jokicProgress.toFirst} TDs needed</span>
-                </div>
-                <div className="progress" style={{ height: '30px' }}>
-                  <div
-                    className="progress-bar bg-success"
-                    role="progressbar"
-                    style={{ width: `${progressPercentToFirst}%` }}
-                    aria-valuenow={progressPercentToFirst}
-                    aria-valuemin="0"
-                    aria-valuemax="100"
-                  >
-                    {jokicProgress.current} / 205
-                  </div>
-                </div>
-              </div>
-            </Card.Body>
-          </Card>
-        </Col>
-      </Row>
-
-      {/* Raffle Info */}
-      <Row className="mb-5">
-        <Col lg={8} className="mx-auto">
-          <Alert variant="info" className="shadow-sm">
-            <Alert.Heading>🎁 Triple-Double Raffle!</Alert.Heading>
-            <p className="mb-0">
-              After every Nuggets game where Jokić records a triple-double, we raffle <strong>TWO packs</strong>:
-            </p>
-            <ul className="mb-0 mt-2">
-              <li><strong>Pack #1:</strong> Awarded to Swapfest leaderboard (weighted by points)</li>
-              <li><strong>Pack #2:</strong> Random FastBreak prediction entry from that day</li>
-            </ul>
-          </Alert>
         </Col>
       </Row>
 
       {/* Schedule Calendar */}
-      <Row className="mb-5">
+      <Row className="mb-4">
         <Col lg={10} className="mx-auto">
           <Card className="shadow border-0">
-            <Card.Header className="bg-dark text-white">
-              <h4 className="mb-0">Nuggets Schedule & TD Tracker</h4>
+            <Card.Header className="py-2" style={{backgroundColor: '#0E2240'}}>
+              <h5 className="mb-0 text-white">Nuggets Schedule & TD Tracker</h5>
             </Card.Header>
-            <Card.Body className="p-0">
-              {schedule.length === 0 ? (
-                <Alert variant="info" className="m-3">No games scheduled</Alert>
-              ) : (
-                <Table responsive hover className="mb-0">
-                  <thead className="table-light">
-                    <tr>
-                      <th>Date</th>
-                      <th>Opponent</th>
-                      <th>Location</th>
-                      <th className="text-center">Triple-Double?</th>
-                      <th className="text-center">Stats</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {schedule.map((game, idx) => (
-                      <tr key={idx} className={game.tripleDouble ? 'table-success' : ''}>
-                        <td className="fw-bold">{new Date(game.date).toLocaleDateString()}</td>
-                        <td>
-                          {game.opponent}
-                          {game.isHome && <span className="ms-2 badge bg-secondary">HOME</span>}
-                        </td>
-                        <td>{game.location || '-'}</td>
-                        <td className="text-center">
-                          {game.played ? (
-                            game.tripleDouble ? (
-                              <Badge bg="success" className="fs-6">✓ YES</Badge>
-                            ) : (
-                              <Badge bg="secondary">✗ No</Badge>
-                            )
-                          ) : (
-                            <Badge bg="light" text="dark">TBD</Badge>
-                          )}
-                        </td>
-                        <td className="text-center">
-                          {game.stats ? (
-                            <small className="text-muted">
-                              {game.stats.points}p / {game.stats.rebounds}r / {game.stats.assists}a
-                            </small>
-                          ) : '-'}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </Table>
-              )}
-            </Card.Body>
-          </Card>
-        </Col>
-      </Row>
-
-      {/* Pack Pool */}
-      <Row className="mb-5">
-        <Col lg={10} className="mx-auto">
-          <Card className="shadow border-0">
-            <Card.Header className="bg-warning">
-              <h4 className="mb-0 text-dark">🎁 Available Prize Packs</h4>
-            </Card.Header>
-            <Card.Body className="p-4">
-              <p className="text-muted mb-4">
-                When Jokić records a triple-double, we spin the wheel to randomly select which packs to award!
-              </p>
-              <Row>
-                {packPool.map((pack, idx) => (
-                  <Col md={6} lg={4} key={idx} className="mb-3">
-                    <Card className="h-100 pack-card">
-                      <Card.Body>
-                        <div className="d-flex justify-content-between align-items-start mb-2">
-                          <h5 className="card-title mb-0">{pack.name}</h5>
-                          <Badge bg="secondary" className="ms-2">{pack.rarity}</Badge>
-                        </div>
-                        <div className="mt-3">
-                          {pack.sealed > 0 && (
-                            <div className="mb-1">
-                              <Badge bg="success" className="me-2">Sealed</Badge>
-                              <span className="text-light">{pack.sealed} {pack.sealed === 1 ? 'pack' : 'packs'}</span>
-                            </div>
-                          )}
-                          {pack.opened > 0 && (
-                            <div>
-                              <Badge bg="info" className="me-2">Opened</Badge>
-                              <span className="text-light">{pack.opened} {pack.opened === 1 ? 'pack' : 'packs'}</span>
-                            </div>
-                          )}
-                        </div>
-                      </Card.Body>
-                    </Card>
-                  </Col>
+            <Card.Body className="p-2">
+              <Accordion defaultActiveKey={currentMonthKey}>
+                {Object.entries(gamesByMonth).map(([monthKey, monthData]) => (
+                  <Accordion.Item eventKey={monthKey} key={monthKey}>
+                    <Accordion.Header>
+                      <strong>{monthData.name}</strong>
+                      <Badge bg="secondary" className="ms-3">
+                        {monthData.games.length} games
+                      </Badge>
+                      <Badge bg="success" className="ms-2">
+                        {monthData.games.filter((g) => g.played && g.tripleDouble).length} TDs
+                      </Badge>
+                    </Accordion.Header>
+                    <Accordion.Body className="p-0">
+                      <Table responsive hover className="mb-0 td-schedule-table">
+                        <thead>
+                          <tr>
+                            <th>Date (MT)</th>
+                            <th>Opponent</th>
+                            <th className="text-center">Triple-Double?</th>
+                            <th className="text-center">Stats</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {monthData.games.map((game, idx) => (
+                            <tr key={idx} className={game.tripleDouble ? 'table-success' : ''}>
+                              <td className="small fw-semibold">
+                                {formatGameDate(game.timestamp)}
+                              </td>
+                              <td className="small">
+                                {game.isHome ? 'vs' : '@'} {game.opponent}
+                              </td>
+                              <td className="text-center">
+                                {game.played ? (
+                                  game.tripleDouble ? (
+                                    <Badge bg="success" pill>✓ TD</Badge>
+                                  ) : (
+                                    <Badge bg="secondary" pill>-</Badge>
+                                  )
+                                ) : (
+                                  <Badge bg="light" text="dark" pill>-</Badge>
+                                )}
+                              </td>
+                              <td className="text-center small text-muted">
+                                {game.stats ? (
+                                  <>{game.stats.points}p / {game.stats.rebounds}r / {game.stats.assists}a</>
+                                ) : (
+                                  '-'
+                                )}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </Table>
+                    </Accordion.Body>
+                  </Accordion.Item>
                 ))}
-              </Row>
+              </Accordion>
             </Card.Body>
           </Card>
         </Col>
