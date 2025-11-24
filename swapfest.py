@@ -226,11 +226,9 @@ async def get_block_gifts(block_height, offset):
 # MAIN LOOP
 # ==============================
 async def main(offset=OFFSET):
-    # all_gifts = []
-    #reset_last_processed_block("129210000")
-    block_height = get_last_processed_block() - offset
 
     while True:
+        block_height = get_last_processed_block()
         new_gifts = await get_block_gifts(block_height, offset)
 
         if new_gifts is False:
@@ -253,7 +251,6 @@ async def main(offset=OFFSET):
             )
         if offset == OFFSET:
             save_last_processed_block(block_height + offset)
-        block_height += offset + 1
         await asyncio.sleep(0.01)
         # print(f"Next block_height: {block_height}")
 
