@@ -87,7 +87,7 @@ def register_routes(app):
                 pet_count = math.ceil(prize_pool * (percent / 100))
                 entry["prize"] = f"{entry['points']} sweepstake entries + Pet your horse {pet_count} times"
             else:
-                entry["prize"] = f"Pet your horse {pet_count} times"
+                entry["prize"] = f"{entry['points']} sweepstake entries"
 
         return jsonify({
             "prize_pool": prize_pool,
