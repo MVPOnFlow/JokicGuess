@@ -181,7 +181,7 @@ def register_petting_commands(bot, conn, cursor, db_type):
 
         response_parts.append(f"\nDaily pets remaining: **{new_daily_pets_remaining}**.")
 
-        is_public = True
+        is_public = len(special_rewards_won) > 0
 
         await interaction.response.send_message(
             "\n".join(response_parts),
