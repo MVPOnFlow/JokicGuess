@@ -176,7 +176,7 @@ class TestFastbreakAPI:
 class TestFastbreakEntryAPI:
     """Test FastBreak entry endpoints."""
 
-    @patch('routes.api.get_db_connection')
+    @patch('db.init.get_db_connection')
     def test_add_fastbreak_entry_missing_data(self, mock_get_db_conn, client):
         """Test that adding entry without data returns error."""
         mock_cursor = Mock()
@@ -192,7 +192,7 @@ class TestFastbreakEntryAPI:
         
         assert response.status_code == 400
 
-    @patch('routes.api.get_db_connection')
+    @patch('db.init.get_db_connection')
     def test_add_fastbreak_entry_contest_not_found(self, mock_get_db_conn, client):
         """Test that adding entry to non-existent contest returns error."""
         mock_cursor = Mock()
