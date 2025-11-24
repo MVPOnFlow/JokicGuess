@@ -28,6 +28,7 @@ omit = [
     "*/__pycache__/*",
     "*/migrations/*",
     "jokicguess_backup.py",
+    "bot/commands_old.py",
 ]
 
 [tool.coverage.report]
