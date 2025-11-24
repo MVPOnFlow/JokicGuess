@@ -176,13 +176,13 @@ class TestFastbreakAPI:
 class TestFastbreakEntryAPI:
     """Test FastBreak entry endpoints."""
 
-    @patch('routes.api.get_db')
-    def test_add_fastbreak_entry_missing_data(self, mock_get_db, client):
+    @patch('routes.api.get_db_connection')
+    def test_add_fastbreak_entry_missing_data(self, mock_get_db_conn, client):
         """Test that adding entry without data returns error."""
         mock_cursor = Mock()
-        mock_db = Mock()
-        mock_db.cursor.return_value = mock_cursor
-        mock_get_db.return_value = mock_db
+        mock_conn = Mock()
+        mock_conn.cursor.return_value = mock_cursor
+        mock_get_db_conn.return_value = (mock_conn, 'sqlite')
         
         response = client.post(
             '/api/fastbreak/contest/1/entries',
@@ -192,13 +192,13 @@ class TestFastbreakEntryAPI:
         
         assert response.status_code == 400
 
-    @patch('routes.api.get_db')
-    def test_add_fastbreak_entry_contest_not_found(self, mock_get_db, client):
+    @patch('routes.api.get_db_connection')
+    def test_add_fastbreak_entry_contest_not_found(self, mock_get_db_conn, client):
         """Test that adding entry to non-existent contest returns error."""
         mock_cursor = Mock()
-        mock_db = Mock()
-        mock_db.cursor.return_value = mock_cursor
-        mock_get_db.return_value = mock_db
+        mock_conn = Mock()
+        mock_conn.cursor.return_value = mock_cursor
+        mock_get_db_conn.return_value = (mock_conn, 'sqlite')
         
         mock_cursor.fetchone.return_value = None
         
