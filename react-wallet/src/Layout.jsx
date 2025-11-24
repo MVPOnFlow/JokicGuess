@@ -57,6 +57,7 @@ export default function Layout() {
               <Nav.Link as={NavLink} to="/swapfest">Swapfest</Nav.Link>
               <Nav.Link as={NavLink} to="/treasury">Treasury</Nav.Link>
               <Nav.Link as={NavLink} to="/vote">Vote</Nav.Link>
+              <Nav.Link as={NavLink} to="/tdwatch">TD Watch</Nav.Link>
 
               <Dropdown as={Nav.Item}>
                 <Dropdown.Toggle as={Nav.Link} className="nav-link fastbreak-dropdown-toggle d-flex align-items-center">

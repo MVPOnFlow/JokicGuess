@@ -201,6 +201,56 @@ def initialize_database(conn, db_type):
             CREATE INDEX IF NOT EXISTS idx_fastbreak_rankings_username
                 ON fastbreak_rankings(username)
         '''))
+
+        # TD Watch: Nuggets schedule table
+        cursor.execute(prepare_query('''
+            CREATE TABLE IF NOT EXISTS nuggets_schedule (
+                id SERIAL PRIMARY KEY,
+                game_date TEXT NOT NULL,
+                opponent TEXT NOT NULL,
+                is_home INTEGER NOT NULL,
+                location TEXT,
+                played INTEGER DEFAULT 0,
+                triple_double INTEGER DEFAULT 0,
+                points INTEGER,
+                rebounds INTEGER,
+                assists INTEGER
+            )
+        '''))
+
+        # TD Watch: Prize pack pool
+        cursor.execute(prepare_query('''
+            CREATE TABLE IF NOT EXISTS td_prize_packs (
+                id SERIAL PRIMARY KEY,
+                name TEXT NOT NULL,
+                description TEXT,
+                series TEXT,
+                quantity INTEGER DEFAULT 0
+            )
+        '''))
+
+        # TD Watch: Raffle winners history
+        cursor.execute(prepare_query('''
+            CREATE TABLE IF NOT EXISTS td_raffle_winners (
+                id SERIAL PRIMARY KEY,
+                game_date TEXT NOT NULL,
+                pack_name TEXT NOT NULL,
+                winner_address TEXT NOT NULL,
+                winner_type TEXT NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        '''))
+
+        cursor.execute(prepare_query('''
+            CREATE INDEX IF NOT EXISTS idx_nuggets_schedule_date
+                ON nuggets_schedule(game_date)
+        '''))
+
+        cursor.execute(prepare_query('''
+            CREATE INDEX IF NOT EXISTS idx_td_raffle_winners_date
+                ON td_raffle_winners(game_date)
+        '''))
+
         conn.commit()
 
     return cursor
