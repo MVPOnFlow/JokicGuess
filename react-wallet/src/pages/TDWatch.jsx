@@ -6,13 +6,13 @@ function TDWatch() {
   const tdLeaders = [
     { rank: 1, name: 'Russell Westbrook', count: 205, active: true },
     { rank: 2, name: 'Oscar Robertson', count: 181, active: false },
-    { rank: 3, name: 'Nikola Jokić', count: 173, active: true, isJokic: true }
+    { rank: 3, name: 'Nikola Jokić', count: 174, active: true, isJokic: true }
   ];
 
   const jokicProgress = {
-    current: 173,
-    toSecond: 181 - 173, // 8 more to pass Oscar
-    toFirst: 205 - 173   // 32 more to pass Westbrook
+    current: 174,
+    toSecond: 181 - 174, // 7 more to pass Oscar
+    toFirst: 205 - 174   // 31 more to pass Westbrook
   };
 
   // Hardcoded prize packs (manually update when inventory changes)
@@ -59,7 +59,7 @@ function TDWatch() {
     { timestamp: 1732161600, opponent: 'Pelicans', isHome: false, played: true, tripleDouble: false, stats: { points: 28, rebounds: 11, assists: 12 } },
     { timestamp: 1732334400, opponent: 'Rockets', isHome: false, played: true, tripleDouble: false, stats: { points: 34, rebounds: 10, assists: 9 } },
     { timestamp: 1732420800, opponent: 'Kings', isHome: true, played: true, tripleDouble: false, stats: { points: 44, rebounds: 13, assists: 7 } },
-    { timestamp: 1732593600, opponent: 'Grizzlies', isHome: false, played: false, tripleDouble: false, stats: null },
+    { timestamp: 1732593600, opponent: 'Grizzlies', isHome: false, played: true, tripleDouble: true, stats: { points: 17, rebounds: 10, assists: 16 } },
     { timestamp: 1732939200, opponent: 'Spurs', isHome: true, played: false, tripleDouble: false, stats: null },
     { timestamp: 1733025600, opponent: 'Suns', isHome: false, played: false, tripleDouble: false, stats: null },
     
@@ -252,7 +252,6 @@ function TDWatch() {
                       <td className="text-center">#{leader.rank}</td>
                       <td>
                         {leader.name}
-                        {!leader.active && <span className="text-muted small"> *</span>}
                       </td>
                       <td className="text-center fw-bold">{leader.count}</td>
                     </tr>
