@@ -48,7 +48,7 @@ export default function Swapfest() {
           </div>
 
           <p className="text-center mb-3">
-            Prize Pool: {prizePool} chances to pet your horse
+            Prize Pool: {prizePool} chances to pet your horse + a random pack raffled after every game in which Jokic gets a triple double!
           </p>
 
           <div className="table-responsive">

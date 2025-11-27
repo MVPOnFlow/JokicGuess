@@ -510,7 +510,7 @@ export default function Fastbreak() {
               <ul className="fastbreak-rules-list mb-4">
                 <li>🏆 90% of the pot to the winner (split if tied)</li>
                 <li>🐎 5% to the top horse (TS user picked by the winner)</li>
-                <li>🎲 Pack reward for one random entry</li>
+                <li>🎲 Pack reward for one random entry if Jokic gets a triple double on the day</li>
               </ul>
 
             </div>
