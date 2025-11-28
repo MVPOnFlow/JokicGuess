@@ -1,2 +1,9 @@
 secret.txt
 .env
+__pycache__
+.vite
+.coverage
+.idea
+.vscode
+coverage.xml
+local.db
