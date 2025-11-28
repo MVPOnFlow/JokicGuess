@@ -41,7 +41,7 @@ export default function Swapfest() {
 
           <div className="text-center mb-4">
             <img
-              src="/images/25-8-15-9-25.png"
+              src="/images/swapfest-ongoing.png"
               alt="Swap Fest Rules"
               className="img-fluid rounded shadow"
             />
