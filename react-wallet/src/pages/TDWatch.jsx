@@ -1,4 +1,4 @@
-import { Container, Row, Col, Card, Table, Badge, Alert, Accordion } from 'react-bootstrap';
+import { Container, Row, Col, Card, Table, Badge, Alert } from 'react-bootstrap';
 import { Link } from 'react-router-dom';
 import './TDWatch.css';
 
@@ -262,64 +262,47 @@ function TDWatch() {
             <Card.Header className="py-2" style={{backgroundColor: '#0E2240'}}>
               <h5 className="mb-0 text-white">Nuggets Schedule & TD Tracker</h5>
             </Card.Header>
-            <Card.Body className="p-2">
-              <Accordion defaultActiveKey={currentMonthKey}>
-                {Object.entries(gamesByMonth).map(([monthKey, monthData]) => (
-                  <Accordion.Item eventKey={monthKey} key={monthKey}>
-                    <Accordion.Header>
-                      <strong>{monthData.name}</strong>
-                      <Badge bg="secondary" className="ms-3">
-                        {monthData.games.length} games
-                      </Badge>
-                      <Badge bg="success" className="ms-2">
-                        {monthData.games.filter((g) => g.played && g.tripleDouble).length} TDs
-                      </Badge>
-                    </Accordion.Header>
-                    <Accordion.Body className="p-0">
-                      <Table responsive hover className="mb-0 td-schedule-table">
-                        <thead>
-                          <tr>
-                            <th>Date (MT)</th>
-                            <th>Opponent</th>
-                            <th className="text-center">Triple-Double?</th>
-                            <th className="text-center">Stats</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {monthData.games.map((game, idx) => (
-                            <tr key={idx} className={game.tripleDouble ? 'table-success' : ''}>
-                              <td className="small fw-semibold">
-                                {formatGameDate(game.timestamp)}
-                              </td>
-                              <td className="small">
-                                {game.isHome ? 'vs' : '@'} {game.opponent}
-                              </td>
-                              <td className="text-center">
-                                {game.played ? (
-                                  game.tripleDouble ? (
-                                    <Badge bg="success" pill>✓ TD</Badge>
-                                  ) : (
-                                    <Badge bg="secondary" pill>-</Badge>
-                                  )
-                                ) : (
-                                  <Badge bg="light" text="dark" pill>-</Badge>
-                                )}
-                              </td>
-                              <td className="text-center small text-muted">
-                                {game.stats ? (
-                                  <>{game.stats.points}p / {game.stats.rebounds}r / {game.stats.assists}a</>
-                                ) : (
-                                  '-'
-                                )}
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </Table>
-                    </Accordion.Body>
-                  </Accordion.Item>
-                ))}
-              </Accordion>
+            <Card.Body className="p-0">
+              <Table responsive hover className="mb-0 td-schedule-table">
+                <thead>
+                  <tr>
+                    <th>Date (MT)</th>
+                    <th>Opponent</th>
+                    <th className="text-center">Triple-Double?</th>
+                    <th className="text-center">Stats</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {allGames.map((game, idx) => (
+                    <tr key={idx} className={game.tripleDouble ? 'table-success' : ''}>
+                      <td className="small fw-semibold">
+                        {formatGameDate(game.timestamp)}
+                      </td>
+                      <td className="small">
+                        {game.isHome ? 'vs' : '@'} {game.opponent}
+                      </td>
+                      <td className="text-center">
+                        {game.played ? (
+                          game.tripleDouble ? (
+                            <Badge bg="success" pill>✓ TD</Badge>
+                          ) : (
+                            <Badge bg="secondary" pill>-</Badge>
+                          )
+                        ) : (
+                          <Badge bg="light" text="dark" pill>-</Badge>
+                        )}
+                      </td>
+                      <td className="text-center small text-muted">
+                        {game.stats ? (
+                          <>{game.stats.points}p / {game.stats.rebounds}r / {game.stats.assists}a</>
+                        ) : (
+                          '-'
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </Table>
             </Card.Body>
           </Card>
         </Col>
