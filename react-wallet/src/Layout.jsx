@@ -55,24 +55,11 @@ export default function Layout() {
             <Nav className="me-auto mb-2 mb-lg-0">
               <Nav.Link as={NavLink} to="/">Home</Nav.Link>
               <Nav.Link as={NavLink} to="/swapfest">Swapfest</Nav.Link>
-              <Nav.Link as={NavLink} to="/treasury">Treasury</Nav.Link>
-              <Nav.Link as={NavLink} to="/vote">Vote</Nav.Link>
               <Nav.Link as={NavLink} to="/tdwatch">TD Watch</Nav.Link>
-
-              <Dropdown as={Nav.Item}>
-                <Dropdown.Toggle as={Nav.Link} className="nav-link fastbreak-dropdown-toggle d-flex align-items-center">
-                  <span>Fastbreak</span>
-                  <span className="ms-2 badge bg-warning text-dark" style={{ fontSize: '0.65rem' }}>BETA</span>
-                </Dropdown.Toggle>
-                <Dropdown.Menu className="fastbreak-dropdown-menu">
-                  <Dropdown.Item as={NavLink} to="/fastbreak">
-                    Race Track
-                  </Dropdown.Item>
-                  <Dropdown.Item as={NavLink} to="/horsestats">
-                    Horse Stats
-                  </Dropdown.Item>
-                </Dropdown.Menu>
-              </Dropdown>
+              <Nav.Link as={NavLink} to="/fastbreak" className="d-flex align-items-center">
+                <span>Fastbreak</span>
+                <span className="ms-2 badge bg-warning text-dark" style={{ fontSize: '0.65rem' }}>BETA</span>
+              </Nav.Link>
                 {/* Buy $MVP button */}
                 <Nav.Link
                   id="buy-mvp"
