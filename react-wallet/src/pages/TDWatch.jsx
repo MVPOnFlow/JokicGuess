@@ -15,26 +15,24 @@ function TDWatch() {
     toFirst: 205 - 174   // 31 more to pass Westbrook
   };
 
-  // Hardcoded prize packs (manually update when inventory changes)
-  const packPool = [
-    {
-      name: "Fast Break - 25-26' Classic Run 2 - 4 Wins Pack",
-      rarity: "Common",
-      sealed: 1,
-      opened: 0
-    },
-    {
-      name: "Rookie Debut: Chance Hit",
-      rarity: "Common",
-      sealed: 4,
-      opened: 0
-    },
-    {
-      name: "Top Shot Debut Chance Hit Pack",
-      rarity: "Common",
-      sealed: 1,
-      opened: 2
-    }
+  // Hardcoded reward pool (manually update when inventory changes)
+  const rewardPool = [
+    { name: "Stars and Rookes Chance Hit", amount: 10 },
+    { name: "Collector Series: Grail Chase", amount: 5 },
+    { name: "RARE Run It Back Origins August Pack", amount: 1 },
+    { name: "RARE Denied: Guaranteed Rare", amount: 1 },
+    { name: "Beezie Basketball Claw Pull", amount: 1 },
+    { name: "Rookie Debut: Chance Hit", amount: 4 },
+    { name: "Top Shot Debut Chance Hit Pack", amount: 1 },
+    { name: "$MVP Swap Boost NFT", amount: 5 },
+    { name: "Pet Your Horse 10 Times", amount: 10 },
+    { name: "Jolly Joker NFT", amount: 5 },
+    { name: "FastBreak Historic Run 4 - 5 Win Pack", amount: 1 },
+    { name: "FastBreak 25-26 Classic Run 2 - 4 Win Pack", amount: 1 },
+    { name: "FastBreak Historic Run 4 Pack", amount: 1 },
+    { name: "FastBreak WNBA Run 9 - 3 Win Pack", amount: 1 },
+    { name: "NBA Stars: National Exclusive Chase Pack", amount: 5 },
+    { name: "Holo Icon: Chance Hit", amount: 2 }
   ];
 
   // Hardcoded Nuggets schedule (manually update after games)
@@ -194,33 +192,26 @@ function TDWatch() {
         </div>
       </div>
 
-      {/* Pack Pool */}
+      {/* Reward Pool */}
       <Row className="mb-4">
         <Col lg={10} className="mx-auto">
           <Card className="shadow border-0">
-            <Card.Header className="py-2" style={{backgroundColor: '#FDB927'}}>
-              <h5 className="mb-0" style={{color: '#0E2240'}}>Available Prize Packs</h5>
+            <Card.Header className="py-2" style={{backgroundColor: '#418FDE'}}>
+              <h6 className="mb-0 text-white">Available Rewards</h6>
             </Card.Header>
-            <Card.Body className="p-2">
-              <p className="mb-2 small px-2" style={{color: '#cbd5e1'}}>
-                When Jokić records a triple-double, we spin the wheel to randomly select which packs to award!
-              </p>
-              <Table responsive hover className="mb-0">
+            <Card.Body className="p-0">
+              <Table striped hover size="sm" className="mb-0 td-leaders-table">
                 <thead>
                   <tr>
-                    <th>Pack Name</th>
-                    <th className="text-center">Tier</th>
-                    <th className="text-center">Number of Packs</th>
+                    <th className="ps-3">Reward Name</th>
+                    <th className="text-center">Amount</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {packPool.map((pack, idx) => (
+                  {rewardPool.map((reward, idx) => (
                     <tr key={idx}>
-                      <td className="small">{pack.name}</td>
-                      <td className="text-center">
-                        <Badge bg="secondary" className="small">{pack.rarity}</Badge>
-                      </td>
-                      <td className="text-center fw-semibold">{pack.sealed}</td>
+                      <td className="small ps-3">{reward.name}</td>
+                      <td className="text-center fw-semibold">{reward.amount}</td>
                     </tr>
                   ))}
                 </tbody>
