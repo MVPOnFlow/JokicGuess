@@ -1,4 +1,5 @@
 import { Container, Row, Col, Card, Table, Badge, Alert, Accordion } from 'react-bootstrap';
+import { Link } from 'react-router-dom';
 import './TDWatch.css';
 
 function TDWatch() {
@@ -39,8 +40,8 @@ function TDWatch() {
   // Timestamps are Unix timestamps (seconds since epoch) in UTC
   const allGames = [
     // October 2024
-    { timestamp: 1729807200, opponent: 'Warriors', isHome: false, played: true, tripleDouble: false, stats: { points: 21, rebounds: 13, assists: 10 } },
-    { timestamp: 1729980000, opponent: 'Suns', isHome: true, played: true, tripleDouble: false, stats: { points: 14, rebounds: 14, assists: 15 } },
+    { timestamp: 1729807200, opponent: 'Warriors', isHome: false, played: true, tripleDouble: true, stats: { points: 21, rebounds: 13, assists: 10 } },
+    { timestamp: 1729980000, opponent: 'Suns', isHome: true, played: true, tripleDouble: true, stats: { points: 14, rebounds: 14, assists: 15 } },
     { timestamp: 1730152800, opponent: 'Timberwolves', isHome: false, played: true, tripleDouble: true, stats: { points: 25, rebounds: 19, assists: 10 } },
     { timestamp: 1730325600, opponent: 'Pelicans', isHome: true, played: true, tripleDouble: true, stats: { points: 21, rebounds: 12, assists: 10 } },
     
@@ -52,9 +53,9 @@ function TDWatch() {
     { timestamp: 1731211200, opponent: 'Pacers', isHome: true, played: true, tripleDouble: true, stats: { points: 32, rebounds: 14, assists: 14 } },
     { timestamp: 1731470400, opponent: 'Kings', isHome: false, played: true, tripleDouble: false, stats: { points: 35, rebounds: 15, assists: 7 } },
     { timestamp: 1731556800, opponent: 'Clippers', isHome: false, played: true, tripleDouble: false, stats: { points: 55, rebounds: 12, assists: 6 } },
-    { timestamp: 1731816000, opponent: 'Timberwolves', isHome: false, played: true, tripleDouble: false, stats: { points: 27, rebounds: 12, assists: 11 } },
+    { timestamp: 1731816000, opponent: 'Timberwolves', isHome: false, played: true, tripleDouble: true, stats: { points: 27, rebounds: 12, assists: 11 } },
     { timestamp: 1731988800, opponent: 'Bulls', isHome: true, played: true, tripleDouble: true, stats: { points: 36, rebounds: 18, assists: 13 } },
-    { timestamp: 1732161600, opponent: 'Pelicans', isHome: false, played: true, tripleDouble: false, stats: { points: 28, rebounds: 11, assists: 12 } },
+    { timestamp: 1732161600, opponent: 'Pelicans', isHome: false, played: true, tripleDouble: true, stats: { points: 28, rebounds: 11, assists: 12 } },
     { timestamp: 1732334400, opponent: 'Rockets', isHome: false, played: true, tripleDouble: false, stats: { points: 34, rebounds: 10, assists: 9 } },
     { timestamp: 1732420800, opponent: 'Kings', isHome: true, played: true, tripleDouble: false, stats: { points: 44, rebounds: 13, assists: 7 } },
     { timestamp: 1732593600, opponent: 'Grizzlies', isHome: false, played: true, tripleDouble: true, stats: { points: 17, rebounds: 10, assists: 16 } },
@@ -186,8 +187,8 @@ function TDWatch() {
             After every Jokić triple-double, we raffle <strong>TWO packs</strong>:
           </p>
           <div className="d-flex justify-content-center gap-3 flex-wrap small">
-            <div><strong>Pack #1:</strong> Swapfest leaderboard (weighted)</div>
-            <div><strong>Pack #2:</strong> Random FastBreak entry</div>
+            <div><strong>Pack #1:</strong> <Link to="/swapfest" className="text-decoration-none" style={{color: '#FDB927'}}>Swapfest leaderboard</Link> (weighted)</div>
+            <div><strong>Pack #2:</strong> Random <Link to="/fastbreak" className="text-decoration-none" style={{color: '#FDB927'}}>FastBreak</Link> entry</div>
           </div>
         </div>
       </div>
