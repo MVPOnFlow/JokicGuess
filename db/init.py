@@ -201,6 +201,7 @@ def initialize_database(conn, db_type):
             CREATE INDEX IF NOT EXISTS idx_fastbreak_rankings_username
                 ON fastbreak_rankings(username)
         '''))
+
         conn.commit()
 
     return cursor

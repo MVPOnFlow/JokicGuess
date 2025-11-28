@@ -4,6 +4,7 @@ from bot.contest_commands import register_contest_commands
 from bot.petting_commands import register_petting_commands
 from bot.fastbreak_commands import register_fastbreak_commands
 from bot.swapfest_commands import register_swapfest_commands
+from bot.tdwatch_commands import register_tdwatch_commands
 
 
 def register_commands(bot, conn, cursor, db_type):
@@ -12,4 +13,5 @@ def register_commands(bot, conn, cursor, db_type):
     register_petting_commands(bot, conn, cursor, db_type)
     register_fastbreak_commands(bot, conn, cursor, db_type)
     register_swapfest_commands(bot, conn, cursor, db_type)
+    register_tdwatch_commands(bot, conn, cursor, db_type)
 

@@ -6,6 +6,7 @@ import Treasury from "./pages/Treasury";
 import Vote from "./pages/Vote";
 import Fastbreak from "./pages/Fastbreak";
 import HorseStats from "./pages/HorseStats";
+import TDWatch from "./pages/TDWatch";
 import "./flow/config";
 
 function App() {
@@ -19,6 +20,7 @@ function App() {
           <Route path="vote" element={<Vote />} />
           <Route path="fastbreak" element={<Fastbreak />} />
           <Route path="horsestats" element={<HorseStats />} />
+          <Route path="tdwatch" element={<TDWatch />} />
         </Route>
       </Routes>
     </BrowserRouter>

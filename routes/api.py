@@ -537,6 +537,8 @@ def register_routes(app):
 
         return jsonify({"hasLineup": bool(get_rank_and_lineup_for_user(username, fastbreak_id))})
 
+    return app
+
 
 def get_db():
     """Get database connection for Flask requests."""
