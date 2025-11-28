@@ -37,7 +37,7 @@ export default function Swapfest() {
     <div className="container">
       <div className="card shadow mb-4">
         <div className="card-body">
-          <h2 className="mb-4 text-center">🏀 $MVP Season Start Swap Fest Ending Nov 24th 🏆</h2>
+          <h2 className="mb-4 text-center">🏀 $MVP Swap Fest 🏆</h2>
 
           <div className="text-center mb-4">
             <img
