@@ -184,11 +184,11 @@ function TDWatch() {
         <div className="raffle-info-hero mt-3 pt-3 border-top border-light">
           <h6 className="mb-2">🎁 Triple-Double Raffle</h6>
           <p className="mb-2 small">
-            After every Jokić triple-double, we raffle <strong>TWO packs</strong>:
+            After every Jokić triple-double, we raffle <strong>TWO prizes</strong>:
           </p>
           <div className="d-flex justify-content-center gap-3 flex-wrap small">
-            <div><strong>Pack #1:</strong> <Link to="/swapfest" className="text-decoration-none" style={{color: '#FDB927'}}>Swapfest leaderboard</Link> (weighted)</div>
-            <div><strong>Pack #2:</strong> Random <Link to="/fastbreak" className="text-decoration-none" style={{color: '#FDB927'}}>FastBreak</Link> entry</div>
+            <div><strong>Prize #1:</strong> <Link to="/swapfest" className="text-decoration-none" style={{color: '#FDB927'}}>Swapfest leaderboard</Link> (weighted)</div>
+            <div><strong>Prize #2:</strong> Random <Link to="/fastbreak" className="text-decoration-none" style={{color: '#FDB927'}}>FastBreak</Link> entry</div>
           </div>
         </div>
       </div>
