@@ -375,7 +375,7 @@ function TDWatch() {
         <Col lg={10} className="mx-auto">
           <Card className="shadow border-0">
             <Card.Header className="py-2" style={{backgroundColor: '#418FDE'}}>
-              <h6 className="mb-0 text-white">Triple-Doubles by Opponent (2024-25 Season)</h6>
+              <h6 className="mb-0 text-white">Triple-Doubles by Opponent (2025-26 Season)</h6>
             </Card.Header>
             <Card.Body className="p-0">
               <Table striped hover size="sm" className="mb-0 td-leaders-table">
