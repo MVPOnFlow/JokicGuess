@@ -59,8 +59,8 @@ function TDWatch() {
     { timestamp: 1732334400, opponent: 'Rockets', isHome: false, played: true, tripleDouble: false, stats: { points: 34, rebounds: 10, assists: 9 } },
     { timestamp: 1732420800, opponent: 'Kings', isHome: true, played: true, tripleDouble: false, stats: { points: 44, rebounds: 13, assists: 7 } },
     { timestamp: 1732593600, opponent: 'Grizzlies', isHome: false, played: true, tripleDouble: true, stats: { points: 17, rebounds: 10, assists: 16 } },
-    { timestamp: 1732939200, opponent: 'Spurs', isHome: true, played: false, tripleDouble: false, stats: null },
-    { timestamp: 1733025600, opponent: 'Suns', isHome: false, played: false, tripleDouble: false, stats: null },
+    { timestamp: 1732939200, opponent: 'Spurs', isHome: true, played: true, tripleDouble: false, stats: { points: 21, rebounds: 9, assists: 10 } },
+    { timestamp: 1733025600, opponent: 'Suns', isHome: false, played: true, tripleDouble: false, stats: { points: 26, rebounds: 9, assists: 10 } },
     
     // December 2024
     { timestamp: 1733198400, opponent: 'Mavericks', isHome: true, played: false, tripleDouble: false, stats: null },
@@ -68,9 +68,10 @@ function TDWatch() {
     { timestamp: 1733544000, opponent: 'Hawks', isHome: false, played: false, tripleDouble: false, stats: null },
     { timestamp: 1733716800, opponent: 'Hornets', isHome: false, played: false, tripleDouble: false, stats: null },
     { timestamp: 1733889600, opponent: 'Wizards', isHome: true, played: false, tripleDouble: false, stats: null },
-    { timestamp: 1734062400, opponent: 'Suns', isHome: true, played: false, tripleDouble: false, stats: null },
+    { timestamp: 1734062400, opponent: 'Kings', isHome: false, played: false, tripleDouble: false, stats: null },
     { timestamp: 1734235200, opponent: 'Warriors', isHome: false, played: false, tripleDouble: false, stats: null },
     { timestamp: 1734408000, opponent: 'Clippers', isHome: true, played: false, tripleDouble: false, stats: null },
+    { timestamp: 1734321600, opponent: 'Rockets', isHome: true, played: false, tripleDouble: false, stats: null },
     { timestamp: 1734667200, opponent: 'Magic', isHome: true, played: false, tripleDouble: false, stats: null },
     { timestamp: 1734753600, opponent: 'Rockets', isHome: true, played: false, tripleDouble: false, stats: null },
     { timestamp: 1735012800, opponent: 'Jazz', isHome: true, played: false, tripleDouble: false, stats: null },
@@ -170,6 +171,67 @@ function TDWatch() {
 
   const progressPercentToSecond = (jokicProgress.current / 181) * 100;
   const progressPercentToFirst = (jokicProgress.current / 205) * 100;
+
+  // Calculate team triple-double tracker
+  const teamTDTracker = allGames.reduce((acc, game) => {
+    const team = game.opponent;
+    if (!acc[team]) {
+      acc[team] = {
+        name: team,
+        tripleDoubles: 0,
+        totalGames: 0,
+        remainingGames: 0,
+        playedGames: 0,
+        nextGameTimestamp: null
+      };
+    }
+    
+    acc[team].totalGames++;
+    if (game.played) {
+      acc[team].playedGames++;
+      if (game.tripleDouble) {
+        acc[team].tripleDoubles++;
+      }
+    } else {
+      acc[team].remainingGames++;
+      if (!acc[team].nextGameTimestamp || game.timestamp < acc[team].nextGameTimestamp) {
+        acc[team].nextGameTimestamp = game.timestamp;
+      }
+    }
+    
+    return acc;
+  }, {});
+
+  // Convert to sorted array
+  const teamTDArray = Object.values(teamTDTracker).sort((a, b) => {
+    // Sort by triple-doubles (descending), then remaining games (ascending), then next game date (ascending)
+    if (b.tripleDoubles !== a.tripleDoubles) {
+      return b.tripleDoubles - a.tripleDoubles;
+    }
+    
+    if (a.remainingGames !== b.remainingGames) {
+      return a.remainingGames - b.remainingGames;
+    }
+    
+    // Sort by next game date (earlier dates first)
+    if (a.nextGameTimestamp && b.nextGameTimestamp) {
+      return a.nextGameTimestamp - b.nextGameTimestamp;
+    }
+    if (a.nextGameTimestamp) return -1;
+    if (b.nextGameTimestamp) return 1;
+    
+    return a.name.localeCompare(b.name);
+  });
+
+  const formatNextGameDate = (timestamp) => {
+    if (!timestamp) return '';
+    const date = new Date(timestamp * 1000);
+    return date.toLocaleDateString('en-US', { 
+      month: 'short', 
+      day: 'numeric',
+      timeZone: 'America/Denver'
+    });
+  };
 
   return (
     <Container className="td-watch-container py-4">
@@ -298,6 +360,49 @@ function TDWatch() {
                         ) : (
                           '-'
                         )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </Table>
+            </Card.Body>
+          </Card>
+        </Col>
+      </Row>
+
+      {/* Team Triple-Double Tracker */}
+      <Row className="mb-4">
+        <Col lg={10} className="mx-auto">
+          <Card className="shadow border-0">
+            <Card.Header className="py-2" style={{backgroundColor: '#418FDE'}}>
+              <h6 className="mb-0 text-white">Triple-Doubles by Opponent (2024-25 Season)</h6>
+            </Card.Header>
+            <Card.Body className="p-0">
+              <Table striped hover size="sm" className="mb-0 td-leaders-table">
+                <thead>
+                  <tr>
+                    <th className="ps-3">Team</th>
+                    <th className="text-center">Triple-Doubles</th>
+                    <th className="text-center">Games Remaining</th>
+                    <th className="text-center">Next Game</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {teamTDArray.map((team, idx) => (
+                    <tr key={idx}>
+                      <td className="small ps-3">{team.name}</td>
+                      <td className="text-center">
+                        {team.tripleDoubles > 0 ? (
+                          <Badge bg="success" pill>{team.tripleDoubles}</Badge>
+                        ) : (
+                          <span className="text-muted">-</span>
+                        )}
+                      </td>
+                      <td className="text-center small">
+                        {team.remainingGames > 0 ? team.remainingGames : <span className="text-muted">-</span>}
+                      </td>
+                      <td className="text-center small text-muted">
+                        {team.nextGameTimestamp ? formatNextGameDate(team.nextGameTimestamp) : <span className="text-muted">-</span>}
                       </td>
                     </tr>
                   ))}
