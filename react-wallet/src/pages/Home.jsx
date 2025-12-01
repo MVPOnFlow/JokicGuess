@@ -113,6 +113,20 @@ export default function Home() {
           </div>
         </div>
       )}
+
+      <div className="card shadow mb-4">
+        <div className="card-body">
+          <h2 className="card-title text-center mb-3">📊 $MVP Token Chart on Flow EVM</h2>
+          <style dangerouslySetInnerHTML={{__html: `
+            #dexscreener-embed{position:relative;width:100%;padding-bottom:125%;}
+            @media(min-width:1400px){#dexscreener-embed{padding-bottom:65%;}}
+            #dexscreener-embed iframe{position:absolute;width:100%;height:100%;top:0;left:0;border:0;}
+          `}} />
+          <div id="dexscreener-embed">
+            <iframe src="https://dexscreener.com/flowevm/0xa4BaC0A22b689565ddA7C9d5320333ac63531971?embed=1&loadChartSettings=0&chartLeftToolbar=0&chartDefaultOnMobile=1&chartTheme=dark&theme=dark&chartStyle=0&chartType=usd&interval=15"></iframe>
+          </div>
+        </div>
+      </div>
     </>
   );
 }
