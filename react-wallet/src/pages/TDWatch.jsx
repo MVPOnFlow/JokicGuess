@@ -5,15 +5,15 @@ import './TDWatch.css';
 function TDWatch() {
   // Top 3 all-time triple-double leaders
   const tdLeaders = [
-    { rank: 1, name: 'Russell Westbrook', count: 205, active: true },
+    { rank: 1, name: 'Russell Westbrook', count: 206, active: true },
     { rank: 2, name: 'Oscar Robertson', count: 181, active: false },
-    { rank: 3, name: 'Nikola Jokić', count: 174, active: true, isJokic: true }
+    { rank: 3, name: 'Nikola Jokić', count: 175, active: true, isJokic: true }
   ];
 
   const jokicProgress = {
-    current: 174,
-    toSecond: 181 - 174, // 7 more to pass Oscar
-    toFirst: 205 - 174   // 31 more to pass Westbrook
+    current: 175,
+    toSecond: 181 - 175, // 6 more to pass Oscar
+    toFirst: 206 - 175   // 31 more to pass Westbrook
   };
 
   // Hardcoded reward pool (manually update when inventory changes)
@@ -63,7 +63,7 @@ function TDWatch() {
     { timestamp: 1733025600, opponent: 'Suns', isHome: false, played: true, tripleDouble: false, stats: { points: 26, rebounds: 9, assists: 10 } },
     
     // December 2024
-    { timestamp: 1733198400, opponent: 'Mavericks', isHome: true, played: false, tripleDouble: false, stats: null },
+    { timestamp: 1733198400, opponent: 'Mavericks', isHome: true, played: true, tripleDouble: true, stats: { points: 29, rebounds: 20, assists: 13 } },
     { timestamp: 1733371200, opponent: 'Pacers', isHome: false, played: false, tripleDouble: false, stats: null },
     { timestamp: 1733544000, opponent: 'Hawks', isHome: false, played: false, tripleDouble: false, stats: null },
     { timestamp: 1733716800, opponent: 'Hornets', isHome: false, played: false, tripleDouble: false, stats: null },
