@@ -634,17 +634,18 @@ def pull_rankings_for_fb(fastbreak_id):
             break
 
     print (f"Found {len(all_leaders)} entries in fastbreak {fastbreak_id}")
-    for entry in all_leaders:
-        username = entry["user"]["username"]
-        rank = entry["rank"]
-        points = entry["points"]
-
-        cursor.execute(prepare_query('''
-            INSERT INTO fastbreak_rankings (fastbreak_id, username, rank, points)
-            VALUES (%s, %s, %s, %s)
-            ON CONFLICT (fastbreak_id, username)
-            DO UPDATE SET rank = EXCLUDED.rank, points = EXCLUDED.points
-        '''), (fastbreak_id, username, rank, points))
+    
+    # Prepare batch insert data
+    values = [(fastbreak_id, entry["user"]["username"], entry["rank"], entry["points"]) 
+              for entry in all_leaders]
+    
+    # Batch insert all rankings at once
+    cursor.executemany(prepare_query('''
+        INSERT INTO fastbreak_rankings (fastbreak_id, username, rank, points)
+        VALUES (%s, %s, %s, %s)
+        ON CONFLICT (fastbreak_id, username)
+        DO UPDATE SET rank = EXCLUDED.rank, points = EXCLUDED.points
+    '''), values)
 
     conn.commit()
     print(f"✅ Saved {len(all_leaders)} rankings for {fastbreak_id}")
