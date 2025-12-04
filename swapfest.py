@@ -14,7 +14,7 @@ from utils.helpers import get_last_processed_block, save_last_processed_block, s
 # ==============================
 # CONFIG
 # ==============================
-BASE_URL = "https://dimensional-still-glade.flow-mainnet.quiknode.pro/3f57c23def386f47c20d636566fc9029c93b13e5/addon/906/simple/v1"
+BASE_URL = "https://dimensional-still-glade.flow-mainnet.quiknode.pro/3f57c23def386f47c20d636566fc9029c93b13e5/v1"
 FLOW_ACCOUNT = "0xf853bd09d46e7db6"
 STARTING_HEIGHT = 118542742
 OFFSET = 100
