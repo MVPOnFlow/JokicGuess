@@ -10,16 +10,11 @@ from json import JSONDecodeError
 from flow_py_sdk import flow_client
 from flow_py_sdk.cadence import Address, UInt64
 from utils.helpers import get_last_processed_block, save_last_processed_block, save_gift, reset_last_processed_block
-from requests.auth import HTTPBasicAuth
-
-# TEMP CREDENTIALS FOR FORTE HACKS
-USERNAME = "bobo"
-PASSWORD = "rah4wie4eiNae"
 
 # ==============================
 # CONFIG
 # ==============================
-BASE_URL = "https://api.find.xyz/simple/v1"
+BASE_URL = "https://practical-polished-panorama.flow-mainnet.quiknode.pro/26196055c630f96e591331247b47a58adf993293/addon/906"
 FLOW_ACCOUNT = "0xf853bd09d46e7db6"
 STARTING_HEIGHT = 118542742
 OFFSET = 100
@@ -140,20 +135,6 @@ async def get_moment_points(moment_id: int) -> int:
     # print(f"Moment ID {moment_id} is tier {tier}, awarded {points} points.")
     return points
 
-def generate_jwt_token(expiry: str = "168h"):
-    """
-    Use the auth/v1/generate endpoint with Basic Auth to get a JWT token.
-    expiry example: "10m", "2h", etc.
-    Returns the token string, or raises an exception.
-    """
-    url = f"https://api.find.xyz/auth/v1/generate"
-    params = {"expiry": expiry}
-    resp = requests.post(url, auth=HTTPBasicAuth(USERNAME, PASSWORD), params=params)
-    resp.raise_for_status()
-    data = resp.json()
-    # expected keys: access_token, token_type, expires_in, etc.
-    return data["access_token"], data
-
 
 # ==============================
 # FETCH FLOW EVENTS
@@ -163,10 +144,7 @@ async def get_block_gifts(block_height, offset):
     gift_txns = []
 
     delay = 30  # add few min delay for block info to get populated
-    token, token_info = generate_jwt_token(expiry="1h")
-    headers = {
-        "Authorization": f"Bearer {token}"
-    }
+    headers = {}
     response = await get_with_retries(f"{BASE_URL}/blocks?height={block_height + offset + delay}", headers=headers)
     blocks = response.json()
 
