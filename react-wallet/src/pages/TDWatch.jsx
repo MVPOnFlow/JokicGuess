@@ -64,7 +64,7 @@ function TDWatch() {
     
     // December 2024
     { timestamp: 1733198400, opponent: 'Mavericks', isHome: true, played: true, tripleDouble: true, stats: { points: 29, rebounds: 20, assists: 13 } },
-    { timestamp: 1733371200, opponent: 'Pacers', isHome: false, played: false, tripleDouble: false, stats: null },
+    { timestamp: 1733371200, opponent: 'Pacers', isHome: false, played: true, tripleDouble: false, stats: { points: 24, rebounds: 8, assists: 13 } },
     { timestamp: 1733544000, opponent: 'Hawks', isHome: false, played: false, tripleDouble: false, stats: null },
     { timestamp: 1733716800, opponent: 'Hornets', isHome: false, played: false, tripleDouble: false, stats: null },
     { timestamp: 1733889600, opponent: 'Wizards', isHome: true, played: false, tripleDouble: false, stats: null },
