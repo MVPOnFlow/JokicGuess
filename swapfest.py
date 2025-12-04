@@ -231,6 +231,8 @@ async def main(offset=OFFSET):
         block_height = get_last_processed_block()
         new_gifts = await get_block_gifts(block_height, offset)
 
+        if new_gifts is False:
+            continue  # Do NOT advance block_height
         for gift in new_gifts:
             moment_id = int(gift['moment_id'])
             # print(f"Checking moment ID {moment_id} for points...")
