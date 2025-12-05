@@ -4,7 +4,10 @@
 import requests
 import random
 import asyncio
+import json
 import sys
+import base64
+import re
 
 from json import JSONDecodeError
 from flow_py_sdk import flow_client
@@ -68,7 +71,6 @@ def get_points_for_tier(tier: str) -> int:
         "MOMENT_TIER_ANTHOLOGY": 1000,
     }
     return mapping.get(tier, 0)
-
 
 # ==============================
 # GRAPHQL CALL
@@ -135,6 +137,12 @@ async def get_moment_points(moment_id: int) -> int:
     # print(f"Moment ID {moment_id} is tier {tier}, awarded {points} points.")
     return points
 
+def get_to_address(event):
+    for field in event["value"]["fields"]:
+        if field["name"] == "to":
+            return field["value"]["value"]["value"]   # the actual address
+    return None
+
 
 # ==============================
 # FETCH FLOW EVENTS
@@ -144,56 +152,74 @@ async def get_block_gifts(block_height, offset):
     gift_txns = []
 
     delay = 30  # add few min delay for block info to get populated
-    headers = {}
-    response = await get_with_retries(f"{BASE_URL}/blocks?height={block_height + offset + delay}", headers=headers)
-    blocks = response.json()
+    headers = {
+        'Content-Type': 'application/json'
+    }
 
+    try:
+        response = await get_with_retries(f"{BASE_URL}/blocks?height={block_height+offset}", headers=headers)
+        blocks = response.json()
+    except:
+        print('Waiting for more blocks')
+        await asyncio.sleep(10)
+        return False
+    
     page = 0
     eventsjson = list()
-    while True:
+    response = await get_with_retries(
+        f"{BASE_URL}/events?start_height={block_height}&end_height={block_height + offset}&type=A.0b2a3299cc857e29.TopShot.Deposit",
+        headers=headers
+    )
 
-        if blocks['blocks'][0]['height'] != block_height + offset + delay:
-            # print('Waiting for more blocks')
-            await asyncio.sleep(10)
-            return False
-        response = await get_with_retries(
-            f"{BASE_URL}/events?from_height={block_height}&to_height={block_height + offset}&limit=100&offset={page * 100}&name=A.0b2a3299cc857e29.TopShot.Deposit",
-            headers=headers
-        )
-        # print(response.json())
-        new_events = list(response.json()['events'])
-        print(len(new_events))
-        eventsjson.extend(new_events)
-        if len(new_events) < 100:
-            break
-        page += 1
-        if page > 50:
-            break
+    new_events = [ev for block in list(response.json()) for ev in block.get("events", [])]
+    eventsjson.extend(new_events)
 
     for event in eventsjson:
-        if event['fields']['to'] == FLOW_ACCOUNT:
-            gift_txns.append(event['transaction_hash'])
+        # decode base64 → get JSON text
+        decoded_json = base64.b64decode(event['payload']).decode()
+        
+        # load into dict
+        event_decoded = json.loads(decoded_json)
+
+        if get_to_address(event_decoded) == FLOW_ACCOUNT:
+            gift_txns.append(event['transaction_id'])
 
     # print(f"Block {block_height}: Found gift transactions {gift_txns}")
 
     for txn in gift_txns:
-        response = await get_with_retries(f"{BASE_URL}/transaction?id={txn}", headers=headers)
+        response = await get_with_retries(f"{BASE_URL}/transactions/{txn}", headers=headers)
+        txn_status_response = await get_with_retries(f"{BASE_URL}/transaction_results/{txn}", headers=headers)
+
         try:
             txn_content = response.json()
-            if txn_content['transactions'][0]['status'] != 'SEALED':
+            if txn_status_response.json()['status'] != 'Sealed':
                 continue
-            events = txn_content['transactions'][0]['events']
-            if len(events) < 4:
-                continue
-            if events[0]['name'] == 'A.0b2a3299cc857e29.TopShot.Withdraw' and \
-                    events[3]['name'] == 'A.0b2a3299cc857e29.TopShot.Deposit' and \
-                    events[3]['fields']['to'] == FLOW_ACCOUNT:
-                gift = events[0]['fields']
-                gift['moment_id'] = gift['id']
-                del gift['id']
-                gift['txn_id'] = txn_content['transactions'][0]['id']
-                gift['timestamp'] = txn_content['transactions'][0]['timestamp']
-                gifts.append(gift)
+            script = base64.b64decode(txn_content['script']).decode()
+            moment_id = re.search(r"tokenID:\s*(\d+)", script)
+            moment_id = moment_id.group(1) if moment_id else None
+
+            txn_block_id = txn_content["reference_block_id"]
+            txn_block_response = await get_with_retries(f"{BASE_URL}/blocks/{txn_block_id}", headers=headers)
+            block_timestamp = txn_block_response.json()[0]['header']['timestamp']
+
+            gift = dict()
+            gift['txn_id'] = txn_content['id']
+            gift['moment_id'] = moment_id
+            gift['from'] = f"0x{txn_content['proposal_key']['address']}"
+            gift['timestamp'] = block_timestamp
+
+            
+            # if len(events) < 4:
+            #     continue
+            # if events[0]['name'] == 'A.0b2a3299cc857e29.TopShot.Withdraw' and \
+            #         events[3]['name'] == 'A.0b2a3299cc857e29.TopShot.Deposit' and \
+            #         events[3]['fields']['to'] == FLOW_ACCOUNT:
+            #     gift = events[0]['fields']
+            #     gift['moment_id'] = gift['id']
+            #     del gift['id']
+            #     gift['txn_id'] = txn_content['transactions'][0]['id']
+            #     gift['timestamp'] = txn_content['transactions'][0]['timestamp']
+            gifts.append(gift)
         except (KeyError, JSONDecodeError):
             pass
 
@@ -203,23 +229,25 @@ async def get_block_gifts(block_height, offset):
 # ==============================
 # MAIN LOOP
 # ==============================
-async def main(offset=OFFSET):
+async def main(offset = OFFSET):
+    #all_gifts = []
+    #reset_last_processed_block("124210000")
+    block_height = get_last_processed_block()
 
     while True:
-        block_height = get_last_processed_block()
         new_gifts = await get_block_gifts(block_height, offset)
 
         if new_gifts is False:
             continue  # Do NOT advance block_height
         for gift in new_gifts:
             moment_id = int(gift['moment_id'])
-            # print(f"Checking moment ID {moment_id} for points...")
+            #print(f"Checking moment ID {moment_id} for points...")
             points = await get_moment_points(moment_id)
             if points == 0:
                 points = await get_moment_points(moment_id)
-            # print(f"Transaction {gift['txn_id']} - Awarded {points} points")
+            #print(f"Transaction {gift['txn_id']} - Awarded {points} points")
             # Here you can save to DB, file, etc.
-            # all_gifts.append((gift, points))
+            #all_gifts.append((gift, points))
             save_gift(
                 txn_id=gift['txn_id'],
                 moment_id=int(gift['moment_id']),
@@ -229,8 +257,9 @@ async def main(offset=OFFSET):
             )
         if offset == OFFSET:
             save_last_processed_block(block_height + offset)
+        block_height += offset + 1
         await asyncio.sleep(0.01)
-        # print(f"Next block_height: {block_height}")
+        #print(f"Next block_height: {block_height}")
 
         # Optional stop condition
         # if block_height > STARTING_HEIGHT + 1000:
