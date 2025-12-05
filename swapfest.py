@@ -43,13 +43,13 @@ async def get_with_retries(url, headers={}, max_retries=5, backoff_factor=1.5, *
                 else:
                     wait_time *= backoff_factor
             elif response.status_code >= 500:
-                print(f"Server error {response.status_code}. Retrying...")
+                # print(f"Server error {response.status_code}. Retrying...")
                 wait_time *= backoff_factor
             else:
                 await response.raise_for_status()
 
         except requests.exceptions.RequestException as e:
-            print(f"Request error: {e}. Retrying...")
+            # print(f"Request error: {e}. Retrying...")
             wait_time *= backoff_factor
 
         await asyncio.sleep(wait_time + random.uniform(0, 0.5))
@@ -160,8 +160,8 @@ async def get_block_gifts(block_height, offset):
         response = await get_with_retries(f"{BASE_URL}/blocks?height={block_height+offset}", headers=headers)
         blocks = response.json()
     except:
-        print('Waiting for more blocks')
-        await asyncio.sleep(10)
+        # print('Waiting for more blocks')
+        await asyncio.sleep(60)
         return False
     
     page = 0
