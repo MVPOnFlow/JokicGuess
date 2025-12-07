@@ -98,9 +98,9 @@ def register_routes(app):
     def api_treasury():
         # Hard-coded data
         treasury_data = {
-            "tokens_in_wild": 13666,
-            "common_count": 2291,
-            "rare_count": 109,
+            "tokens_in_wild": 15159,
+            "common_count": 2411,
+            "rare_count": 134,
             "tsd_count": 0,
             "lego_count": 1,
         }
@@ -117,7 +117,7 @@ def register_routes(app):
 
         treasury_data["backed_supply"] = backed_supply
         treasury_data["surplus"] = surplus
-        treasury_data['last_updated'] = "2025-10-28 15:00 UTC"
+        treasury_data['last_updated'] = "2025-12-07 15:00 UTC"
         
         return jsonify(treasury_data)
 
