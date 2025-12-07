@@ -28,3 +28,13 @@ DISCORD_TOKEN = os.getenv('DISCORD_TOKEN')
 # Flask configuration
 FLASK_HOST = "0.0.0.0"
 FLASK_PORT = 8000
+
+# Treasury data
+TREASURY_DATA = {
+    "tokens_in_wild": 15159,
+    "common_count": 2411,
+    "rare_count": 134,
+    "tsd_count": 0,
+    "lego_count": 1,
+    "last_updated": "2025-12-07 15:00 UTC"
+}

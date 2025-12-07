@@ -12,7 +12,8 @@ from utils.helpers import (
 )
 from config import (
     SWAPFEST_START_TIME, SWAPFEST_END_TIME,
-    SWAPFEST_BOOST1_CUTOFF, SWAPFEST_BOOST2_CUTOFF
+    SWAPFEST_BOOST1_CUTOFF, SWAPFEST_BOOST2_CUTOFF,
+    TREASURY_DATA
 )
 
 
@@ -96,14 +97,8 @@ def register_routes(app):
 
     @app.route('/api/treasury')
     def api_treasury():
-        # Hard-coded data
-        treasury_data = {
-            "tokens_in_wild": 15159,
-            "common_count": 2411,
-            "rare_count": 134,
-            "tsd_count": 0,
-            "lego_count": 1,
-        }
+        # Get data from config
+        treasury_data = TREASURY_DATA.copy()
 
         # Calculating backed supply
         backed_supply = (
@@ -117,7 +112,6 @@ def register_routes(app):
 
         treasury_data["backed_supply"] = backed_supply
         treasury_data["surplus"] = surplus
-        treasury_data['last_updated'] = "2025-12-07 15:00 UTC"
         
         return jsonify(treasury_data)
 
