@@ -129,11 +129,20 @@ async def get_moment_points(moment_id: int) -> int:
         # print(f"Moment ID {moment_id} has set.flowId 2 → 250 points.")
         return 250
 
+    # Only award points for Nikola Jokić moments
     if not metadata.get("play", {}).get("headline", "").startswith("Nikola Joki"):
         return 0
+   
+    # Special rule: 3x points for Equinox set (flowId 227)
+    if metadata['set']['flowId'] == 227:
+        return 150
 
+    # Special rule: 3 points for S25/26 base set (flowId 218)
+    if metadata['set']['flowId'] == 218:
+        return 3
     tier = metadata.get("tier")
     points = get_points_for_tier(tier)
+
     # print(f"Moment ID {moment_id} is tier {tier}, awarded {points} points.")
     return points
 
