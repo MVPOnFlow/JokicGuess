@@ -250,7 +250,7 @@ async def main(offset = OFFSET):
             continue  # Do NOT advance block_height
         for gift in new_gifts:
             print(f"Gift: {gift}")
-            if not moment_id:
+            if not gift['moment_id']:
                 continue # skip if moment_id not found in txn script, such as in purchase txns
             moment_id = int(gift['moment_id'])
             #print(f"Checking moment ID {moment_id} for points...")
