@@ -17,7 +17,7 @@ from utils.helpers import get_last_processed_block, save_last_processed_block, s
 # ==============================
 # CONFIG
 # ==============================
-BASE_URL = "https://dimensional-still-glade.flow-mainnet.quiknode.pro/3f57c23def386f47c20d636566fc9029c93b13e5/v1"
+BASE_URL = "https://summer-broken-diamond.flow-mainnet.quiknode.pro/ae02276fde4b46a6a3a0fba4e3d041f696959cca/v1"
 FLOW_ACCOUNT = "0xf853bd09d46e7db6"
 STARTING_HEIGHT = 118542742
 OFFSET = 100
