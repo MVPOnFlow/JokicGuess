@@ -176,3 +176,71 @@ def register_fastbreak_commands(bot, conn, cursor, db_type):
             f"✅ Pulled {len(new_fastbreaks)} new finished FastBreaks and {new_rankings_count} total rankings.",
             ephemeral=True
         )
+
+    @bot.tree.command(name="bulk_pull_fastbreak_horse_stats", description="Admin only: Pull and store multiple FastBreaks and their rankings.")
+    @app_commands.checks.has_permissions(administrator=True)
+    async def bulk_pull_fastbreak_horse_stats(interaction: discord.Interaction, fb_ids: str):
+        await interaction.response.defer(ephemeral=True)
+
+        if not is_admin(interaction):
+            await interaction.followup.send("You need admin permissions to run this command.", ephemeral=True)
+            return
+
+        # Parse comma-separated IDs
+        fb_id_list = [fb_id.strip() for fb_id in fb_ids.split(',')]
+        
+        new_fastbreaks = []
+        new_rankings_count = 0
+        not_found = []
+
+        runs = extract_fastbreak_runs()
+
+        # Process each FastBreak ID
+        for fb_id in fb_id_list:
+            found = False
+            for run in runs[:7]:
+                if not run['fastBreaks'] or run['runName'].endswith('Pro'):
+                    continue
+                run_name = run.get('runName', '')
+                for fb in run.get('fastBreaks', []):
+                    if not fb or fb.get('status') != 'FAST_BREAK_FINISHED':
+                        continue
+
+                    if fb_id == fb.get('id'):
+                        found = True
+                        game_date = fb.get('gameDate')
+                        status = fb.get('status')
+
+                        cursor.execute(prepare_query('SELECT 1 FROM fastbreaks WHERE id = ?'), (fb_id,))
+
+                        cursor.execute(prepare_query('''
+                            INSERT INTO fastbreaks (id, game_date, run_name, status)
+                            VALUES (?, ?, ?, ?) ON CONFLICT DO NOTHING
+                        '''), (fb_id, game_date, run_name, status))
+                        conn.commit()
+                        new_fastbreaks.append({
+                            'id': fb_id,
+                            'game_date': game_date,
+                            'run_name': run_name
+                        })
+
+                        rankings_pulled = len(pull_rankings_for_fb(fb_id))
+                        new_rankings_count += rankings_pulled
+                        print(f"✅ FastBreak {fb_id} stored with {rankings_pulled} rankings.")
+                        break
+                if found:
+                    break
+            
+            if not found:
+                not_found.append(fb_id)
+                print(f"⚠️ FastBreak {fb_id} not found or not finished.")
+
+        cursor.execute("REFRESH MATERIALIZED VIEW user_rankings_summary")
+        conn.commit()
+
+        response_msg = f"✅ Pulled {len(new_fastbreaks)} new finished FastBreaks and {new_rankings_count} total rankings.\n"
+        response_msg += f"Processed: {len(fb_id_list)} IDs"
+        if not_found:
+            response_msg += f"\n⚠️ Not found or not finished: {', '.join(not_found)}"
+
+        await interaction.followup.send(response_msg, ephemeral=True)
