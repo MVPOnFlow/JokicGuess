@@ -18,7 +18,6 @@ function TDWatch() {
 
   // Hardcoded reward pool (manually update when inventory changes)
   const rewardPool = [
-    { name: "Stars and Rookes Chance Hit", amount: 5 },
     { name: "Collector Series: Grail Chase", amount: 5 },
     { name: "RARE Run It Back Origins August Pack", amount: 1 },
     { name: "Beezie Basketball Claw Pull", amount: 1 },
