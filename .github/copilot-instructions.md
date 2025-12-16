@@ -62,7 +62,8 @@
 - **Flow blockchain**: Interactions use `flow_py_sdk` and helpers in `utils/helpers.py` and `swapfest.py`.
 - **React asset serving**: All unknown routes fallback to `react-build/index.html` for SPA routing.
 - **Tokenomics and event images**: Use `/images/Tokenomics.svg` and `/images/25-8-15-9-25.png` for visual explanations.
-- **TD Watch**: Jokic Nuggets schedule and triple-double tracking live in both the DB (`nuggets_schedule`) and front-end (`TDWatch.jsx`) as hardcoded schedules that are periodically synced from ESPN game logs.
+- **TD Watch – schedule**: Jokic Nuggets schedule and triple-double tracking live in both the DB (`nuggets_schedule`) and front-end (`TDWatch.jsx`) as hardcoded schedules that should be synced from Nikola Jokić's Basketball Reference game log: https://www.basketball-reference.com/players/j/jokicni01/gamelog/2026.
+- **TD Watch – triple-double leaders**: When updating all-time triple-double leaders (names or totals) in `TDWatch.jsx` or related UI, always pull the latest numbers from Basketball Reference: https://www.basketball-reference.com/leaders/trp_dbl_career.html rather than relying on model memory.
 
 ## Integration Points
 - **Discord**: Bot logic and user mapping in database.
