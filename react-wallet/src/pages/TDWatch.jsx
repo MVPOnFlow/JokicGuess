@@ -5,27 +5,21 @@ import './TDWatch.css';
 function TDWatch() {
   // Top 3 all-time triple-double leaders
   const tdLeaders = [
-    { rank: 1, name: 'Russell Westbrook', count: 206, active: true },
+    { rank: 1, name: 'Russell Westbrook', count: 207, active: true },
     { rank: 2, name: 'Oscar Robertson', count: 181, active: false },
-    { rank: 3, name: 'Nikola Jokić', count: 175, active: true, isJokic: true }
+    { rank: 3, name: 'Nikola Jokić', count: 177, active: true, isJokic: true }
   ];
-
-  const jokicProgress = {
-    current: 175,
-    toSecond: 181 - 175, // 6 more to pass Oscar
-    toFirst: 206 - 175   // 31 more to pass Westbrook
-  };
 
   // Hardcoded reward pool (manually update when inventory changes)
   const rewardPool = [
     { name: "Collector Series: Grail Chase", amount: 4 },
     { name: "RARE Run It Back Origins August Pack", amount: 1 },
-    { name: "Beezie Basketball Claw Pull", amount: 1 },
+    { name: "Beezie Basketball Claw Pull", amount: 0 },
     { name: "Rookie Debut: Chance Hit", amount: 4 },
     { name: "Rookie Debut Standard Pack", amount: 2 },
     { name: "$MVP Swap Boost NFT", amount: 4 },
     { name: "Pet Your Horse 10 Times", amount: 8 },
-    { name: "Jolly Joker NFT", amount: 3 },
+    { name: "Jolly Joker NFT", amount: 2 },
     { name: "FastBreak 25-26 Classic Run 2 - 4 Win Pack", amount: 1 },
     { name: "FastBreak WNBA Run 9 - 3 Win Pack", amount: 1 },
     { name: "NBA Stars: National Exclusive Chase Pack", amount: 4 },
@@ -65,7 +59,7 @@ function TDWatch() {
     { timestamp: 1733716800, opponent: 'Hornets', isHome: false, played: true, tripleDouble: false, stats: { points: 28, rebounds: 9, assists: 11 } },
     { timestamp: 1734062400, opponent: 'Kings', isHome: false, played: true, tripleDouble: false, stats: { points: 36, rebounds: 12, assists: 8 } },
     { timestamp: 1734321600, opponent: 'Rockets', isHome: true, played: true, tripleDouble: true, stats: { points: 39, rebounds: 15, assists: 10 } },
-    { timestamp: 1734667200, opponent: 'Magic', isHome: true, played: false, tripleDouble: false, stats: null },
+    { timestamp: 1734667200, opponent: 'Magic', isHome: true, played: true, tripleDouble: true, stats: { points: 23, rebounds: 11, assists: 13 } },
     { timestamp: 1734753600, opponent: 'Rockets', isHome: true, played: false, tripleDouble: false, stats: null },
     { timestamp: 1735012800, opponent: 'Jazz', isHome: true, played: false, tripleDouble: false, stats: null },
     { timestamp: 1735099200, opponent: 'Mavericks', isHome: false, played: false, tripleDouble: false, stats: null },
