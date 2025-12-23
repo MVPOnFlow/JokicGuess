@@ -14,7 +14,6 @@ function TDWatch() {
   const rewardPool = [
     { name: "Collector Series: Grail Chase", amount: 4 },
     { name: "RARE Run It Back Origins August Pack", amount: 1 },
-    { name: "Beezie Basketball Claw Pull", amount: 0 },
     { name: "Rookie Debut: Chance Hit", amount: 4 },
     { name: "Rookie Debut Standard Pack", amount: 2 },
     { name: "$MVP Swap Boost NFT", amount: 4 },
