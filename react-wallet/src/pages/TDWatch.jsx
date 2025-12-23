@@ -155,9 +155,6 @@ function TDWatch() {
     });
   };
 
-  const progressPercentToSecond = (jokicProgress.current / 181) * 100;
-  const progressPercentToFirst = (jokicProgress.current / 205) * 100;
-
   // Calculate team triple-double tracker
   const teamTDTracker = allGames.reduce((acc, game) => {
     const team = game.opponent;
