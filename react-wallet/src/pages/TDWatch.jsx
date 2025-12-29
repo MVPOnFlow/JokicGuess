@@ -7,7 +7,7 @@ function TDWatch() {
   const tdLeaders = [
     { rank: 1, name: 'Russell Westbrook', count: 207, active: true },
     { rank: 2, name: 'Oscar Robertson', count: 181, active: false },
-    { rank: 3, name: 'Nikola Jokić', count: 179, active: true, isJokic: true }
+    { rank: 3, name: 'Nikola Jokić', count: 180, active: true, isJokic: true }
   ];
 
   // Hardcoded reward pool (manually update when inventory changes)
@@ -62,7 +62,7 @@ function TDWatch() {
     { timestamp: 1735012800, opponent: 'Jazz', isHome: true,played: true, tripleDouble: true, stats: { points: 14, rebounds: 13, assists: 13 } },
     { timestamp: 1735099200, opponent: 'Mavericks', isHome: false, played: true, tripleDouble: false, stats: { points: 29, rebounds: 7, assists: 14 } },
     { timestamp: 1735272000, opponent: 'Timberwolves', isHome: true, played: true, tripleDouble: true, stats: { points: 56, rebounds: 16, assists: 15 } },
-    { timestamp: 1735444800, opponent: 'Magic', isHome: false, played: false, tripleDouble: false, stats: null },
+    { timestamp: 1735444800, opponent: 'Magic', isHome: false, played: true, tripleDouble: true, stats: { points: 34, rebounds: 21, assists: 12 }  },
     { timestamp: 1735617600, opponent: 'Heat', isHome: false, played: false, tripleDouble: false, stats: null },
     
     // January 2025
