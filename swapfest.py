@@ -24,7 +24,7 @@ OFFSET = 100
 # ==============================
 # RETRYING GET REQUEST
 # ==============================
-async def get_with_retries(url, headers={}, max_retries=5, backoff_factor=1.5, **kwargs):
+async def get_with_retries(url, headers={}, max_retries=6, backoff_factor=1.5, **kwargs):
     attempt = 0
     wait_time = 1
 
