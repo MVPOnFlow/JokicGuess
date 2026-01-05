@@ -4,5 +4,4 @@ audioop-lts; python_version>='3.13'
 flask
 flow_py_sdk
 requests
-nest-asyncio
 flask-cors
