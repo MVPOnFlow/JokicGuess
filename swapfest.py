@@ -13,12 +13,12 @@ from json import JSONDecodeError
 from flow_py_sdk import flow_client
 from flow_py_sdk.cadence import Address, UInt64
 from utils.helpers import get_last_processed_block, save_last_processed_block, save_gift, reset_last_processed_block
+from config import FLOW_SCAN_API_URL, FLOW_ACCOUNT
 
 # ==============================
 # CONFIG
 # ==============================
-BASE_URL = "https://summer-broken-diamond.flow-mainnet.quiknode.pro/ae02276fde4b46a6a3a0fba4e3d041f696959cca/v1"
-FLOW_ACCOUNT = "0xf853bd09d46e7db6"
+BASE_URL = FLOW_SCAN_API_URL
 STARTING_HEIGHT = 118542742
 OFFSET = 100
 

@@ -18,6 +18,7 @@ SPECIAL_REWARD_ODDS = 1 / 200
 
 # Flow blockchain configuration
 FLOW_ACCOUNT = "0xf853bd09d46e7db6"
+FLOW_SCAN_API_URL = os.getenv('FLOW_SCAN_API_URL', '')
 
 # Database configuration
 DATABASE_URL = os.getenv('DATABASE_URL')  # Heroku PostgreSQL URL
