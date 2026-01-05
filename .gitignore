@@ -7,3 +7,7 @@ __pycache__
 .vscode
 coverage.xml
 local.db
+venv
+.DS_Store
+Untitled.ipynb
+.ipynb_checkpoints
