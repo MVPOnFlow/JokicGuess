@@ -62,13 +62,13 @@ function TDWatch() {
     { timestamp: 1735012800, opponent: 'Jazz', isHome: true,played: true, tripleDouble: true, stats: { points: 14, rebounds: 13, assists: 13 } },
     { timestamp: 1735099200, opponent: 'Mavericks', isHome: false, played: true, tripleDouble: false, stats: { points: 29, rebounds: 7, assists: 14 } },
     { timestamp: 1735272000, opponent: 'Timberwolves', isHome: true, played: true, tripleDouble: true, stats: { points: 56, rebounds: 16, assists: 15 } },
-    { timestamp: 1735444800, opponent: 'Magic', isHome: false, played: false, tripleDouble: false, stats: null },
-    { timestamp: 1735617600, opponent: 'Heat', isHome: false, played: false, tripleDouble: false, stats: null },
+    { timestamp: 1735444800, opponent: 'Magic', isHome: false, played: true, tripleDouble: false, stats: null },
+    { timestamp: 1735617600, opponent: 'Heat', isHome: false, played: true, tripleDouble: false, stats: null },
     
     // January 2025
-    { timestamp: 1735790400, opponent: 'Raptors', isHome: false, played: false, tripleDouble: false, stats: null },
-    { timestamp: 1735963200, opponent: 'Cavaliers', isHome: false, played: false, tripleDouble: false, stats: null },
-    { timestamp: 1736049600, opponent: 'Nets', isHome: false, played: false, tripleDouble: false, stats: null },
+    { timestamp: 1735790400, opponent: 'Raptors', isHome: false, played: true, tripleDouble: false, stats: null },
+    { timestamp: 1735963200, opponent: 'Cavaliers', isHome: false, played: true, tripleDouble: false, stats: null },
+    { timestamp: 1736049600, opponent: 'Nets', isHome: false, played: true, tripleDouble: false, stats: null },
     { timestamp: 1736222400, opponent: '76ers', isHome: false, played: false, tripleDouble: false, stats: null },
     { timestamp: 1736395200, opponent: 'Celtics', isHome: false, played: false, tripleDouble: false, stats: null },
     { timestamp: 1736568000, opponent: 'Hawks', isHome: true, played: false, tripleDouble: false, stats: null },

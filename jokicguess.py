@@ -47,7 +47,7 @@ async def on_ready():
     """Bot startup event handler."""
     await bot.tree.sync()
     print(f'Logged in as {bot.user}! Commands synced.')
-    bot.loop.create_task(swapfest.main())
+    # bot.loop.create_task(swapfest.main())
 
 
 @bot.event
