@@ -12,12 +12,12 @@ function TDWatch() {
 
   // Hardcoded reward pool (manually update when inventory changes)
   const rewardPool = [
-    { name: "Collector Series: Grail Chase", amount: 3 },
+    { name: "Collector Series: Grail Chase", amount: 2 },
     { name: "RARE Run It Back Origins August Pack", amount: 1 },
     { name: "Rookie Debut: Chance Hit", amount: 3 },
     { name: "Rookie Debut Standard Pack", amount: 1 },
-    { name: "$MVP Swap Boost NFT", amount: 2 },
-    { name: "Pet Your Horse 10 Times", amount: 3 },
+    { name: "$MVP Swap Boost NFT", amount: 1 },
+    { name: "Pet Your Horse 10 Times", amount: 2 },
     { name: "Jolly Joker NFT", amount: 1 },
     { name: "FastBreak 25-26 Classic Run 2 - 4 Win Pack", amount: 1 },
     { name: "NBA Stars: National Exclusive Chase Pack", amount: 3 },
