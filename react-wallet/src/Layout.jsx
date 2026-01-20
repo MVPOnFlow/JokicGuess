@@ -63,7 +63,7 @@ export default function Layout() {
                 {/* Buy $MVP button */}
                 <Nav.Link
                   id="buy-mvp"
-                  href="https://app.increment.fi/swap?in=A.1654653399040a61.FlowToken&out=A.6fd2465f3a22e34c.PetJokicsHorses"
+                  href="https://swap.kittypunch.xyz/swap?tokens=0x0000000000000000000000000000000000000000-0x4dcdd1b9a5103fa5f13cc4c3b758e05ffaccb4dd"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="btn btn-sm ms-lg-2 mt-2 mt-lg-0"
