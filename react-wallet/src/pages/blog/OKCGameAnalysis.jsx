@@ -148,10 +148,13 @@ function OKCGameAnalysis() {
                 <li>Injuries continue to hamper both squads heading into All-Star break</li>
               </ul>
 
-              <div className="mt-5 p-4 bg-light rounded">
-                <h4>Looking Ahead</h4>
-                <p className="mb-0">
-                  The Nuggets (33-17) visit the Detroit Pistons on Tuesday as they look to bounce back from this loss. With Aaron Gordon still weeks away from returning, Denver will need more offensive output from Jokić and Murray as they push toward the playoffs. Track every game on our <Link to="/tdwatch">TD Watch page</Link> and join the $MVP community on Discord!
+              <div className="mt-5 p-4 rounded" style={{
+                background: '#1e293b',
+                border: '1px solid #334155'
+              }}>
+                <h4 style={{ color: '#FDB927' }}>Looking Ahead</h4>
+                <p className="mb-0" style={{ color: '#E5E7EB' }}>
+                  The Nuggets (33-17) visit the Detroit Pistons on Tuesday as they look to bounce back from this loss. With Aaron Gordon still weeks away from returning, Denver will need more offensive output from Jokić and Murray as they push toward the playoffs. Track every game on our <Link to="/tdwatch" style={{ color: '#FDB927', fontWeight: 'bold' }}>TD Watch page</Link> and join the $MVP community on Discord!
                 </p>
               </div>
             </div>
