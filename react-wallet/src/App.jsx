@@ -7,6 +7,9 @@ import Vote from "./pages/Vote";
 import Fastbreak from "./pages/Fastbreak";
 import HorseStats from "./pages/HorseStats";
 import TDWatch from "./pages/TDWatch";
+import BlogList from "./pages/blog/BlogList";
+import OKCGameAnalysis from "./pages/blog/OKCGameAnalysis";
+import TripleDoubleChase from "./pages/blog/TripleDoubleChase";
 import "./flow/config";
 
 function App() {
@@ -21,6 +24,9 @@ function App() {
           <Route path="fastbreak" element={<Fastbreak />} />
           <Route path="horsestats" element={<HorseStats />} />
           <Route path="tdwatch" element={<TDWatch />} />
+          <Route path="blog" element={<BlogList />} />
+          <Route path="blog/okc-game-analysis" element={<OKCGameAnalysis />} />
+          <Route path="blog/triple-double-chase" element={<TripleDoubleChase />} />
         </Route>
       </Routes>
     </BrowserRouter>
