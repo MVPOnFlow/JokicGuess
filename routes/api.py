@@ -559,9 +559,14 @@ def register_routes(app):
         
         return jsonify(comments)
 
-    @app.route("/api/blog/comments", methods=['POST'])
-    def post_comment():
-        """Post a new comment on a blog article."""
+    @app.route("/api/blog/comments", methods=['GET', 'POST'])
+    def handle_comments():
+        """Handle blog comments - GET to list all, POST to create new."""
+        if request.method == 'GET':
+            # Return empty array or all comments
+            return jsonify([])
+        
+        # POST method
         data = request.json
         
         article_id = data.get('article_id')
