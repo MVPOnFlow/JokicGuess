@@ -1,6 +1,7 @@
 import { Container, Row, Col, Card, Badge, Table } from 'react-bootstrap';
 import { Link } from 'react-router-dom';
 import { getRelatedArticles } from './articleData';
+import Comments from './Comments';
 import './Blog.css';
 
 function FlowSecurityIncident() {
@@ -184,6 +185,8 @@ function FlowSecurityIncident() {
                   Experience Flow blockchain through $MVP Swapfest events, trade NBA TopShot moments, and connect with fellow basketball fans in our Discord community. Together, we're building the future of sports collectibles on a blockchain that's proven its resilience.
                 </p>
               </div>
+
+              <Comments articleId="flow-security-incident" />
             </div>
           </Col>
 

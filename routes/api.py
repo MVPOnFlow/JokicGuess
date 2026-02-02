@@ -3,6 +3,8 @@
 import math
 import datetime
 import statistics
+import time
+import os
 from flask import jsonify, send_from_directory, request, g
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from utils.helpers import (
@@ -530,6 +532,79 @@ def register_routes(app):
             return jsonify({"error": "Missing required parameters"}), 400
 
         return jsonify({"hasLineup": bool(get_rank_and_lineup_for_user(username, fastbreak_id))})
+
+    @app.route("/api/blog/comments/<article_id>", methods=['GET'])
+    def get_comments(article_id):
+        """Get all comments for a blog article."""
+        db = get_db()
+        cursor = db.cursor()
+        
+        query = prepare_query('''
+            SELECT id, author_name, comment_text, timestamp, parent_id
+            FROM blog_comments
+            WHERE article_id = ?
+            ORDER BY timestamp ASC
+        ''')
+        cursor.execute(query, (article_id,))
+        
+        comments = []
+        for row in cursor.fetchall():
+            comments.append({
+                'id': row[0],
+                'author_name': row[1],
+                'comment_text': row[2],
+                'timestamp': row[3],
+                'parent_id': row[4]
+            })
+        
+        return jsonify(comments)
+
+    @app.route("/api/blog/comments", methods=['POST'])
+    def post_comment():
+        """Post a new comment on a blog article."""
+        data = request.json
+        
+        article_id = data.get('article_id')
+        author_name = data.get('author_name', 'Anonymous')
+        comment_text = data.get('comment_text')
+        parent_id = data.get('parent_id')
+        
+        if not article_id or not comment_text:
+            return jsonify({"error": "Missing required fields"}), 400
+        
+        # Basic validation
+        if len(author_name) > 50:
+            return jsonify({"error": "Author name too long"}), 400
+        if len(comment_text) > 2000:
+            return jsonify({"error": "Comment too long"}), 400
+        
+        db = get_db()
+        cursor = db.cursor()
+        
+        timestamp = int(time.time())
+        
+        query = prepare_query('''
+            INSERT INTO blog_comments (article_id, author_name, comment_text, timestamp, parent_id)
+            VALUES (?, ?, ?, ?, ?)
+        ''')
+        cursor.execute(query, (article_id, author_name, comment_text, timestamp, parent_id))
+        db.commit()
+        
+        # Get the inserted comment ID
+        if hasattr(cursor, 'lastrowid'):
+            comment_id = cursor.lastrowid
+        else:
+            cursor.execute('SELECT lastval()')
+            comment_id = cursor.fetchone()[0]
+        
+        return jsonify({
+            'id': comment_id,
+            'article_id': article_id,
+            'author_name': author_name,
+            'comment_text': comment_text,
+            'timestamp': timestamp,
+            'parent_id': parent_id
+        }), 201
 
     return app
 

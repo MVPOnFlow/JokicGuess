@@ -98,6 +98,19 @@ def initialize_database(conn, db_type):
             amount INTEGER
         )
     '''))
+
+    # Create blog comments table
+    cursor.execute(prepare_query('''
+        CREATE TABLE IF NOT EXISTS blog_comments (
+            id SERIAL PRIMARY KEY,
+            article_id TEXT NOT NULL,
+            author_name TEXT NOT NULL,
+            comment_text TEXT NOT NULL,
+            timestamp BIGINT NOT NULL,
+            parent_id INTEGER,
+            FOREIGN KEY (parent_id) REFERENCES blog_comments(id)
+        )
+    '''))
     conn.commit()
 
     # Create fastbreak contests table

@@ -1,6 +1,7 @@
 import { Container, Row, Col, Card, Badge, Table } from 'react-bootstrap';
 import { Link } from 'react-router-dom';
 import { getRelatedArticles } from './articleData';
+import Comments from './Comments';
 import './Blog.css';
 
 function OKCGameFeb012026() {
@@ -180,6 +181,8 @@ function OKCGameFeb012026() {
                   The Nuggets (33-17) visit the Detroit Pistons on Tuesday as they look to bounce back from this loss. With Aaron Gordon still weeks away from returning, Denver will need more offensive output from Jokić and Murray as they push toward the playoffs. Track every game on our <Link to="/tdwatch" style={{ color: '#FDB927', fontWeight: 'bold' }}>TD Watch page</Link> and join the $MVP community on Discord!
                 </p>
               </div>
+
+              <Comments articleId="okc-game-feb-01-2026" />
             </div>
           </Col>
 
