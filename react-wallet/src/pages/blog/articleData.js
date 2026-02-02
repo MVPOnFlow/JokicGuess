@@ -1,14 +1,14 @@
 // Central article data configuration
 export const articles = [
   {
-    id: 'okc-game-analysis',
+    id: 'okc-game-feb-01-2026',
     title: 'Thunder Silence Nuggets Behind SGA\'s 34 Points',
     author: '$MVP Team',
     date: '2026-02-01',
     category: 'Game Analysis',
     excerpt: 'Oklahoma City cruises to 121-111 victory as Shai Gilgeous-Alexander and Cason Wallace dominate from three-point range in championship rematch.',
     image: '/images/okc-game.jpg',
-    route: '/blog/okc-game-analysis',
+    route: '/blog/okc-game-feb-01-2026',
     featured: true
   },
   {

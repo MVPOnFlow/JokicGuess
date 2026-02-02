@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { getRelatedArticles } from './articleData';
 import './Blog.css';
 
-function OKCGameAnalysis() {
+function OKCGameFeb012026() {
   const gameStats = {
     date: 'February 1, 2026',
     opponent: 'Oklahoma City Thunder',
@@ -19,7 +19,7 @@ function OKCGameAnalysis() {
     }
   };
 
-  const relatedArticles = getRelatedArticles('okc-game-analysis');
+  const relatedArticles = getRelatedArticles('okc-game-feb-01-2026');
 
   return (
     <div className="blog-article">
@@ -98,12 +98,34 @@ function OKCGameAnalysis() {
                 </Col>
               </Row>
 
+              <h3>Thunder's Defensive Game Plan: Neutralizing Jokić</h3>
+              <p>
+                Oklahoma City deployed an aggressive defensive scheme designed specifically to limit Nikola Jokić's impact. The Thunder frequently sent triple teams at the MVP, denying him the ball and forcing Denver's role players to beat them. While Jokić still shot efficiently (6-for-9), he only attempted nine shots all game, a testament to OKC's ball-denial strategy.
+              </p>
+              <p>
+                This aggressive trapping opened up space on the perimeter, which Peyton Watson exploited masterfully. Watson's 29 points came largely from wide-open looks created by the Thunder's over-commitment to stopping Jokić. However, Denver's offensive execution wasn't crisp enough to consistently punish OKC's gamble.
+              </p>
+              <p>
+                Beyond the scheme, the physical toll was evident. Playing just his second game back from a 16-game absence, Jokić looked rusty and clearly didn't enjoy getting beat up by OKC's physical defense throughout the night. The Thunder made every touch difficult, wearing down the big man over 48 minutes.
+              </p>
+
               <h3>Thunder's Three-Point Barrage</h3>
               <p>
                 The Thunder dominated from beyond the arc, sinking 19 three-pointers on the night. The third quarter proved decisive, as Oklahoma City went 8-for-13 from long range to expand a seven-point halftime lead to 16 points.
               </p>
               <p>
-                Cason Wallace's career-best 27 points came primarily from downtown, as he knocked down seven three-pointers. Combined with Shai Gilgeous-Alexander's 34 points and 13 assists, the Thunder's offensive firepower proved too much for a shorthanded Nuggets squad.
+                Cason Wallace's career-best 27 points came primarily from downtown, as he knocked down seven three-pointers. Denver's defensive strategy played directly into Wallace's hands. The Nuggets overindexed on soft double teams targeting Shai Gilgeous-Alexander, which consistently left Wallace wide open on the weak side. Once he heated up, the floodgates opened.
+              </p>
+              <p>
+                Combined with SGA's 34 points and 13 assists, the Thunder's offensive firepower proved too much for a shorthanded Nuggets squad.
+              </p>
+
+              <h3>SGA's Dominance: Hunting Mismatches</h3>
+              <p>
+                Shai Gilgeous-Alexander, the current MVP favorite, showcased exactly why he's in the conversation for the league's top individual honor. OKC's offensive scheme continuously hunted switches to get SGA matched up against Denver's weakest defenders, primarily targeting Julian Strawther and Jamal Murray.
+              </p>
+              <p>
+                Once isolated, SGA attacked relentlessly. Murray struggled to stay in front of him, as did most of Denver's perimeter defenders. The Thunder's pick-and-roll actions were surgically designed to create these advantageous matchups, and SGA capitalized ruthlessly, either scoring himself or finding open shooters when Denver's help defense rotated.
               </p>
 
               <h3>Jokic's Quiet Return from Injury</h3>
@@ -111,7 +133,7 @@ function OKCGameAnalysis() {
                 Playing in just his second game back from a knee injury that sidelined him for 16 games, Nikola Jokic scored 16 points on just nine shot attempts. The MVP was efficient (6-for-9 shooting) but uncharacteristically passive in a game where Denver needed more offensive production from their star.
               </p>
               <p>
-                The Nuggets' pair of All-Stars had a rather quiet night. Jamal Murray, fresh off earning his first All-Star berth earlier in the day, struggled mightily, scoring just 12 points on 4-of-16 shooting, including 1-for-8 from three-point range.
+                The Nuggets' pair of All-Stars had a rather quiet night. Jamal Murray, fresh off earning his first All-Star berth earlier in the day, struggled mightily, scoring just 12 points on 4-of-16 shooting, including 1-for-8 from three-point range. His defensive assignment guarding SGA for stretches only compounded the difficult evening.
               </p>
 
               <h3>The Turning Point: Third Quarter Explosion</h3>
@@ -119,7 +141,7 @@ function OKCGameAnalysis() {
                 The game shifted dramatically in the third quarter. After Denver cut the deficit to 74-70, the Thunder unleashed a devastating 12-0 run, all from three-point range. Chet Holmgren, also named an All-Star reserve Sunday, hit a three-pointer and Wallace sank his sixth and seventh triples. After a Denver timeout, SGA swished a three and so did Aaron Wiggins to cap the decisive run.
               </p>
               <p>
-                This sequence exemplified Oklahoma City's offensive efficiency and Denver's defensive struggles without key rotation players.
+                This sequence exemplified Oklahoma City's offensive efficiency and Denver's defensive struggles without key rotation players. The Nuggets' help rotations broke down completely, and OKC punished every miscommunication.
               </p>
 
               <h3>Injury Context</h3>
@@ -140,12 +162,13 @@ function OKCGameAnalysis() {
 
               <h3>Key Takeaways</h3>
               <ul>
+                <li>OKC's triple-team scheme on Jokić limited him to 9 shot attempts despite 66.7% shooting</li>
                 <li>Thunder's 19 three-pointers (including 8-of-13 in Q3) were the difference-maker</li>
-                <li>Cason Wallace's career-high 27 points (7 threes) provided crucial secondary scoring</li>
-                <li>Jokic looked rusty in second game back, taking only 9 shots</li>
-                <li>Jamal Murray's 1-for-8 from three severely limited Denver's offense</li>
-                <li>Denver never led, with OKC controlling wire-to-wire</li>
-                <li>Injuries continue to hamper both squads heading into All-Star break</li>
+                <li>Denver's soft double teams on SGA opened the door for Cason Wallace's career-high 27 points</li>
+                <li>SGA systematically hunted mismatches against Strawther and Murray, showcasing MVP-level game management</li>
+                <li>Jokic looked rusty and was physically worn down by OKC's aggressive defense in just his second game back</li>
+                <li>Peyton Watson (29 pts) capitalized on space created by defensive attention on Jokić</li>
+                <li>Jamal Murray's 1-for-8 from three and defensive struggles severely limited Denver's offense</li>
               </ul>
 
               <div className="mt-5 p-4 rounded" style={{
@@ -198,4 +221,4 @@ function OKCGameAnalysis() {
   );
 }
 
-export default OKCGameAnalysis;
+export default OKCGameFeb012026;
