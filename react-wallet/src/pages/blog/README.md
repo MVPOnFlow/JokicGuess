@@ -3,6 +3,21 @@
 ## Overview
 The blog system is organized in `/pages/blog/` to keep article components separate from main app pages.
 
+## Writing Guidelines
+
+### Style Rules
+- **Never use em dashes (—)**: They make content look AI-generated. Use commas, semicolons, colons, or periods instead.
+- **Never use "JokicGuess"**: Always refer to the community as "$MVP" or "$MVP community"
+- Keep tone professional but accessible
+- Use real data and verified sources only
+- No fabricated quotes - only include quotes from verified sources
+
+### Content Standards
+- All game statistics must be accurate and sourced
+- No speculation or made-up information
+- Use dark theme colors consistently (#121826 background, #FDB927 gold, #E5E7EB text)
+- All tables and cards must have readable text on dark backgrounds
+
 ## File Structure
 ```
 pages/blog/

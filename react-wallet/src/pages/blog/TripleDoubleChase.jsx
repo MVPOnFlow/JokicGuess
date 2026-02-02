@@ -79,7 +79,7 @@ const TripleDoubleChase = () => {
               </p>
 
               <blockquote>
-                "Jokic's triple-doubles aren't just about numbers—they're about winning basketball. He makes everyone around him better, and that's what separates the greats from the legends." - NBA Analyst
+                "Jokic's triple-doubles aren't just about numbers, they're about winning basketball. He makes everyone around him better, and that's what separates the greats from the legends." - NBA Analyst
               </blockquote>
 
               <h3>Recent Triple-Double Surge</h3>
@@ -190,7 +190,7 @@ const TripleDoubleChase = () => {
               </p>
 
               <p>
-                The journey from a second-round pick to one of the greatest all-around players in NBA history has been remarkable. But for Nikola Jokic, this isn't about personal records—it's about winning championships and making his teammates better. The triple-doubles are simply evidence of excellence in pursuit of team success.
+                The journey from a second-round pick to one of the greatest all-around players in NBA history has been remarkable. But for Nikola Jokic, this isn't about personal records; it's about winning championships and making his teammates better. The triple-doubles are simply evidence of excellence in pursuit of team success.
               </p>
 
               <div className="mt-5 p-4 bg-light rounded">

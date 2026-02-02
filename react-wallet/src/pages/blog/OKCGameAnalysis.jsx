@@ -116,7 +116,7 @@ function OKCGameAnalysis() {
 
               <h3>The Turning Point: Third Quarter Explosion</h3>
               <p>
-                The game shifted dramatically in the third quarter. After Denver cut the deficit to 74-70, the Thunder unleashed a devastating 12-0 run—all from three-point range. Chet Holmgren, also named an All-Star reserve Sunday, hit a three-pointer and Wallace sank his sixth and seventh triples. After a Denver timeout, SGA swished a three and so did Aaron Wiggins to cap the decisive run.
+                The game shifted dramatically in the third quarter. After Denver cut the deficit to 74-70, the Thunder unleashed a devastating 12-0 run, all from three-point range. Chet Holmgren, also named an All-Star reserve Sunday, hit a three-pointer and Wallace sank his sixth and seventh triples. After a Denver timeout, SGA swished a three and so did Aaron Wiggins to cap the decisive run.
               </p>
               <p>
                 This sequence exemplified Oklahoma City's offensive efficiency and Denver's defensive struggles without key rotation players.

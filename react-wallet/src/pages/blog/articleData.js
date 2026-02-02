@@ -20,6 +20,16 @@ export const articles = [
     excerpt: 'With 180 career triple-doubles, Nikola Jokić surpasses Magic Johnson for 3rd all-time, just one behind Oscar Robertson. Breaking down his historic chase.',
     image: '/images/td-tracker.jpg',
     route: '/blog/triple-double-chase'
+  },
+  {
+    id: 'flow-security-incident',
+    title: 'Rising from Adversity: Flow\'s Masterclass in Crisis Response',
+    author: '$MVP Team',
+    date: '2026-01-30',
+    category: 'Blockchain',
+    excerpt: 'When a security breach hit Flow blockchain on December 27, 2025, the team\'s swift action and transparent communication showcased why resilience matters more than perfection in Web3.',
+    image: '/images/flow-blockchain.jpg',
+    route: '/blog/flow-security-incident'
   }
 ];
 
@@ -30,7 +40,8 @@ export const getCategoryColor = (category) => {
     'Advanced Analytics': 'success',
     'Analysis': 'info',
     'Deep Dive': 'success',
-    'News': 'warning'
+    'News': 'warning',
+    'Blockchain': 'info'
   };
   return colors[category] || 'primary';
 };

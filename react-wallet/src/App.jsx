@@ -10,6 +10,7 @@ import TDWatch from "./pages/TDWatch";
 import BlogList from "./pages/blog/BlogList";
 import OKCGameAnalysis from "./pages/blog/OKCGameAnalysis";
 import TripleDoubleChase from "./pages/blog/TripleDoubleChase";
+import FlowSecurityIncident from './pages/blog/FlowSecurityIncident';
 import "./flow/config";
 
 function App() {
@@ -27,6 +28,7 @@ function App() {
           <Route path="blog" element={<BlogList />} />
           <Route path="blog/okc-game-analysis" element={<OKCGameAnalysis />} />
           <Route path="blog/triple-double-chase" element={<TripleDoubleChase />} />
+          <Route path="blog/flow-security-incident" element={<FlowSecurityIncident />} />
         </Route>
       </Routes>
     </BrowserRouter>
