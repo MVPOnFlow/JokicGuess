@@ -36,15 +36,15 @@ function BlogList() {
                   <Badge bg={getCategoryColor(featuredArticle.category)} className="mb-3" style={{ width: 'fit-content' }}>
                     {featuredArticle.category}
                   </Badge>
-                  <h2 className="mb-3">{featuredArticle.title}</h2>
-                  <p className="text-muted mb-3">
+                  <h2 className="mb-3" style={{ color: '#FDB927' }}>{featuredArticle.title}</h2>
+                  <p className="mb-3" style={{ color: '#94a3b8' }}>
                     <small>
-                      By <strong>{featuredArticle.author}</strong> • {new Date(featuredArticle.date).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}
+                      By <strong style={{ color: '#E5E7EB' }}>{featuredArticle.author}</strong> • {new Date(featuredArticle.date).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}
                     </small>
                   </p>
-                  <p className="mb-4">{featuredArticle.excerpt}</p>
+                  <p className="mb-4" style={{ color: '#E5E7EB' }}>{featuredArticle.excerpt}</p>
                   <Link to={`/blog/${featuredArticle.id}`}>
-                    <Button variant="primary" size="lg">
+                    <Button variant="warning" size="lg" style={{ backgroundColor: '#FDB927', border: 'none', color: '#0E2240', fontWeight: 'bold' }}>
                       Read Full Analysis →
                     </Button>
                   </Link>
@@ -58,7 +58,7 @@ function BlogList() {
       {/* All Articles Grid */}
       <Row className="mb-4">
         <Col>
-          <h3 className="mb-4">Latest Articles</h3>
+          <h3 className="mb-4" style={{ color: '#FDB927' }}>Latest Articles</h3>
         </Col>
       </Row>
       <Row>
@@ -74,15 +74,15 @@ function BlogList() {
                 <Badge bg={getCategoryColor(article.category)} className="mb-2" style={{ width: 'fit-content' }}>
                   {article.category}
                 </Badge>
-                <Card.Title className="mb-2">{article.title}</Card.Title>
-                <Card.Text className="text-muted small mb-3">
+                <Card.Title className="mb-2" style={{ color: '#FDB927' }}>{article.title}</Card.Title>
+                <Card.Text className="small mb-3" style={{ color: '#94a3b8' }}>
                   <small>
                     {new Date(article.date).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })}
                   </small>
                 </Card.Text>
-                <Card.Text className="mb-4 flex-grow-1">{article.excerpt}</Card.Text>
+                <Card.Text className="mb-4 flex-grow-1" style={{ color: '#E5E7EB' }}>{article.excerpt}</Card.Text>
                 <Link to={`/blog/${article.id}`} className="mt-auto">
-                  <Button variant="outline-primary" size="sm" className="w-100">
+                  <Button variant="outline-warning" size="sm" className="w-100" style={{ borderColor: '#FDB927', color: '#FDB927', fontWeight: '600' }}>
                     Read More
                   </Button>
                 </Link>
