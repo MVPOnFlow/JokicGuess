@@ -1,34 +1,11 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
-
 :root {
-  font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
   line-height: 1.5;
   font-weight: 400;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-
-  /* Design tokens */
-  --color-navy: #0E2240;
-  --color-navy-light: #1C2A3A;
-  --color-navy-lighter: #273549;
-  --color-bg: #121826;
-  --color-gold: #FDB927;
-  --color-gold-hover: #FACC15;
-  --color-gold-dim: rgba(253, 185, 39, 0.15);
-  --color-blue: #418FDE;
-  --color-text: #E5E7EB;
-  --color-text-muted: #94a3b8;
-  --color-border: #334155;
-  --radius-sm: 8px;
-  --radius-md: 12px;
-  --radius-lg: 16px;
-  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.2);
-  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.3);
-  --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.4);
-  --transition-fast: 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-  --transition-med: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 * {
@@ -40,7 +17,6 @@ html, body {
   padding: 0;
   width: 100%;
   min-height: 100vh;
-  scroll-behavior: smooth;
 }
 
 #root {
@@ -52,13 +28,12 @@ html, body {
 
 a {
   font-weight: 500;
-  color: var(--color-gold);
+  color: #646cff;
   text-decoration: inherit;
-  transition: color var(--transition-fast);
 }
 
 a:hover {
-  color: var(--color-gold-hover);
+  color: #535bf2;
 }
 
 h1 {
@@ -67,47 +42,21 @@ h1 {
 }
 
 button {
-  border-radius: var(--radius-sm);
+  border-radius: 8px;
   border: 1px solid transparent;
   padding: 0.6em 1.2em;
   font-size: 1em;
   font-weight: 500;
   font-family: inherit;
   cursor: pointer;
-  transition: all var(--transition-fast);
+  transition: border-color 0.25s;
 }
 
 button:hover {
-  border-color: var(--color-gold);
+  border-color: #646cff;
 }
 
 button:focus,
 button:focus-visible {
-  outline: 2px solid var(--color-gold);
-  outline-offset: 2px;
-}
-
-/* Selection color */
-::selection {
-  background-color: var(--color-gold);
-  color: var(--color-navy);
-}
-
-/* Scrollbar styling */
-::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
-}
-
-::-webkit-scrollbar-track {
-  background: var(--color-bg);
-}
-
-::-webkit-scrollbar-thumb {
-  background: var(--color-navy-lighter);
-  border-radius: 4px;
-}
-
-::-webkit-scrollbar-thumb:hover {
-  background: var(--color-gold);
+  outline: 4px auto -webkit-focus-ring-color;
 }
