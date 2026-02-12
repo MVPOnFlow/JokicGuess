@@ -6,8 +6,8 @@ function TDWatch() {
   // Top 3 all-time triple-double leaders
   const tdLeaders = [
     { rank: 1, name: 'Russell Westbrook', count: 207, active: true },
-    { rank: 2, name: 'Oscar Robertson', count: 181, active: false },
-    { rank: 3, name: 'Nikola Jokić', count: 180, active: true, isJokic: true }
+    { rank: 2, name: 'Nikola Jokić', count: 183, active: true, isJokic: true },
+    { rank: 3, name: 'Oscar Robertson', count: 181, active: false }
   ];
 
   // Hardcoded reward pool (manually update when inventory changes)
@@ -87,10 +87,10 @@ function TDWatch() {
     
     // February 2025
     { timestamp: 1738555200, opponent: 'Thunder', isHome: true, played: true, tripleDouble: false, stats: { points: 17, rebounds: 8, assists: 7 } },
-    { timestamp: 1738728000, opponent: 'Pistons', isHome: false, played: false, tripleDouble: false, stats: null },
-    { timestamp: 1738814400, opponent: 'Knicks', isHome: false, played: false, tripleDouble: false, stats: null },
-    { timestamp: 1739073600, opponent: 'Bulls', isHome: false, played: false, tripleDouble: false, stats: null },
-    { timestamp: 1739246400, opponent: 'Cavaliers', isHome: true, played: false, tripleDouble: false, stats: null },
+    { timestamp: 1738728000, opponent: 'Pistons', isHome: false, played: true, tripleDouble: false, stats: { points: 24, rebounds: 15, assists: 4 } },
+    { timestamp: 1738814400, opponent: 'Knicks', isHome: false, played: true, tripleDouble: true, stats: { points: 30, rebounds: 14, assists: 10 } },
+    { timestamp: 1739073600, opponent: 'Bulls', isHome: false, played: true, tripleDouble: true, stats: { points: 22, rebounds: 14, assists: 17 } },
+    { timestamp: 1739246400, opponent: 'Cavaliers', isHome: true, played: true, tripleDouble: true, stats: { points: 22, rebounds: 14, assists: 11 } },
     { timestamp: 1739419200, opponent: 'Grizzlies', isHome: true, played: false, tripleDouble: false, stats: null },
     { timestamp: 1740110400, opponent: 'Clippers', isHome: false, played: false, tripleDouble: false, stats: null },
     { timestamp: 1740196800, opponent: 'Trail Blazers', isHome: false, played: false, tripleDouble: false, stats: null },

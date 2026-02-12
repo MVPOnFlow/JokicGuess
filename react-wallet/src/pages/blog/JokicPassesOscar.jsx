@@ -11,13 +11,14 @@ const JokicPassesOscar = () => {
     { td: 50, date: "Mar 30, 2021", opp: "vs ORL", stats: "25/15/10", note: "Reached 50 during his first MVP season" },
     { td: 100, date: "Mar 6, 2023", opp: "vs LAC", stats: "32/16/10", note: "100th triple-double in championship season" },
     { td: 138, date: "Nov 18, 2025", opp: "vs CHI", stats: "36/18/13", note: "Passed Magic Johnson for 3rd all-time" },
-    { td: 181, date: "Feb 4, 2026", opp: "vs DET", stats: "27/13/11", note: "Tied Oscar Robertson for 2nd all-time" },
-    { td: 182, date: "Feb 7, 2026", opp: "vs CLE", stats: "30/14/12", note: "Passed Oscar Robertson — sole possession of 2nd place" },
+    { td: 181, date: "Feb 4, 2026", opp: "@ NYK", stats: "30/14/10", note: "Tied Oscar Robertson for 2nd all-time" },
+    { td: 182, date: "Feb 7, 2026", opp: "@ CHI", stats: "22/14/17", note: "Passed Oscar Robertson — sole possession of 2nd place" },
+    { td: 183, date: "Feb 9, 2026", opp: "vs CLE", stats: "22/14/11", note: "Extended lead over Oscar to 2" },
   ];
 
   const allTimeLeaders = [
     { rank: 1, name: "Russell Westbrook", total: 207, active: true },
-    { rank: 2, name: "Nikola Jokić", total: 182, active: true, highlight: true },
+    { rank: 2, name: "Nikola Jokić", total: 183, active: true, highlight: true },
     { rank: 3, name: "Oscar Robertson", total: 181, active: false },
     { rank: 4, name: "Magic Johnson", total: 138, active: false },
     { rank: 5, name: "LeBron James", total: 122, active: true },
@@ -41,7 +42,7 @@ const JokicPassesOscar = () => {
               <Badge bg="primary" className="mb-3">Career Milestone</Badge>
               <h1 className="mb-3">The Big O Dethroned: Jokić Surpasses Oscar Robertson for 2nd All-Time in Triple-Doubles</h1>
               <p className="lead">
-                With his 182nd career triple-double, Nikola Jokić has officially moved past Oscar Robertson into sole possession of second place on the NBA's all-time triple-double list. A look back at the milestones, the legend he passed, and the record still ahead.
+                With his 183rd career triple-double, Nikola Jokić has officially moved past Oscar Robertson into sole possession of second place on the NBA's all-time triple-double list. A look back at the milestones, the legend he passed, and the record still ahead.
               </p>
               <div className="article-meta">
                 <span>By $MVP Team</span> | <span>February 12, 2026</span> | <span>10 min read</span>
@@ -52,7 +53,7 @@ const JokicPassesOscar = () => {
               {/* The Moment */}
               <h3>The Moment</h3>
               <p>
-                On February 7, 2026, Nikola Jokić did what he does best: he made it look routine. With 30 points, 14 rebounds, and 12 assists against the Cleveland Cavaliers, the Joker notched career triple-double number 182 — and in doing so, moved past Oscar Robertson into sole possession of 2nd place on the all-time triple-double list. Three days earlier, he had tied the Big O at 181 with a clinical 27/13/11 line against the Detroit Pistons.
+                On February 7, 2026, Nikola Jokić did what he does best: he made it look routine. With 22 points, 14 rebounds, and a stunning 17 assists against the Chicago Bulls, the Joker notched career triple-double number 182 — and in doing so, moved past Oscar Robertson into sole possession of 2nd place on the all-time triple-double list. Three days earlier, he had tied the Big O at 181 with a 30/14/10 line against the New York Knicks. Two days later, he extended his lead with a 22/14/11 performance against the Cleveland Cavaliers for number 183.
               </p>
               <p>
                 There was no grand celebration, no confetti cannon. Jokić simply jogged back on defense, perhaps unaware — or more likely, unconcerned — that he had just overtaken a record that stood unchallenged for over half a century. That quiet excellence is the essence of Nikola Jokić.
@@ -61,13 +62,13 @@ const JokicPassesOscar = () => {
               <Row className="my-4">
                 <Col md={4} className="mb-3">
                   <div className="stat-box">
-                    <h2>182</h2>
+                    <h2>183</h2>
                     <p className="text-muted mb-0">Career Triple-Doubles<br/><small>2nd All-Time</small></p>
                   </div>
                 </Col>
                 <Col md={4} className="mb-3">
                   <div className="stat-box">
-                    <h2>25</h2>
+                    <h2>24</h2>
                     <p className="text-muted mb-0">Behind Westbrook<br/><small>For 1st Place</small></p>
                   </div>
                 </Col>
@@ -99,7 +100,7 @@ const JokicPassesOscar = () => {
               </blockquote>
 
               {/* Milestones Timeline */}
-              <h3>The Road to 182: Key Milestones</h3>
+              <h3>The Road to 183: Key Milestones</h3>
               <p>
                 Jokić's triple-double journey has been defined by steady acceleration. What started as an occasional feat became a nightly expectation. Here are the defining checkpoints along the way:
               </p>
@@ -211,7 +212,7 @@ const JokicPassesOscar = () => {
                   <tbody>
                     <tr><td><strong>Position</strong></td><td>Guard (6'5")</td><td>Center (6'11")</td></tr>
                     <tr><td><strong>Draft Pick</strong></td><td>1st overall (1960)</td><td>41st overall (2014)</td></tr>
-                    <tr><td><strong>Career Triple-Doubles</strong></td><td>181</td><td>182+</td></tr>
+                    <tr><td><strong>Career Triple-Doubles</strong></td><td>181</td><td>183+</td></tr>
                     <tr><td><strong>Seasons to 181 TDs</strong></td><td>14</td><td>~11</td></tr>
                     <tr><td><strong>MVP Awards</strong></td><td>1 (1964)</td><td>3 (2021, 2022, 2024)</td></tr>
                     <tr><td><strong>Championships</strong></td><td>1 (1971)</td><td>1 (2023)</td></tr>
@@ -227,7 +228,7 @@ const JokicPassesOscar = () => {
               {/* The Westbrook Chase */}
               <h3>Next Stop: Westbrook's 207</h3>
               <p>
-                With Robertson now in the rearview mirror, the only name left above Jokić on the list is Russell Westbrook, whose 207 career triple-doubles set a standard many believed would last for decades. Jokić now needs just 25 more to claim the all-time crown.
+                With Robertson now in the rearview mirror, the only name left above Jokić on the list is Russell Westbrook, whose 207 career triple-doubles set a standard many believed would last for decades. Jokić now needs just 24 more to claim the all-time crown.
               </p>
               <p>
                 At his current pace of roughly 30+ triple-doubles per season, Jokic could realistically catch Westbrook before the end of the 2026-27 season. He'll turn 31 in February 2026, meaning he has multiple prime years remaining. Barring injury, the question isn't <em>if</em> Jokić will break the all-time record — it's <em>when</em>.
@@ -249,7 +250,7 @@ const JokicPassesOscar = () => {
                 <li><strong>Triple-Double Bonuses:</strong> TD Watch contests reward participants when Jokic records a triple-double, and milestone games trigger enhanced prize pools</li>
                 <li><strong>Engagement Peaks:</strong> Community activity surges during historic games — Discord watch parties, live predictions, and reactions create shared memorable moments</li>
                 <li><strong>TopShot Moments:</strong> Historic triple-doubles generate special NBA TopShot moments on the Flow blockchain, adding collectible value for the community</li>
-                <li><strong>The Westbrook Chase:</strong> With only 25 triple-doubles separating Jokić from the all-time record, every game for the rest of this season and next carries potential for history</li>
+                <li><strong>The Westbrook Chase:</strong> With only 24 triple-doubles separating Jokić from the all-time record, every game for the rest of this season and next carries potential for history</li>
               </ul>
 
               <h3>A Legacy Still Being Written</h3>
@@ -260,7 +261,7 @@ const JokicPassesOscar = () => {
                 Robertson changed basketball on and off the court. His legal battle for free agency reshaped the entire sports landscape. Jokić is changing basketball in his own way — redefining what a center can be, proving that the most dominant player in the sport doesn't need to be the most athletic, and demonstrating that generational talent can emerge from anywhere on the globe and any spot in the draft.
               </p>
               <p>
-                At 30 years old with 182 career triple-doubles, a Finals MVP trophy, and three regular-season MVPs, Nikola Jokić is still ascending. The Westbrook record looms, the Nuggets are contending, and every game brings the possibility of another chapter in one of the greatest careers the NBA has ever seen.
+                At 30 years old with 183 career triple-doubles, a Finals MVP trophy, and three regular-season MVPs, Nikola Jokić is still ascending. The Westbrook record looms, the Nuggets are contending, and every game brings the possibility of another chapter in one of the greatest careers the NBA has ever seen.
               </p>
               <p>
                 The Big O would understand. Excellence, after all, recognizes excellence.
@@ -285,11 +286,11 @@ const JokicPassesOscar = () => {
                   <h6>Quick Stats</h6>
                 </Card.Header>
                 <Card.Body>
-                  <p><strong>Career Triple-Doubles:</strong> 182</p>
+                  <p><strong>Career Triple-Doubles:</strong> 183</p>
                   <p><strong>All-Time Rank:</strong> 2nd</p>
                   <p><strong>Passed:</strong> Oscar Robertson (181)</p>
                   <p><strong>Next Target:</strong> Westbrook (207)</p>
-                  <p className="mb-0"><strong>Remaining Gap:</strong> 25 TDs</p>
+                  <p className="mb-0"><strong>Remaining Gap:</strong> 24 TDs</p>
                 </Card.Body>
               </Card>
 

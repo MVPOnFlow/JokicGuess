@@ -6,7 +6,7 @@ export const articles = [
     author: '$MVP Team',
     date: '2026-02-12',
     category: 'Career Milestone',
-    excerpt: 'With his 182nd career triple-double, Nikola Jokić has officially moved past Oscar Robertson into sole possession of second place on the NBA\'s all-time list. A lookback on the milestones, the legend he passed, and the record still ahead.',
+    excerpt: 'With his 183rd career triple-double, Nikola Jokić has officially moved past Oscar Robertson into sole possession of second place on the NBA\'s all-time list. A lookback on the milestones, the legend he passed, and the record still ahead.',
     image: '/images/td-tracker.jpg',
     route: '/blog/jokic-passes-oscar',
     featured: true
