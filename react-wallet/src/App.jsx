@@ -11,6 +11,7 @@ import BlogList from "./pages/blog/BlogList";
 import OKCGameFeb012026 from "./pages/blog/OKCGameFeb012026";
 import TripleDoubleChase from "./pages/blog/TripleDoubleChase";
 import FlowSecurityIncident from './pages/blog/FlowSecurityIncident';
+import JokicPassesOscar from './pages/blog/JokicPassesOscar';
 import "./flow/config";
 
 function App() {
@@ -29,6 +30,7 @@ function App() {
           <Route path="blog/okc-game-feb-01-2026" element={<OKCGameFeb012026 />} />
           <Route path="blog/triple-double-chase" element={<TripleDoubleChase />} />
           <Route path="blog/flow-security-incident" element={<FlowSecurityIncident />} />
+          <Route path="blog/jokic-passes-oscar" element={<JokicPassesOscar />} />
         </Route>
       </Routes>
     </BrowserRouter>

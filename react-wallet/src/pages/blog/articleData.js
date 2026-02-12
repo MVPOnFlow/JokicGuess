@@ -1,6 +1,17 @@
 // Central article data configuration
 export const articles = [
   {
+    id: 'jokic-passes-oscar',
+    title: 'The Big O Dethroned: Jokić Surpasses Oscar Robertson for 2nd All-Time in Triple-Doubles',
+    author: '$MVP Team',
+    date: '2026-02-12',
+    category: 'Career Milestone',
+    excerpt: 'With his 182nd career triple-double, Nikola Jokić has officially moved past Oscar Robertson into sole possession of second place on the NBA\'s all-time list. A lookback on the milestones, the legend he passed, and the record still ahead.',
+    image: '/images/td-tracker.jpg',
+    route: '/blog/jokic-passes-oscar',
+    featured: true
+  },
+  {
     id: 'okc-game-feb-01-2026',
     title: 'Thunder Silence Nuggets Behind SGA\'s 34 Points',
     author: '$MVP Team',
@@ -8,8 +19,7 @@ export const articles = [
     category: 'Game Analysis',
     excerpt: 'Oklahoma City cruises to 121-111 victory as Shai Gilgeous-Alexander and Cason Wallace dominate from three-point range in championship rematch.',
     image: '/images/okc-game.jpg',
-    route: '/blog/okc-game-feb-01-2026',
-    featured: true
+    route: '/blog/okc-game-feb-01-2026'
   },
   {
     id: 'triple-double-chase',

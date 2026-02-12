@@ -92,7 +92,7 @@ JokicGuess/
 
 1. **Clone the repository**
    ```bash
-   git clone https://github.com/bogdang989/JokicGuess.git
+   git clone https://github.com/MVPOnFlow/JokicGuess.git
    cd JokicGuess
    ```
 
