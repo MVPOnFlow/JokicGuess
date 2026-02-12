@@ -26,7 +26,7 @@ export default function Layout() {
   return (
     <>
       {/* Navbar */}
-      <Navbar expand="lg" className="navbar mb-3">
+      <Navbar expand="lg" className="navbar mb-3 sticky-top py-2">
         <Container fluid>
           <Navbar.Brand as={NavLink} to="/">
             <img
@@ -106,19 +106,22 @@ export default function Layout() {
       </div>
 
       {/* Footer */}
-      <div className="footer mt-auto">
-        <p>
-          This is a fan project and is not affiliated with NBA TopShot, Nikola Jokić, or any official organization.
-        </p>
-        <div className="d-flex justify-content-center align-items-center gap-3 mt-2">
+      <footer className="footer mt-auto">
+        <div className="d-flex justify-content-center align-items-center gap-4 mb-2">
           <a href="https://discord.gg/3p3ff9PHqW" target="_blank" aria-label="Discord" rel="noreferrer">
-            <i className="bi bi-discord" style={{ fontSize: '1.5rem' }}></i>
+            <i className="bi bi-discord" style={{ fontSize: '1.4rem' }}></i>
           </a>
           <a href="https://x.com/petjokicshorses" target="_blank" aria-label="Twitter" rel="noreferrer">
-            <i className="bi bi-twitter-x" style={{ fontSize: '1.5rem' }}></i>
+            <i className="bi bi-twitter-x" style={{ fontSize: '1.4rem' }}></i>
           </a>
         </div>
-      </div>
+        <p className="mb-0" style={{ opacity: 0.75 }}>
+          This is a fan project and is not affiliated with NBA TopShot, Nikola Jokić, or any official organization.
+        </p>
+        <p className="mb-0 mt-1" style={{ opacity: 0.5, fontSize: '0.75rem' }}>
+          &copy; {new Date().getFullYear()} MVP on Flow
+        </p>
+      </footer>
     </>
   );
 }

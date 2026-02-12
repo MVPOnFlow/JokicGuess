@@ -1,21 +1,23 @@
 /* Blog Container Styling */
 .blog-container {
   min-height: 100vh;
-  background-color: #121826;
+  background-color: var(--color-bg, #121826);
 }
 
 .blog-hero {
   margin-bottom: 3rem;
-  padding: 2rem 0;
+  padding: 2.5rem 0;
 }
 
 .blog-hero h1 {
   color: #FDB927;
   letter-spacing: -1px;
+  font-weight: 800;
 }
 
 .blog-hero .lead {
-  color: #E5E7EB;
+  color: var(--color-text, #E5E7EB);
+  opacity: 0.85;
 }
 
 .hero-divider {
@@ -28,15 +30,17 @@
 
 /* Featured Article Card */
 .featured-article {
-  transition: transform 0.3s ease, box-shadow 0.3s ease;
+  transition: transform var(--transition-med, 0.3s) ease, box-shadow var(--transition-med, 0.3s) ease;
   overflow: visible;
   background: #1e293b;
   border: 1px solid #334155 !important;
+  border-radius: var(--radius-md, 12px);
 }
 
 .featured-article:hover {
-  transform: translateY(-5px);
-  box-shadow: 0 15px 40px rgba(253, 185, 39, 0.2) !important;
+  transform: translateY(-4px);
+  box-shadow: 0 16px 48px rgba(253, 185, 39, 0.15) !important;
+  border-color: rgba(253, 185, 39, 0.3) !important;
 }
 
 .featured-article .featured-image {
@@ -70,15 +74,16 @@
 
 /* Article Card Grid */
 .article-card {
-  transition: all 0.3s ease;
+  transition: all var(--transition-med, 0.3s) ease;
   border: 1px solid #334155 !important;
   background: #1e293b;
+  border-radius: var(--radius-md, 12px);
 }
 
 .article-card:hover {
-  transform: translateY(-8px);
-  box-shadow: 0 12px 30px rgba(253, 185, 39, 0.2) !important;
-  border-color: #FDB927 !important;
+  transform: translateY(-6px);
+  box-shadow: 0 12px 36px rgba(253, 185, 39, 0.15) !important;
+  border-color: rgba(253, 185, 39, 0.4) !important;
 }
 
 .article-card .card-image-wrapper {
@@ -112,14 +117,15 @@
 }
 
 .article-card .btn {
-  transition: all 0.3s ease;
+  transition: all var(--transition-fast, 0.2s) ease;
 }
 
 .article-card .btn:hover {
   background-color: #FDB927 !important;
   border-color: #FDB927 !important;
   color: #0E2240 !important;
-  transform: translateY(-2px);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(253, 185, 39, 0.25);
 }
 
 .article-card .card-title {
@@ -171,7 +177,7 @@
 /* Article Page Styling */
 .blog-article {
   max-width: 100%;
-  background-color: #121826;
+  background-color: var(--color-bg, #121826);
   min-height: 100vh;
   padding-bottom: 3rem;
 }
@@ -180,10 +186,11 @@
   border-bottom: 2px solid #334155;
   padding-bottom: 2rem;
   background: #1e293b;
-  padding: 2rem;
-  border-radius: 10px;
+  padding: 2.5rem;
+  border-radius: var(--radius-md, 12px);
   margin-bottom: 2rem;
   border: 1px solid #334155;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
 }
 
 .article-header h1 {
@@ -208,11 +215,11 @@
 .article-content {
   font-size: 1.05rem;
   line-height: 1.8;
-  color: #E5E7EB;
+  color: var(--color-text, #E5E7EB);
   background: #1e293b;
   padding: 3rem;
-  border-radius: 10px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  border-radius: var(--radius-md, 12px);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
   border: 1px solid #334155;
 }
 
@@ -259,15 +266,16 @@
 .stat-box {
   padding: 1.5rem;
   background: #0f172a;
-  border-radius: 8px;
-  transition: all 0.3s ease;
+  border-radius: var(--radius-md, 12px);
+  transition: all var(--transition-med, 0.3s) ease;
   border: 2px solid #334155;
 }
 
 .stat-box:hover {
   background: #1e293b;
-  transform: translateY(-3px);
-  border-color: #FDB927;
+  transform: translateY(-2px);
+  border-color: rgba(253, 185, 39, 0.5);
+  box-shadow: 0 8px 24px rgba(253, 185, 39, 0.1);
 }
 
 .stat-box h2 {
@@ -436,8 +444,9 @@
 .game-summary-card {
   background: #1e293b;
   border: 1px solid #334155;
-  border-radius: 10px;
+  border-radius: var(--radius-md, 12px);
   overflow: hidden;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
 }
 
 .game-summary-card .card-header {
@@ -449,8 +458,9 @@
 .stats-card {
   background: #1e293b;
   border: 1px solid #334155;
-  border-radius: 10px;
+  border-radius: var(--radius-md, 12px);
   overflow: hidden;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
 }
 
 .stats-card .card-header {
