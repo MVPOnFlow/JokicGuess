@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { Container, Row, Col, Card, Badge, Spinner, Form, Alert } from 'react-bootstrap';
+import React, { useState, useEffect, useRef } from 'react';
+import { Container, Row, Col, Card, Badge, Spinner, Form, Alert, Modal } from 'react-bootstrap';
 import './Showcase.css';
 
 const TIER_COLORS = {
@@ -219,6 +219,10 @@ export default function Showcase() {
 function EditionCard({ edition }) {
   const tierColor = TIER_COLORS[edition.tier] || '#adb5bd';
   const [imgError, setImgError] = useState(false);
+  const [showVideo, setShowVideo] = useState(false);
+  const videoRef = useRef(null);
+
+  const videoUrl = edition.videoUrl || '';
 
   const dateStr = edition.dateOfMoment
     ? new Date(edition.dateOfMoment).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })
@@ -238,9 +242,20 @@ function EditionCard({ edition }) {
 
   return (
     <Card className="moment-card h-100 shadow-sm" style={{ borderColor: tierColor }}>
-      {/* Image */}
+      {/* Image / Video */}
       <div className="moment-image-wrapper" style={{ borderBottomColor: tierColor }}>
-        {edition.imageUrl && !imgError ? (
+        {showVideo && videoUrl ? (
+          <video
+            ref={videoRef}
+            src={videoUrl}
+            className="moment-video"
+            autoPlay
+            loop
+            playsInline
+            muted
+            onClick={() => setShowVideo(false)}
+          />
+        ) : edition.imageUrl && !imgError ? (
           <img
             src={edition.imageUrl}
             alt={`${edition.setName} - ${edition.playCategory}`}
@@ -252,6 +267,26 @@ function EditionCard({ edition }) {
           <div className="moment-placeholder">
             <span>🏀</span>
           </div>
+        )}
+        {/* Play button overlay */}
+        {videoUrl && !showVideo && (
+          <button
+            className="play-btn-overlay"
+            onClick={(e) => { e.stopPropagation(); setShowVideo(true); }}
+            aria-label="Play moment video"
+          >
+            ▶
+          </button>
+        )}
+        {/* Stop button when playing */}
+        {showVideo && (
+          <button
+            className="stop-btn-overlay"
+            onClick={(e) => { e.stopPropagation(); setShowVideo(false); }}
+            aria-label="Stop video"
+          >
+            ✕
+          </button>
         )}
         {/* Circulation badge */}
         <div className="moment-serial" style={{ backgroundColor: tierColor }}>

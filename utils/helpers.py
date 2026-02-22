@@ -1057,9 +1057,10 @@ def _parse_marketplace_edition(m: dict) -> dict:
     raw_tier = (m.get("tier") or "MOMENT_TIER_COMMON")
     tier = raw_tier.replace("MOMENT_TIER_", "")
 
-    # Build image URL from assetPathPrefix
+    # Build image and video URLs from assetPathPrefix
     asset_prefix = m.get("assetPathPrefix", "")
     image_url = f"{asset_prefix}Hero_2880_2880_Black.jpg" if asset_prefix else ""
+    video_url = f"{asset_prefix}Animated_1080_1920_Black.mp4" if asset_prefix else ""
 
     price_range = m.get("priceRange", {}) or {}
     avg_sale = m.get("averageSaleData", {}) or {}
@@ -1085,6 +1086,7 @@ def _parse_marketplace_edition(m: dict) -> dict:
         "retired": set_play.get("flowRetired", False),
         "tags": tags,
         "imageUrl": image_url,
+        "videoUrl": video_url,
         "gameStats": {
             "points": game_scores.get("points"),
             "rebounds": game_scores.get("rebounds"),
