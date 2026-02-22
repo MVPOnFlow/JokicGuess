@@ -10,7 +10,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from utils.helpers import (
     prepare_query, map_wallet_to_username, 
     get_rank_and_lineup_for_user, get_flow_wallet_from_ts_username,
-    get_ts_username_from_flow_wallet, get_user_jokic_moments
+    get_ts_username_from_flow_wallet, get_jokic_editions
 )
 from config import (
     SWAPFEST_START_TIME, SWAPFEST_END_TIME,
@@ -533,23 +533,11 @@ def register_routes(app):
 
         return jsonify({"hasLineup": bool(get_rank_and_lineup_for_user(username, fastbreak_id))})
 
-    @app.route("/api/showcase/<wallet_address>")
-    def showcase_by_wallet(wallet_address):
-        """Get Jokic moments for a connected Flow wallet."""
+    @app.route("/api/showcase")
+    def showcase_editions():
+        """Get all Jokic editions from TopShot marketplace."""
         try:
-            username = get_ts_username_from_flow_wallet(wallet_address)
-            if not username:
-                return jsonify({"error": "Could not resolve TopShot username for this wallet"}), 404
-            result = get_user_jokic_moments(username)
-            return jsonify(result)
-        except Exception as e:
-            return jsonify({"error": str(e)}), 500
-
-    @app.route("/api/showcase/user/<username>")
-    def showcase_by_username(username):
-        """Get Jokic moments for a TopShot username."""
-        try:
-            result = get_user_jokic_moments(username)
+            result = get_jokic_editions()
             return jsonify(result)
         except Exception as e:
             return jsonify({"error": str(e)}), 500

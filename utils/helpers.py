@@ -873,71 +873,103 @@ def get_flow_wallet_from_ts_username(username):
     return asyncio.run(get_linked_parent_account(get_flow_address_by_username(username)))
 
 
-def get_user_jokic_moments(username: str) -> dict:
+def get_jokic_editions(cursor="", limit=100) -> dict:
     """
-    Fetches all Nikola Jokic moments owned by a TopShot user.
-    Uses the TopShot public GraphQL API searchMintedMoments.
-    Returns dict with username, moments list, and summary stats.
+    Fetches all Nikola Jokic editions from the TopShot marketplace.
+    Uses the SearchMarketplaceEditions query.
+    Returns dict with editions list and summary stats.
+    Paginates automatically to fetch all editions.
     """
     url = "https://public-api.nbatopshot.com/graphql"
 
     query = """
-    query SearchMintedMoments($input: SearchMintedMomentsInput!) {
-      searchMintedMoments(input: $input) {
+    query SearchMarketplaceEditions(
+      $byPlayers: [ID] = [],
+      $byMomentTiers: [MomentTier] = [],
+      $byPlayCategory: [ID] = [],
+      $bySeries: [ID] = [],
+      $orderBy: MarketplaceEditionsSortType = GAME_DATE_DESC,
+      $searchInput: BaseSearchInput = {pagination: {direction: RIGHT, limit: 100, cursor: ""}}
+    ) {
+      searchMarketplaceEditions(input: {
+        filters: {
+          byPlayers: $byPlayers,
+          byMomentTiers: $byMomentTiers,
+          byPlayCategory: $byPlayCategory,
+          bySeries: $bySeries
+        },
+        sortBy: $orderBy,
+        searchInput: $searchInput
+      }) {
         data {
           searchSummary {
-            count {
-              count
+            pagination {
+              leftCursor
+              rightCursor
             }
-          }
-          data {
-            ... on MintedMoment {
-              id
-              flowSerialNumber
-              owner {
-                dapperID
-                username
-                profileImageUrl
-              }
-              play {
-                id
-                stats {
-                  playerName
-                  dateOfMoment
-                  playCategory
-                  teamAtMoment
-                  teamAtMomentNbaId
-                }
-                statsPlayerGameScores {
-                  points
-                  rebounds
-                  assists
-                  steals
-                  blocks
-                }
-              }
-              setPlay {
-                ID
-                flowRetired
-                circulationCount
-                set {
+            data {
+              size
+              data {
+                ... on MarketplaceEdition {
                   id
-                  flowName
-                  setVisualId
-                }
-                play {
-                  id
+                  assetPathPrefix
+                  tier
+                  set {
+                    id
+                    flowName
+                    setVisualId
+                    flowSeriesNumber
+                  }
+                  play {
+                    id
+                    description
+                    shortDescription
+                    stats {
+                      playerName
+                      dateOfMoment
+                      playCategory
+                      teamAtMoment
+                      nbaSeason
+                      jerseyNumber
+                    }
+                    statsPlayerGameScores {
+                      points
+                      assists
+                      rebounds
+                    }
+                    tags {
+                      id
+                      title
+                      visible
+                    }
+                  }
+                  setPlay {
+                    ID
+                    flowRetired
+                    circulations {
+                      circulationCount
+                      forSaleByCollectors
+                      ownedByCollectors
+                      burned
+                      locked
+                    }
+                  }
+                  priceRange {
+                    min
+                    max
+                  }
+                  lowAsk
+                  highestOffer
+                  circulationCount
+                  editionListingCount
+                  parallelID
+                  parallelName
+                  averageSaleData {
+                    averagePrice
+                    numSales
+                  }
                 }
               }
-              tier
-              tags {
-                id
-                title
-              }
-              listingOrderID
-              price
-              flowId
-              assetPathPrefix
             }
           }
         }
@@ -945,109 +977,123 @@ def get_user_jokic_moments(username: str) -> dict:
     }
     """
 
-    variables = {
-        "input": {
-            "sortBy": "ACQUIRED_AT_DT_DESC",
-            "filters": {
-                "byOwnerDapperID": [],
-                "byPlayers": ["jokic"],
-                "byOwnerUsername": username
-            },
-            "searchInput": {
-                "pagination": {
-                    "cursor": "",
-                    "direction": "RIGHT",
-                    "limit": 200
-                }
-            }
-        }
-    }
-
     headers = {
         "User-Agent": "PetJokicsHorses",
         "Content-Type": "application/json"
     }
 
-    payload = {
-        "operationName": "SearchMintedMoments",
-        "query": query,
-        "variables": variables
-    }
+    all_editions = []
+    current_cursor = cursor
 
-    try:
-        response = requests.post(url, json=payload, headers=headers, timeout=15)
-        data = response.json()
-
-        if "errors" in data:
-            print("❌ GraphQL Error:", data["errors"])
-            return {"username": username, "moments": [], "error": str(data["errors"])}
-
-        search_data = data.get("data", {}).get("searchMintedMoments", {}).get("data", {})
-        raw_moments = search_data.get("data", [])
-        total_count = 0
-        summary = search_data.get("searchSummary", {})
-        if summary and summary.get("count"):
-            total_count = summary["count"].get("count", len(raw_moments))
-
-        moments = []
-        tier_counts = {}
-
-        for m in raw_moments:
-            if not m:
-                continue
-
-            play = m.get("play", {}) or {}
-            stats = play.get("stats", {}) or {}
-            game_scores = play.get("statsPlayerGameScores", {}) or {}
-            set_play = m.get("setPlay", {}) or {}
-            set_info = set_play.get("set", {}) or {}
-            tier = (m.get("tier") or "COMMON").upper()
-            tags = [t.get("title", "") for t in (m.get("tags") or [])]
-
-            # Build image URL from assetPathPrefix
-            asset_prefix = m.get("assetPathPrefix", "")
-            image_url = f"https://assets.nbatopshot.com/{asset_prefix}Hero_2880_2880_Black.jpg" if asset_prefix else ""
-
-            moment = {
-                "id": m.get("id"),
-                "flowId": m.get("flowId"),
-                "serial": m.get("flowSerialNumber"),
-                "tier": tier,
-                "setName": set_info.get("flowName", "Unknown Set"),
-                "setVisualId": set_info.get("setVisualId", ""),
-                "playCategory": stats.get("playCategory", ""),
-                "playerName": stats.get("playerName", "Nikola Jokić"),
-                "dateOfMoment": stats.get("dateOfMoment", ""),
-                "teamAtMoment": stats.get("teamAtMoment", ""),
-                "circulationCount": set_play.get("circulationCount"),
-                "retired": set_play.get("flowRetired", False),
-                "tags": tags,
-                "imageUrl": image_url,
-                "gameStats": {
-                    "points": game_scores.get("points"),
-                    "rebounds": game_scores.get("rebounds"),
-                    "assists": game_scores.get("assists"),
-                    "steals": game_scores.get("steals"),
-                    "blocks": game_scores.get("blocks"),
-                } if game_scores else None,
-                "forSale": m.get("listingOrderID") is not None,
-                "price": m.get("price"),
+    # Paginate through all results
+    while True:
+        variables = {
+            "byPlayers": ["203999"],  # Jokic's player ID
+            "orderBy": "GAME_DATE_DESC",
+            "searchInput": {
+                "pagination": {
+                    "direction": "RIGHT",
+                    "cursor": current_cursor,
+                    "limit": limit
+                }
             }
-            moments.append(moment)
-
-            tier_counts[tier] = tier_counts.get(tier, 0) + 1
-
-        # Sort: Legendary/Ultimate first, then by serial
-        tier_order = {"ULTIMATE": 0, "LEGENDARY": 1, "RARE": 2, "FANDOM": 3, "COMMON": 4}
-        moments.sort(key=lambda x: (tier_order.get(x["tier"], 5), x.get("serial") or 9999))
-
-        return {
-            "username": username,
-            "totalCount": total_count,
-            "moments": moments,
-            "tierBreakdown": tier_counts,
         }
 
-    except Exception as e:
-        print(f"❌ Error fetching moments for {username}: {e}")
-        return {"username": username, "moments": [], "error": str(e)}
+        payload = {
+            "operationName": "SearchMarketplaceEditions",
+            "query": query,
+            "variables": variables
+        }
+
+        try:
+            response = requests.post(url, json=payload, headers=headers, timeout=15)
+            data = response.json()
+
+            if "errors" in data:
+                print("❌ GraphQL Error:", data["errors"])
+                return {"editions": all_editions, "error": str(data["errors"])}
+
+            search_data = data["data"]["searchMarketplaceEditions"]["data"]["searchSummary"]
+            page_data = search_data["data"]["data"]
+            right_cursor = search_data["pagination"]["rightCursor"]
+
+            for m in page_data:
+                if not m:
+                    continue
+                all_editions.append(_parse_marketplace_edition(m))
+
+            # Stop if no more pages
+            if not right_cursor or len(page_data) < limit:
+                break
+            current_cursor = right_cursor
+
+        except Exception as e:
+            print(f"❌ Error fetching Jokic editions: {e}")
+            return {"editions": all_editions, "error": str(e)}
+
+    # Build tier breakdown
+    tier_counts = {}
+    for ed in all_editions:
+        tier_counts[ed["tier"]] = tier_counts.get(ed["tier"], 0) + 1
+
+    return {
+        "totalCount": len(all_editions),
+        "editions": all_editions,
+        "tierBreakdown": tier_counts,
+    }
+
+
+def _parse_marketplace_edition(m: dict) -> dict:
+    """Parse a single MarketplaceEdition from the GraphQL response."""
+    play = m.get("play", {}) or {}
+    stats = play.get("stats", {}) or {}
+    game_scores = play.get("statsPlayerGameScores", {}) or {}
+    set_info = m.get("set", {}) or {}
+    set_play = m.get("setPlay", {}) or {}
+    circulations = set_play.get("circulations", {}) or {}
+    tags = [t.get("title", "") for t in (play.get("tags") or []) if t.get("visible")]
+
+    # Tier comes as MOMENT_TIER_ULTIMATE etc, normalize
+    raw_tier = (m.get("tier") or "MOMENT_TIER_COMMON")
+    tier = raw_tier.replace("MOMENT_TIER_", "")
+
+    # Build image URL from assetPathPrefix
+    asset_prefix = m.get("assetPathPrefix", "")
+    image_url = f"{asset_prefix}Hero_2880_2880_Black.jpg" if asset_prefix else ""
+
+    price_range = m.get("priceRange", {}) or {}
+    avg_sale = m.get("averageSaleData", {}) or {}
+
+    return {
+        "id": m.get("id"),
+        "tier": tier,
+        "setName": set_info.get("flowName", "Unknown Set"),
+        "setVisualId": set_info.get("setVisualId", ""),
+        "seriesNumber": set_info.get("flowSeriesNumber"),
+        "playCategory": stats.get("playCategory", ""),
+        "playerName": stats.get("playerName", "Nikola Jokić"),
+        "dateOfMoment": stats.get("dateOfMoment", ""),
+        "teamAtMoment": stats.get("teamAtMoment", ""),
+        "nbaSeason": stats.get("nbaSeason", ""),
+        "jerseyNumber": stats.get("jerseyNumber", ""),
+        "shortDescription": play.get("shortDescription", ""),
+        "circulationCount": circulations.get("circulationCount") or m.get("circulationCount"),
+        "forSaleCount": circulations.get("forSaleByCollectors", 0),
+        "ownedByCollectors": circulations.get("ownedByCollectors", 0),
+        "burned": circulations.get("burned", 0),
+        "locked": circulations.get("locked", 0),
+        "retired": set_play.get("flowRetired", False),
+        "tags": tags,
+        "imageUrl": image_url,
+        "gameStats": {
+            "points": game_scores.get("points"),
+            "rebounds": game_scores.get("rebounds"),
+            "assists": game_scores.get("assists"),
+        } if game_scores else None,
+        "lowAsk": m.get("lowAsk"),
+        "highestOffer": m.get("highestOffer"),
+        "averagePrice": avg_sale.get("averagePrice"),
+        "numSales": avg_sale.get("numSales"),
+        "editionListingCount": m.get("editionListingCount", 0),
+        "parallelName": m.get("parallelName", ""),
+    }
