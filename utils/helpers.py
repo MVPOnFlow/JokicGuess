@@ -871,3 +871,183 @@ def get_ts_username_from_flow_wallet(flow_address):
 
 def get_flow_wallet_from_ts_username(username):
     return asyncio.run(get_linked_parent_account(get_flow_address_by_username(username)))
+
+
+def get_user_jokic_moments(username: str) -> dict:
+    """
+    Fetches all Nikola Jokic moments owned by a TopShot user.
+    Uses the TopShot public GraphQL API searchMintedMoments.
+    Returns dict with username, moments list, and summary stats.
+    """
+    url = "https://public-api.nbatopshot.com/graphql"
+
+    query = """
+    query SearchMintedMoments($input: SearchMintedMomentsInput!) {
+      searchMintedMoments(input: $input) {
+        data {
+          searchSummary {
+            count {
+              count
+            }
+          }
+          data {
+            ... on MintedMoment {
+              id
+              flowSerialNumber
+              owner {
+                dapperID
+                username
+                profileImageUrl
+              }
+              play {
+                id
+                stats {
+                  playerName
+                  dateOfMoment
+                  playCategory
+                  teamAtMoment
+                  teamAtMomentNbaId
+                }
+                statsPlayerGameScores {
+                  points
+                  rebounds
+                  assists
+                  steals
+                  blocks
+                }
+              }
+              setPlay {
+                ID
+                flowRetired
+                circulationCount
+                set {
+                  id
+                  flowName
+                  setVisualId
+                }
+                play {
+                  id
+                }
+              }
+              tier
+              tags {
+                id
+                title
+              }
+              listingOrderID
+              price
+              flowId
+              assetPathPrefix
+            }
+          }
+        }
+      }
+    }
+    """
+
+    variables = {
+        "input": {
+            "sortBy": "ACQUIRED_AT_DT_DESC",
+            "filters": {
+                "byOwnerDapperID": [],
+                "byPlayers": ["jokic"],
+                "byOwnerUsername": username
+            },
+            "searchInput": {
+                "pagination": {
+                    "cursor": "",
+                    "direction": "RIGHT",
+                    "limit": 200
+                }
+            }
+        }
+    }
+
+    headers = {
+        "User-Agent": "PetJokicsHorses",
+        "Content-Type": "application/json"
+    }
+
+    payload = {
+        "operationName": "SearchMintedMoments",
+        "query": query,
+        "variables": variables
+    }
+
+    try:
+        response = requests.post(url, json=payload, headers=headers, timeout=15)
+        data = response.json()
+
+        if "errors" in data:
+            print("❌ GraphQL Error:", data["errors"])
+            return {"username": username, "moments": [], "error": str(data["errors"])}
+
+        search_data = data.get("data", {}).get("searchMintedMoments", {}).get("data", {})
+        raw_moments = search_data.get("data", [])
+        total_count = 0
+        summary = search_data.get("searchSummary", {})
+        if summary and summary.get("count"):
+            total_count = summary["count"].get("count", len(raw_moments))
+
+        moments = []
+        tier_counts = {}
+
+        for m in raw_moments:
+            if not m:
+                continue
+
+            play = m.get("play", {}) or {}
+            stats = play.get("stats", {}) or {}
+            game_scores = play.get("statsPlayerGameScores", {}) or {}
+            set_play = m.get("setPlay", {}) or {}
+            set_info = set_play.get("set", {}) or {}
+            tier = (m.get("tier") or "COMMON").upper()
+            tags = [t.get("title", "") for t in (m.get("tags") or [])]
+
+            # Build image URL from assetPathPrefix
+            asset_prefix = m.get("assetPathPrefix", "")
+            image_url = f"https://assets.nbatopshot.com/{asset_prefix}Hero_2880_2880_Black.jpg" if asset_prefix else ""
+
+            moment = {
+                "id": m.get("id"),
+                "flowId": m.get("flowId"),
+                "serial": m.get("flowSerialNumber"),
+                "tier": tier,
+                "setName": set_info.get("flowName", "Unknown Set"),
+                "setVisualId": set_info.get("setVisualId", ""),
+                "playCategory": stats.get("playCategory", ""),
+                "playerName": stats.get("playerName", "Nikola Jokić"),
+                "dateOfMoment": stats.get("dateOfMoment", ""),
+                "teamAtMoment": stats.get("teamAtMoment", ""),
+                "circulationCount": set_play.get("circulationCount"),
+                "retired": set_play.get("flowRetired", False),
+                "tags": tags,
+                "imageUrl": image_url,
+                "gameStats": {
+                    "points": game_scores.get("points"),
+                    "rebounds": game_scores.get("rebounds"),
+                    "assists": game_scores.get("assists"),
+                    "steals": game_scores.get("steals"),
+                    "blocks": game_scores.get("blocks"),
+                } if game_scores else None,
+                "forSale": m.get("listingOrderID") is not None,
+                "price": m.get("price"),
+            }
+            moments.append(moment)
+
+            tier_counts[tier] = tier_counts.get(tier, 0) + 1
+
+        # Sort: Legendary/Ultimate first, then by serial
+        tier_order = {"ULTIMATE": 0, "LEGENDARY": 1, "RARE": 2, "FANDOM": 3, "COMMON": 4}
+        moments.sort(key=lambda x: (tier_order.get(x["tier"], 5), x.get("serial") or 9999))
+
+        return {
+            "username": username,
+            "totalCount": total_count,
+            "moments": moments,
+            "tierBreakdown": tier_counts,
+        }
+
+    except Exception as e:
+        print(f"❌ Error fetching moments for {username}: {e}")
+        return {"username": username, "moments": [], "error": str(e)}

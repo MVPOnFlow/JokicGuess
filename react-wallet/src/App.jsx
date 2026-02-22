@@ -7,6 +7,7 @@ import Vote from "./pages/Vote";
 import Fastbreak from "./pages/Fastbreak";
 import HorseStats from "./pages/HorseStats";
 import TDWatch from "./pages/TDWatch";
+import Showcase from "./pages/Showcase";
 import BlogList from "./pages/blog/BlogList";
 import OKCGameFeb012026 from "./pages/blog/OKCGameFeb012026";
 import TripleDoubleChase from "./pages/blog/TripleDoubleChase";
@@ -26,6 +27,7 @@ function App() {
           <Route path="fastbreak" element={<Fastbreak />} />
           <Route path="horsestats" element={<HorseStats />} />
           <Route path="tdwatch" element={<TDWatch />} />
+          <Route path="showcase" element={<Showcase />} />
           <Route path="blog" element={<BlogList />} />
           <Route path="blog/okc-game-feb-01-2026" element={<OKCGameFeb012026 />} />
           <Route path="blog/triple-double-chase" element={<TripleDoubleChase />} />

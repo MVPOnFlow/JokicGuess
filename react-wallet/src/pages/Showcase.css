@@ -1,0 +1,195 @@
+/* ===== Showcase Page ===== */
+
+.showcase-page {
+  max-width: 1200px;
+}
+
+.showcase-title {
+  font-weight: 800;
+  color: #FDB927;
+  text-shadow: 1px 1px 3px rgba(0,0,0,0.3);
+}
+
+/* Search card */
+.search-card {
+  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+  border: 1px solid #FDB92733;
+}
+
+.search-input {
+  background: #0f1629 !important;
+  border-color: #FDB92744 !important;
+  color: #e0e0e0 !important;
+}
+.search-input::placeholder {
+  color: #888 !important;
+}
+.search-input:focus {
+  box-shadow: 0 0 0 0.2rem rgba(253, 185, 39, 0.25) !important;
+}
+
+/* Summary card */
+.summary-card {
+  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+  border: 1px solid #FDB92733;
+  color: #e0e0e0;
+}
+
+.showcase-count {
+  font-size: 2.5rem;
+  font-weight: 800;
+  color: #FDB927;
+}
+
+.tier-breakdown {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 6px;
+}
+
+.tier-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 10px;
+  border-radius: 20px;
+  border: 1px solid;
+  font-size: 0.8rem;
+  color: #e0e0e0;
+  background: rgba(255,255,255,0.05);
+}
+
+.tier-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+/* Filters */
+.filter-select {
+  background: #0f1629 !important;
+  border-color: #FDB92744 !important;
+  color: #e0e0e0 !important;
+}
+.filter-select:focus {
+  box-shadow: 0 0 0 0.2rem rgba(253, 185, 39, 0.25) !important;
+}
+
+/* Moment grid */
+.moment-grid {
+  margin-bottom: 2rem;
+}
+
+/* Moment card */
+.moment-card {
+  background: #12152a;
+  border-width: 2px;
+  border-style: solid;
+  border-radius: 12px;
+  overflow: hidden;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  color: #e0e0e0;
+}
+.moment-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+}
+
+.moment-image-wrapper {
+  position: relative;
+  width: 100%;
+  padding-top: 100%; /* 1:1 aspect ratio */
+  background: #0a0d1f;
+  overflow: hidden;
+  border-bottom: 2px solid;
+}
+
+.moment-image {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.moment-placeholder {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 3rem;
+  background: linear-gradient(135deg, #0a0d1f 0%, #1a1a2e 100%);
+}
+
+.moment-serial {
+  position: absolute;
+  bottom: 8px;
+  right: 8px;
+  padding: 2px 10px;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #1a1a2e;
+}
+.moment-serial .circulation {
+  font-weight: 400;
+  opacity: 0.7;
+}
+
+/* Badges */
+.tier-badge {
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  padding: 3px 8px;
+  border-radius: 4px;
+}
+
+.play-badge {
+  font-size: 0.65rem;
+  font-weight: 500;
+}
+
+.moment-set-name {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #e0e0e0;
+  line-height: 1.2;
+}
+
+.game-stats {
+  background: rgba(253, 185, 39, 0.1);
+  border-radius: 6px;
+  padding: 3px 6px;
+}
+.stats-line {
+  color: #FDB927;
+  font-weight: 600;
+  font-size: 0.75rem;
+}
+
+.price-badge {
+  font-size: 0.7rem;
+}
+
+/* Empty state */
+.empty-state h4 {
+  color: #e0e0e0;
+}
+
+/* Responsive tweaks */
+@media (max-width: 576px) {
+  .showcase-count {
+    font-size: 2rem;
+  }
+  .tier-breakdown {
+    margin-top: 0.5rem;
+  }
+}
