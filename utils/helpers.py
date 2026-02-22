@@ -1060,7 +1060,7 @@ def _parse_marketplace_edition(m: dict) -> dict:
     # Build image and video URLs from assetPathPrefix
     asset_prefix = m.get("assetPathPrefix", "")
     image_url = f"{asset_prefix}Hero_2880_2880_Black.jpg" if asset_prefix else ""
-    video_url = f"{asset_prefix}Animated_1080_1920_Black.mp4" if asset_prefix else ""
+    video_url = f"{asset_prefix}Animated_1080_1080_Black.mp4" if asset_prefix else ""
 
     price_range = m.get("priceRange", {}) or {}
     avg_sale = m.get("averageSaleData", {}) or {}

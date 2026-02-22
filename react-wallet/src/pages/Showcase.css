@@ -126,59 +126,7 @@
   cursor: pointer;
 }
 
-/* Play button overlay */
-.play-btn-overlay {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  width: 48px;
-  height: 48px;
-  border-radius: 50%;
-  border: 2px solid rgba(255,255,255,0.9);
-  background: rgba(0, 0, 0, 0.55);
-  color: #fff;
-  font-size: 1.1rem;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  opacity: 0;
-  transition: opacity 0.2s ease, transform 0.2s ease;
-  z-index: 2;
-  padding-left: 3px; /* optical centering for ▶ */
-}
-.moment-image-wrapper:hover .play-btn-overlay {
-  opacity: 1;
-}
-.play-btn-overlay:hover {
-  background: rgba(253, 185, 39, 0.75);
-  border-color: #FDB927;
-  transform: translate(-50%, -50%) scale(1.1);
-}
-
-/* Stop/close button when video is playing */
-.stop-btn-overlay {
-  position: absolute;
-  top: 8px;
-  right: 8px;
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
-  border: none;
-  background: rgba(0, 0, 0, 0.6);
-  color: #fff;
-  font-size: 0.8rem;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  z-index: 3;
-  transition: background 0.2s ease;
-}
-.stop-btn-overlay:hover {
-  background: rgba(220, 53, 69, 0.8);
-}
+/* Video plays instantly on hover — no buttons needed */
 
 .moment-placeholder {
   position: absolute;

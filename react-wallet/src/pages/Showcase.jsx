@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Container, Row, Col, Card, Badge, Spinner, Form, Alert, Modal } from 'react-bootstrap';
 import './Showcase.css';
 
@@ -219,10 +219,13 @@ export default function Showcase() {
 function EditionCard({ edition }) {
   const tierColor = TIER_COLORS[edition.tier] || '#adb5bd';
   const [imgError, setImgError] = useState(false);
-  const [showVideo, setShowVideo] = useState(false);
+  const [hovering, setHovering] = useState(false);
   const videoRef = useRef(null);
 
   const videoUrl = edition.videoUrl || '';
+
+  const handleMouseEnter = useCallback(() => { if (videoUrl) setHovering(true); }, [videoUrl]);
+  const handleMouseLeave = useCallback(() => setHovering(false), []);
 
   const dateStr = edition.dateOfMoment
     ? new Date(edition.dateOfMoment).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })
@@ -243,23 +246,19 @@ function EditionCard({ edition }) {
   return (
     <Card className="moment-card h-100 shadow-sm" style={{ borderColor: tierColor }}>
       {/* Image / Video */}
-      <div className="moment-image-wrapper" style={{ borderBottomColor: tierColor }}>
-        {showVideo && videoUrl ? (
-          <video
-            ref={videoRef}
-            src={videoUrl}
-            className="moment-video"
-            autoPlay
-            loop
-            playsInline
-            muted
-            onClick={() => setShowVideo(false)}
-          />
-        ) : edition.imageUrl && !imgError ? (
+      <div
+        className="moment-image-wrapper"
+        style={{ borderBottomColor: tierColor }}
+        onMouseEnter={handleMouseEnter}
+        onMouseLeave={handleMouseLeave}
+      >
+        {/* Static image (hidden while hovering) */}
+        {edition.imageUrl && !imgError ? (
           <img
             src={edition.imageUrl}
             alt={`${edition.setName} - ${edition.playCategory}`}
             className="moment-image"
+            style={{ opacity: hovering && videoUrl ? 0 : 1 }}
             onError={() => setImgError(true)}
             loading="lazy"
           />
@@ -268,25 +267,17 @@ function EditionCard({ edition }) {
             <span>🏀</span>
           </div>
         )}
-        {/* Play button overlay */}
-        {videoUrl && !showVideo && (
-          <button
-            className="play-btn-overlay"
-            onClick={(e) => { e.stopPropagation(); setShowVideo(true); }}
-            aria-label="Play moment video"
-          >
-            ▶
-          </button>
-        )}
-        {/* Stop button when playing */}
-        {showVideo && (
-          <button
-            className="stop-btn-overlay"
-            onClick={(e) => { e.stopPropagation(); setShowVideo(false); }}
-            aria-label="Stop video"
-          >
-            ✕
-          </button>
+        {/* Video (plays on hover) */}
+        {hovering && videoUrl && (
+          <video
+            ref={videoRef}
+            src={videoUrl}
+            className="moment-video"
+            autoPlay
+            loop
+            playsInline
+            muted
+          />
         )}
         {/* Circulation badge */}
         <div className="moment-serial" style={{ backgroundColor: tierColor }}>
