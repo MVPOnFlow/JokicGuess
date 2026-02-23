@@ -748,17 +748,20 @@ const WallTV = React.memo(function WallTV({ edition, pos, rot, owned }) {
                 )}
               </div>
             )}
-            {/* Ownership row */}
-            <div className="p3d-ownership">
-              {owned ? (
+            {/* Ownership row – only show when user has wallet connected and owns something */}
+            {owned && (
+              <div className="p3d-ownership">
                 <span className="p3d-own-yes">✓ You own {edition.userOwnedCount || 1}</span>
-              ) : (
-                <span className="p3d-own-no">✗ Not in your collection</span>
-              )}
-              {edition.circulationCount && (
+                {edition.circulationCount && (
+                  <span className="p3d-circulation">#{edition.circulationCount} minted</span>
+                )}
+              </div>
+            )}
+            {!owned && edition.circulationCount && (
+              <div className="p3d-ownership">
                 <span className="p3d-circulation">#{edition.circulationCount} minted</span>
-              )}
-            </div>
+              </div>
+            )}
             {edition.parallels && (
               <div className="p3d-parallels">
                 {edition.parallels.map((p, i) => (
