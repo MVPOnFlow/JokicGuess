@@ -459,3 +459,83 @@
   .entrance-btn { padding: 14px 36px; font-size: 1rem; }
   .entrance-controls { gap: 12px; font-size: 0.75rem; }
 }
+
+/* ==========================================================
+   Mobile Touch Controls (D-Pad)
+   ========================================================== */
+.mobile-exit-btn {
+  position: fixed;
+  top: 16px;
+  right: 16px;
+  pointer-events: auto;
+  background: rgba(0, 0, 0, 0.5);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  color: #fff;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  font-size: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  z-index: 1003;
+  backdrop-filter: blur(4px);
+}
+
+.mobile-exit-btn:active {
+  background: rgba(253, 185, 39, 0.35);
+  border-color: #FDB927;
+}
+
+.mobile-dpad {
+  position: fixed;
+  bottom: 28px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: grid;
+  grid-template-areas:
+    '.    up   .'
+    'left .    right'
+    '.    down .';
+  grid-template-columns: 68px 68px 68px;
+  grid-template-rows: 68px 68px 68px;
+  gap: 6px;
+  pointer-events: auto;
+  z-index: 1002;
+}
+
+.dpad-btn {
+  width: 68px;
+  height: 68px;
+  border-radius: 14px;
+  border: 2px solid rgba(253, 185, 39, 0.35);
+  background: rgba(0, 0, 0, 0.45);
+  color: rgba(255, 255, 255, 0.75);
+  font-size: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: none;
+  backdrop-filter: blur(4px);
+  -webkit-tap-highlight-color: transparent;
+}
+
+.dpad-up    { grid-area: up; }
+.dpad-left  { grid-area: left; }
+.dpad-right { grid-area: right; }
+.dpad-down  { grid-area: down; }
+
+.dpad-btn:active {
+  background: rgba(253, 185, 39, 0.3);
+  border-color: rgba(253, 185, 39, 0.7);
+  color: #FDB927;
+}
+
+/* Prevent canvas scroll/zoom on mobile */
+.museum-3d-active canvas {
+  touch-action: none;
+}

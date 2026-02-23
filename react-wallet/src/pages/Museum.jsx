@@ -30,6 +30,7 @@ const PLAQUE_RANGE = 10;   // show plaque within this distance
 const LIGHT_SPACING = 12;  // ceiling light spacing
 const MOUNT_RANGE = 50;    // only mount WallTV components within this distance
 const MAX_VIDEOS = 4;      // max simultaneous video elements
+const TURN_SPEED = 2;      // mobile turn speed  rad/s
 
 /* ================================================================== */
 /*  Museum – top-level data + routing between entrance & 3D scene      */
@@ -42,6 +43,10 @@ export default function Museum() {
   const [ownershipLoaded, setOwnershipLoaded] = useState(false);
   const [entered, setEntered] = useState(false);
   const [locked, setLocked] = useState(false);
+  const isMobile = useMemo(() =>
+    ('ontouchstart' in window || navigator.maxTouchPoints > 0) && window.innerWidth < 1024
+  , []);
+  const mobileControls = useRef({ forward: false, backward: false, turnLeft: false, turnRight: false });
 
   useEffect(() => { fcl.currentUser().subscribe(setUser); }, []);
 
@@ -196,9 +201,15 @@ export default function Museum() {
                   Enter Museum
                 </button>
                 <div className="entrance-controls">
-                  <span><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> Move</span>
-                  <span><kbd>Mouse</kbd> Look Around</span>
-                  <span><kbd>ESC</kbd> Pause</span>
+                  {isMobile ? (
+                    <span>Use on-screen controls to navigate</span>
+                  ) : (
+                    <>
+                      <span><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> Move</span>
+                      <span><kbd>Mouse</kbd> Look Around</span>
+                      <span><kbd>ESC</kbd> Pause</span>
+                    </>
+                  )}
                 </div>
               </>
             )}
@@ -245,8 +256,8 @@ export default function Museum() {
         <CameraLights />
 
         <Corridor length={layout.length} />
-        <Movement length={layout.length} />
-        <PointerLockControls />
+        <Movement length={layout.length} isMobile={isMobile} mobileControls={mobileControls} />
+        {!isMobile && <PointerLockControls />}
         <RenderLoop />
 
         <NearbyItems items={layout.items} />
@@ -254,8 +265,8 @@ export default function Museum() {
 
       {/* HUD overlay */}
       <div className="hud">
-        {locked && <div className="crosshair" />}
-        {!locked && (
+        {!isMobile && locked && <div className="crosshair" />}
+        {!isMobile && !locked && (
           <div className="pause-overlay" onClick={resumePointerLock}>
             <div className="pause-box">
               <p className="pause-text">Click to look around</p>
@@ -268,6 +279,37 @@ export default function Museum() {
               </button>
             </div>
           </div>
+        )}
+        {isMobile && (
+          <>
+            <button className="mobile-exit-btn" onClick={exitMuseum}>✕</button>
+            <div className="mobile-dpad">
+              <button
+                className="dpad-btn dpad-up"
+                onTouchStart={(e) => { e.preventDefault(); mobileControls.current.forward = true; }}
+                onTouchEnd={() => { mobileControls.current.forward = false; }}
+                onTouchCancel={() => { mobileControls.current.forward = false; }}
+              >▲</button>
+              <button
+                className="dpad-btn dpad-left"
+                onTouchStart={(e) => { e.preventDefault(); mobileControls.current.turnLeft = true; }}
+                onTouchEnd={() => { mobileControls.current.turnLeft = false; }}
+                onTouchCancel={() => { mobileControls.current.turnLeft = false; }}
+              >◀</button>
+              <button
+                className="dpad-btn dpad-right"
+                onTouchStart={(e) => { e.preventDefault(); mobileControls.current.turnRight = true; }}
+                onTouchEnd={() => { mobileControls.current.turnRight = false; }}
+                onTouchCancel={() => { mobileControls.current.turnRight = false; }}
+              >▶</button>
+              <button
+                className="dpad-btn dpad-down"
+                onTouchStart={(e) => { e.preventDefault(); mobileControls.current.backward = true; }}
+                onTouchEnd={() => { mobileControls.current.backward = false; }}
+                onTouchCancel={() => { mobileControls.current.backward = false; }}
+              >▼</button>
+            </div>
+          </>
         )}
       </div>
     </div>
@@ -494,7 +536,7 @@ function Corridor({ length }) {
 /* ================================================================== */
 /*  WASD Movement                                                      */
 /* ================================================================== */
-function Movement({ length }) {
+function Movement({ length, isMobile, mobileControls }) {
   const { camera } = useThree();
   const keys = useRef({});
 
@@ -510,17 +552,32 @@ function Movement({ length }) {
   const right = useMemo(() => new THREE.Vector3(), []);
 
   useFrame((_, delta) => {
-    if (!document.pointerLockElement) return;
-    const spd = SPEED * Math.min(delta, 0.1);
+    // Desktop requires pointer lock; mobile is always active
+    if (!isMobile && !document.pointerLockElement) return;
+    const dt = Math.min(delta, 0.1);
+    const spd = SPEED * dt;
+
+    // Mobile: turn camera with left/right buttons
+    if (isMobile && mobileControls?.current) {
+      if (mobileControls.current.turnLeft) camera.rotation.y += TURN_SPEED * dt;
+      if (mobileControls.current.turnRight) camera.rotation.y -= TURN_SPEED * dt;
+    }
 
     camera.getWorldDirection(dir);
     dir.y = 0; dir.normalize();
     right.crossVectors(dir, camera.up).normalize();
 
+    // Keyboard controls (desktop)
     if (keys.current.KeyW || keys.current.ArrowUp) camera.position.addScaledVector(dir, spd);
     if (keys.current.KeyS || keys.current.ArrowDown) camera.position.addScaledVector(dir, -spd);
     if (keys.current.KeyA || keys.current.ArrowLeft) camera.position.addScaledVector(right, -spd);
     if (keys.current.KeyD || keys.current.ArrowRight) camera.position.addScaledVector(right, spd);
+
+    // Mobile touch controls
+    if (isMobile && mobileControls?.current) {
+      if (mobileControls.current.forward) camera.position.addScaledVector(dir, spd);
+      if (mobileControls.current.backward) camera.position.addScaledVector(dir, -spd);
+    }
 
     // Keep inside corridor
     camera.position.x = THREE.MathUtils.clamp(camera.position.x, -CW / 2 + 0.6, CW / 2 - 0.6);
