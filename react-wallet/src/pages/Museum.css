@@ -1,0 +1,461 @@
+/* ==========================================================
+   The Jokić Museum – 3D First-Person Experience
+   ========================================================== */
+
+/* ---- Root ---- */
+.museum-root {
+  background: #060610;
+  color: #e0e0e0;
+  min-height: 100vh;
+}
+
+/* ==========================================================
+   Entrance Screen (2D, before entering 3D)
+   ========================================================== */
+.entrance-screen {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  overflow: hidden;
+}
+
+/* Ambient glow */
+.entrance-screen::before {
+  content: '';
+  position: absolute;
+  width: 500px;
+  height: 500px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(253,185,39,0.1) 0%, transparent 70%);
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+
+.entrance-content {
+  text-align: center;
+  max-width: 600px;
+  padding: 2rem;
+  position: relative;
+  z-index: 1;
+}
+
+.entrance-title {
+  font-size: 4rem;
+  font-weight: 900;
+  color: #FDB927;
+  letter-spacing: 4px;
+  text-shadow: 0 0 40px rgba(253,185,39,0.4), 0 0 80px rgba(253,185,39,0.15);
+  margin: 0 0 0.5rem;
+}
+
+.entrance-sub {
+  color: #8a8a9e;
+  font-size: 1.1rem;
+  margin-bottom: 2rem;
+  line-height: 1.6;
+}
+
+.entrance-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  color: #8a8a9e;
+  margin: 1rem 0;
+}
+
+.entrance-error { color: #f87171; }
+
+.entrance-count {
+  color: #6a6a7e;
+  font-size: 0.95rem;
+  margin-bottom: 0.5rem;
+}
+
+.entrance-owned {
+  color: #4ade80;
+  margin-bottom: 1rem;
+  font-size: 0.95rem;
+}
+
+.entrance-btn {
+  display: inline-block;
+  padding: 16px 52px;
+  font-size: 1.15rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 3px;
+  background: #FDB927;
+  color: #0a0a14;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: transform 0.2s, box-shadow 0.2s;
+  box-shadow: 0 0 30px rgba(253,185,39,0.3);
+  margin-bottom: 2rem;
+}
+
+.entrance-btn:hover {
+  transform: translateY(-2px) scale(1.02);
+  box-shadow: 0 0 60px rgba(253,185,39,0.5);
+}
+
+.entrance-controls {
+  display: flex;
+  justify-content: center;
+  gap: 24px;
+  flex-wrap: wrap;
+  color: #5a5a6e;
+  font-size: 0.8rem;
+}
+
+.entrance-controls kbd {
+  background: #1a1a2e;
+  color: #e0e0e0;
+  padding: 3px 9px;
+  border-radius: 4px;
+  border: 1px solid #2a2a3e;
+  font-family: inherit;
+  font-size: 0.75rem;
+  margin-right: 4px;
+}
+
+/* ==========================================================
+   3D Canvas – fullscreen takeover
+   ========================================================== */
+.museum-3d-active {
+  position: fixed;
+  top: 0; left: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: 1000;
+}
+
+.museum-3d-active canvas {
+  display: block;
+  width: 100% !important;
+  height: 100% !important;
+}
+
+/* ==========================================================
+   HUD Overlay
+   ========================================================== */
+.hud {
+  position: fixed;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  pointer-events: none;
+  z-index: 1001;
+}
+
+.crosshair {
+  position: absolute;
+  top: 50%; left: 50%;
+  width: 4px; height: 4px;
+  transform: translate(-50%, -50%);
+  border: 1.5px solid rgba(255,255,255,0.6);
+  border-radius: 50%;
+}
+
+/* Cross lines */
+.crosshair::before,
+.crosshair::after {
+  content: '';
+  position: absolute;
+  background: rgba(255,255,255,0.35);
+}
+.crosshair::before {
+  width: 12px; height: 1px;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+}
+.crosshair::after {
+  width: 1px; height: 12px;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+}
+
+/* ---- Pause Overlay ---- */
+.pause-overlay {
+  position: absolute;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  background: rgba(6, 6, 16, 0.75);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: auto;
+  cursor: pointer;
+  backdrop-filter: blur(3px);
+}
+
+.pause-box {
+  text-align: center;
+}
+
+.pause-text {
+  font-size: 1.8rem;
+  color: #FDB927;
+  font-weight: 700;
+  letter-spacing: 2px;
+  margin-bottom: 0.5rem;
+  text-shadow: 0 0 20px rgba(253,185,39,0.3);
+}
+
+.pause-hint {
+  color: #6a6a7e;
+  font-size: 0.85rem;
+  margin-bottom: 1.5rem;
+}
+
+.exit-btn {
+  background: transparent;
+  border: 1px solid #3a3a4e;
+  color: #8a8a9e;
+  padding: 8px 20px;
+  border-radius: 4px;
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: border-color 0.2s, color 0.2s;
+}
+
+.exit-btn:hover {
+  border-color: #FDB927;
+  color: #FDB927;
+}
+
+/* ==========================================================
+   3D HTML Elements (rendered inside Canvas via drei Html)
+   ========================================================== */
+
+/* Season Banner */
+.season-banner-html {
+  pointer-events: none;
+}
+
+.season-banner-inner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  white-space: nowrap;
+}
+
+.sb-year {
+  font-size: 28px;
+  font-weight: 900;
+  color: #FDB927;
+  letter-spacing: 3px;
+  text-shadow: 0 0 12px rgba(253,185,39,0.5);
+  font-family: system-ui, -apple-system, sans-serif;
+}
+
+.sb-count {
+  font-size: 11px;
+  color: #aaa;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  font-family: system-ui, -apple-system, sans-serif;
+}
+
+/* Owned Badge */
+.owned-badge-html {
+  pointer-events: none;
+}
+
+.owned-badge-inner {
+  background: rgba(74, 222, 128, 0.9);
+  color: #0a1a0a;
+  font-size: 10px;
+  font-weight: 800;
+  padding: 3px 9px;
+  border-radius: 3px;
+  white-space: nowrap;
+  font-family: system-ui, -apple-system, sans-serif;
+  box-shadow: 0 2px 8px rgba(74, 222, 128, 0.3);
+}
+
+/* Plaque */
+.plaque-html {
+  pointer-events: none;
+}
+
+.plaque-3d {
+  width: 300px;
+  background: linear-gradient(180deg, #13162e, #0e1028);
+  border: 1px solid #1f2240;
+  border-radius: 8px;
+  padding: 14px 16px;
+  position: relative;
+  font-family: system-ui, -apple-system, sans-serif;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+}
+
+.plaque-3d::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 16px; right: 16px;
+  height: 2px;
+  background: var(--tier-color, #444);
+  border-radius: 2px;
+}
+
+.p3d-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 5px;
+}
+
+.p3d-tier {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+
+.p3d-cat {
+  font-size: 10px;
+  color: #6a6a7e;
+  background: rgba(255,255,255,0.04);
+  padding: 1px 6px;
+  border-radius: 3px;
+}
+
+.p3d-name {
+  font-size: 15px;
+  font-weight: 700;
+  color: #f0f0f0;
+  line-height: 1.3;
+  margin-bottom: 5px;
+}
+
+.p3d-desc {
+  font-size: 12px;
+  color: #9a9ab0;
+  line-height: 1.55;
+  margin-bottom: 8px;
+}
+
+.p3d-date {
+  font-size: 11px;
+  color: #6a6a7e;
+  margin-bottom: 4px;
+}
+
+.p3d-stats {
+  display: flex;
+  gap: 16px;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid #1a1d35;
+}
+
+.p3d-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.p3d-val {
+  font-size: 20px;
+  font-weight: 800;
+  color: #FDB927;
+  line-height: 1;
+}
+
+.p3d-lbl {
+  font-size: 9px;
+  color: #6a6a7e;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  margin-top: 2px;
+}
+
+.p3d-parallels {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+  margin-top: 8px;
+  padding-top: 6px;
+  border-top: 1px solid #1a1d35;
+}
+
+.p3d-badge {
+  font-size: 9px;
+  font-weight: 700;
+  padding: 1px 6px;
+  border: 1px solid;
+  border-radius: 3px;
+  background: rgba(255,255,255,0.04);
+}
+
+.p3d-badge-owned {
+  background: rgba(255,255,255,0.1);
+}
+
+/* Ownership row */
+.p3d-ownership {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 8px;
+  padding-top: 6px;
+  border-top: 1px solid #1a1d35;
+  font-size: 11px;
+  font-family: system-ui, -apple-system, sans-serif;
+}
+
+.p3d-own-yes {
+  color: #4ade80;
+  font-weight: 700;
+}
+
+.p3d-own-no {
+  color: #6a6a7e;
+  font-weight: 500;
+}
+
+.p3d-circulation {
+  color: #555570;
+  font-size: 10px;
+}
+
+/* Description plaque (beside the TV) */
+.desc-plaque {
+  width: 280px;
+  background: linear-gradient(180deg, #181c36, #12152c);
+  border: 1px solid #252850;
+  border-radius: 6px;
+  padding: 12px 14px;
+  font-family: system-ui, -apple-system, sans-serif;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+}
+
+.dp-label {
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: #FDB927;
+  margin-bottom: 6px;
+}
+
+.dp-text {
+  font-size: 9px;
+  color: #b0b0c8;
+  line-height: 1.5;
+}
+
+/* ==========================================================
+   Responsive: smaller entrance on mobile
+   ========================================================== */
+@media (max-width: 600px) {
+  .entrance-title { font-size: 2.4rem; letter-spacing: 2px; }
+  .entrance-sub { font-size: 0.95rem; }
+  .entrance-btn { padding: 14px 36px; font-size: 1rem; }
+  .entrance-controls { gap: 12px; font-size: 0.75rem; }
+}
