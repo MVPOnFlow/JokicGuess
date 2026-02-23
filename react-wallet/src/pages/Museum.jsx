@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback, useMemo, startTransition } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { PointerLockControls, Html } from '@react-three/drei';
 import * as THREE from 'three';
@@ -28,8 +28,7 @@ const VID_RANGE = 14;      // load video within this distance
 const TEX_RANGE = 35;      // load image texture within this distance
 const PLAQUE_RANGE = 10;   // show plaque within this distance
 const LIGHT_SPACING = 12;  // ceiling light spacing
-const MOUNT_RANGE = 60;    // only mount WallTV components within this distance
-const MOUNT_HYSTERESIS = 10; // extra range before unmounting (prevents flicker)
+const MOUNT_RANGE = 50;    // only mount WallTV components within this distance
 const MAX_VIDEOS = 4;      // max simultaneous video elements
 const TURN_SPEED = 2;      // mobile turn speed  rad/s
 
@@ -231,7 +230,7 @@ export default function Museum() {
         camera={{ fov: 75, near: 0.1, far: 200, position: [0, EYE_Y, 2] }}
         gl={{ antialias: true, toneMapping: THREE.LinearToneMapping, toneMappingExposure: 1.0 }}
         style={{ background: '#080812' }}
-        frameloop="always"
+        frameloop="demand"
         onCreated={({ camera }) => camera.lookAt(0, EYE_Y, -10)}
       >
         <fog attach="fog" args={['#080812', 12, 65]} />
@@ -260,6 +259,7 @@ export default function Museum() {
         <Corridor length={layout.length} />
         <Movement length={layout.length} isMobile={isMobile} mobileControls={mobileControls} />
         {!isMobile && <PointerLockControls />}
+        <RenderLoop />
 
         <NearbyItems items={layout.items} />
       </Canvas>
@@ -343,33 +343,33 @@ function CameraLights() {
 }
 
 /* ================================================================== */
+/*  RenderLoop – forces continuous render (since we use frameloop=demand) */
+/* ================================================================== */
+function RenderLoop() {
+  useFrame(({ invalidate }) => { invalidate(); });
+  return null;
+}
+
 /* ================================================================== */
 /*  NearbyItems – only mounts TVs/banners within MOUNT_RANGE of camera */
-/*  Uses hysteresis to avoid rapid mount/unmount at boundary            */
 /* ================================================================== */
 function NearbyItems({ items }) {
   const { camera } = useThree();
   const [visible, setVisible] = useState([]);
   const frameCount = useRef(0);
-  const visibleSet = useRef(new Set());
 
   useFrame(() => {
     frameCount.current++;
-    if (frameCount.current % 30 !== 0) return; // check every ~30 frames
+    if (frameCount.current % 20 !== 0) return; // check every ~20 frames
     const camZ = camera.position.z;
     const next = [];
     for (let i = 0; i < items.length; i++) {
       const item = items[i];
       const itemZ = item.type === 'season' ? item.z : item.pos[2];
-      const dist = Math.abs(camZ - itemZ);
-      // Mount at MOUNT_RANGE, but don't unmount until MOUNT_RANGE + HYSTERESIS
-      if (dist < MOUNT_RANGE || (visibleSet.current.has(i) && dist < MOUNT_RANGE + MOUNT_HYSTERESIS)) {
-        next.push(i);
-      }
+      if (Math.abs(camZ - itemZ) < MOUNT_RANGE) next.push(i);
     }
     setVisible(prev => {
       if (prev.length === next.length && prev.every((v, j) => v === next[j])) return prev;
-      visibleSet.current = new Set(next);
       return next;
     });
   });
@@ -653,7 +653,7 @@ const WallTV = React.memo(function WallTV({ edition, pos, rot, owned }) {
       loadingImg.current = true;
       new THREE.TextureLoader().load(
         edition.imageUrl,
-        (t) => { t.colorSpace = THREE.SRGBColorSpace; startTransition(() => setImgTex(t)); },
+        (t) => { t.colorSpace = THREE.SRGBColorSpace; setImgTex(t); },
         undefined,
         () => { loadingImg.current = false; }
       );
@@ -672,7 +672,7 @@ const WallTV = React.memo(function WallTV({ edition, pos, rot, owned }) {
       videoRef.current = v;
       const vt = new THREE.VideoTexture(v);
       vt.colorSpace = THREE.SRGBColorSpace;
-      startTransition(() => setVidTex(vt));
+      setVidTex(vt);
     } else if (dist >= VID_RANGE + 5 && videoRef.current) {
       videoRef.current.pause();
       videoRef.current.removeAttribute('src');
@@ -680,7 +680,7 @@ const WallTV = React.memo(function WallTV({ edition, pos, rot, owned }) {
       videoRef.current = null;
       activeVideoCount = Math.max(0, activeVideoCount - 1);
       if (vidTex) vidTex.dispose();
-      startTransition(() => setVidTex(null));
+      setVidTex(null);
     }
 
     // Plaque
