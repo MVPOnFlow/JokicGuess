@@ -4,6 +4,7 @@ import { PointerLockControls, Html } from '@react-three/drei';
 import * as THREE from 'three';
 import { Spinner } from 'react-bootstrap';
 import * as fcl from '@onflow/fcl';
+import nipplejs from 'nipplejs';
 import './Museum.css';
 
 /* ---- Tier look-up tables ---- */
@@ -30,7 +31,6 @@ const PLAQUE_RANGE = 10;   // show plaque within this distance
 const LIGHT_SPACING = 12;  // ceiling light spacing
 const MOUNT_RANGE = 50;    // only mount WallTV components within this distance
 const MAX_VIDEOS = 4;      // max simultaneous video elements
-const TURN_SPEED = 2;      // mobile turn speed  rad/s
 
 /* ================================================================== */
 /*  Museum – top-level data + routing between entrance & 3D scene      */
@@ -46,7 +46,7 @@ export default function Museum() {
   const isMobile = useMemo(() =>
     ('ontouchstart' in window || navigator.maxTouchPoints > 0) && window.innerWidth < 1024
   , []);
-  const mobileControls = useRef({ forward: false, backward: false, turnLeft: false, turnRight: false });
+  const mobileControls = useRef({ moveX: 0, moveY: 0, lookDX: 0, lookDY: 0 });
 
   useEffect(() => { fcl.currentUser().subscribe(setUser); }, []);
 
@@ -284,32 +284,8 @@ export default function Museum() {
         {isMobile && (
           <>
             <button className="mobile-exit-btn" onClick={exitMuseum}>✕</button>
-            <div className="mobile-dpad">
-              <button
-                className="dpad-btn dpad-up"
-                onTouchStart={(e) => { e.preventDefault(); mobileControls.current.forward = true; }}
-                onTouchEnd={() => { mobileControls.current.forward = false; }}
-                onTouchCancel={() => { mobileControls.current.forward = false; }}
-              >▲</button>
-              <button
-                className="dpad-btn dpad-left"
-                onTouchStart={(e) => { e.preventDefault(); mobileControls.current.turnLeft = true; }}
-                onTouchEnd={() => { mobileControls.current.turnLeft = false; }}
-                onTouchCancel={() => { mobileControls.current.turnLeft = false; }}
-              >◀</button>
-              <button
-                className="dpad-btn dpad-right"
-                onTouchStart={(e) => { e.preventDefault(); mobileControls.current.turnRight = true; }}
-                onTouchEnd={() => { mobileControls.current.turnRight = false; }}
-                onTouchCancel={() => { mobileControls.current.turnRight = false; }}
-              >▶</button>
-              <button
-                className="dpad-btn dpad-down"
-                onTouchStart={(e) => { e.preventDefault(); mobileControls.current.backward = true; }}
-                onTouchEnd={() => { mobileControls.current.backward = false; }}
-                onTouchCancel={() => { mobileControls.current.backward = false; }}
-              >▼</button>
-            </div>
+            <MobileJoystick mobileControls={mobileControls} />
+            <MobileLookPad mobileControls={mobileControls} />
           </>
         )}
       </div>
@@ -537,6 +513,81 @@ function Corridor({ length }) {
 /* ================================================================== */
 /*  WASD Movement                                                      */
 /* ================================================================== */
+/* ================================================================== */
+/*  MobileJoystick – nipplejs-based analog stick (bottom-left)         */
+/* ================================================================== */
+function MobileJoystick({ mobileControls }) {
+  const containerRef = useRef(null);
+
+  useEffect(() => {
+    if (!containerRef.current) return;
+    const mgr = nipplejs.create({
+      zone: containerRef.current,
+      mode: 'static',
+      position: { left: '80px', bottom: '80px' },
+      size: 120,
+      color: 'rgba(253, 185, 39, 0.5)',
+      restOpacity: 0.6,
+    });
+
+    mgr.on('move', (_, data) => {
+      if (!data.vector) return;
+      mobileControls.current.moveX = data.vector.x;  // -1 left … +1 right
+      mobileControls.current.moveY = data.vector.y;  // -1 back … +1 forward
+    });
+    mgr.on('end', () => {
+      mobileControls.current.moveX = 0;
+      mobileControls.current.moveY = 0;
+    });
+
+    return () => mgr.destroy();
+  }, [mobileControls]);
+
+  return <div ref={containerRef} className="mobile-joystick-zone" />;
+}
+
+/* ================================================================== */
+/*  MobileLookPad – right-side touch drag to rotate camera             */
+/* ================================================================== */
+function MobileLookPad({ mobileControls }) {
+  const onTouch = useCallback((e) => {
+    e.preventDefault();
+    const touch = e.touches[0];
+    const startX = touch.clientX;
+    const startY = touch.clientY;
+    let lastX = startX;
+    let lastY = startY;
+
+    const onMove = (ev) => {
+      const t = ev.touches[0];
+      mobileControls.current.lookDX = (t.clientX - lastX) * 0.004;
+      mobileControls.current.lookDY = (t.clientY - lastY) * 0.004;
+      lastX = t.clientX;
+      lastY = t.clientY;
+    };
+    const onEnd = () => {
+      mobileControls.current.lookDX = 0;
+      mobileControls.current.lookDY = 0;
+      window.removeEventListener('touchmove', onMove);
+      window.removeEventListener('touchend', onEnd);
+      window.removeEventListener('touchcancel', onEnd);
+    };
+    window.addEventListener('touchmove', onMove, { passive: false });
+    window.addEventListener('touchend', onEnd);
+    window.addEventListener('touchcancel', onEnd);
+  }, [mobileControls]);
+
+  return (
+    <div
+      className="mobile-look-zone"
+      onTouchStart={onTouch}
+    />
+  );
+}
+
+/* ================================================================== */
+/*  Movement – keyboard (desktop) + joystick/look (mobile)             */
+/* ================================================================== */
 function Movement({ length, isMobile, mobileControls }) {
   const { camera } = useThree();
   const keys = useRef({});
@@ -551,6 +602,7 @@ function Movement({ length, isMobile, mobileControls }) {
 
   const dir = useMemo(() => new THREE.Vector3(), []);
   const right = useMemo(() => new THREE.Vector3(), []);
+  const euler = useMemo(() => new THREE.Euler(0, 0, 0, 'YXZ'), []);
 
   useFrame((_, delta) => {
     // Desktop requires pointer lock; mobile is always active
@@ -558,10 +610,19 @@ function Movement({ length, isMobile, mobileControls }) {
     const dt = Math.min(delta, 0.1);
     const spd = SPEED * dt;
 
-    // Mobile: turn camera with left/right buttons
+    // Mobile: apply look deltas from touch-drag
     if (isMobile && mobileControls?.current) {
-      if (mobileControls.current.turnLeft) camera.rotation.y += TURN_SPEED * dt;
-      if (mobileControls.current.turnRight) camera.rotation.y -= TURN_SPEED * dt;
+      const { lookDX, lookDY } = mobileControls.current;
+      if (lookDX || lookDY) {
+        euler.setFromQuaternion(camera.quaternion);
+        euler.y -= lookDX;
+        euler.x -= lookDY;
+        euler.x = THREE.MathUtils.clamp(euler.x, -Math.PI / 3, Math.PI / 3);
+        camera.quaternion.setFromEuler(euler);
+        // Consume the delta so it doesn't accumulate
+        mobileControls.current.lookDX = 0;
+        mobileControls.current.lookDY = 0;
+      }
     }
 
     camera.getWorldDirection(dir);
@@ -574,10 +635,11 @@ function Movement({ length, isMobile, mobileControls }) {
     if (keys.current.KeyA || keys.current.ArrowLeft) camera.position.addScaledVector(right, -spd);
     if (keys.current.KeyD || keys.current.ArrowRight) camera.position.addScaledVector(right, spd);
 
-    // Mobile touch controls
+    // Mobile: analog joystick movement
     if (isMobile && mobileControls?.current) {
-      if (mobileControls.current.forward) camera.position.addScaledVector(dir, spd);
-      if (mobileControls.current.backward) camera.position.addScaledVector(dir, -spd);
+      const { moveX, moveY } = mobileControls.current;
+      if (moveY) camera.position.addScaledVector(dir, spd * moveY);
+      if (moveX) camera.position.addScaledVector(right, spd * moveX);
     }
 
     // Keep inside corridor
