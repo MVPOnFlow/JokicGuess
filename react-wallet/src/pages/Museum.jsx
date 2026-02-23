@@ -24,10 +24,12 @@ const TV_Y = 2.8;         // TV center height
 const TV_GAP = 8;         // Z gap between TV pairs
 const EYE_Y = 1.65;       // camera eye height
 const SPEED = 6;           // walk speed  units/s
-const VID_RANGE = 15;      // load video within this distance
-const TEX_RANGE = 30;      // load image texture within this distance
-const PLAQUE_RANGE = 12;   // show plaque within this distance
-const LIGHT_SPACING = 16;  // ceiling light spacing
+const VID_RANGE = 14;      // load video within this distance
+const TEX_RANGE = 35;      // load image texture within this distance
+const PLAQUE_RANGE = 10;   // show plaque within this distance
+const LIGHT_SPACING = 12;  // ceiling light spacing
+const MOUNT_RANGE = 50;    // only mount WallTV components within this distance
+const MAX_VIDEOS = 4;      // max simultaneous video elements
 
 /* ================================================================== */
 /*  Museum – top-level data + routing between entrance & 3D scene      */
@@ -215,35 +217,39 @@ export default function Museum() {
     <div className="museum-root museum-3d-active">
       <Canvas
         camera={{ fov: 75, near: 0.1, far: 200, position: [0, EYE_Y, 2] }}
-        gl={{ antialias: true, toneMapping: THREE.ACESFilmicToneMapping, toneMappingExposure: 1.2 }}
-        style={{ background: '#060610' }}
+        gl={{ antialias: true, toneMapping: THREE.LinearToneMapping, toneMappingExposure: 1.0 }}
+        style={{ background: '#080812' }}
+        frameloop="demand"
       >
-        <fog attach="fog" args={['#060610', 5, 55]} />
-        <ambientLight intensity={0.12} color="#8888aa" />
+        <fog attach="fog" args={['#080812', 12, 65]} />
+        <ambientLight intensity={0.6} color="#aaaacc" />
+        <directionalLight position={[2, CH, 5]} intensity={0.3} color="#ccbbaa" />
 
-        {/* Ceiling lights along corridor */}
+        {/* Ceiling light fixtures (visual only – no pointLights here, corridor uses baked/basic materials) */}
         {Array.from({ length: numCeilingLights }, (_, i) => (
-          <pointLight
-            key={`cl-${i}`}
-            position={[0, CH - 0.3, -i * LIGHT_SPACING - 8]}
-            intensity={0.6}
-            distance={14}
-            color="#ddccaa"
-            decay={2}
-          />
+          <group key={`cl-${i}`}>
+            {/* Visible light fixture on ceiling */}
+            <mesh position={[0, CH - 0.05, -i * LIGHT_SPACING - 8]}>
+              <boxGeometry args={[1.2, 0.06, 0.4]} />
+              <meshBasicMaterial color="#eecc88" />
+            </mesh>
+            {/* Small warm glow marker below fixture */}
+            <mesh position={[0, CH - 0.15, -i * LIGHT_SPACING - 8]}>
+              <planeGeometry args={[0.6, 0.02]} />
+              <meshBasicMaterial color="#FDB927" transparent opacity={0.3} />
+            </mesh>
+          </group>
         ))}
+
+        {/* Two moving pointLights that follow the camera for local illumination */}
+        <CameraLights />
 
         <Corridor length={layout.length} />
         <Movement length={layout.length} />
         <PointerLockControls />
+        <RenderLoop />
 
-        {layout.items.map((item, i) =>
-          item.type === 'season' ? (
-            <SeasonBanner key={`s-${i}`} season={item.season} count={item.count} z={item.z} />
-          ) : (
-            <WallTV key={`tv-${i}`} edition={item.edition} pos={item.pos} rot={item.rot} owned={item.owned} />
-          )
-        )}
+        <NearbyItems items={layout.items} />
       </Canvas>
 
       {/* HUD overlay */}
@@ -269,25 +275,150 @@ export default function Museum() {
 }
 
 /* ================================================================== */
-/*  Corridor – floor, walls, ceiling geometry                          */
+/*  CameraLights – two point lights that follow the player             */
+/* ================================================================== */
+function CameraLights() {
+  const frontRef = useRef();
+  const backRef = useRef();
+  const { camera } = useThree();
+
+  useFrame(() => {
+    if (frontRef.current) {
+      frontRef.current.position.set(camera.position.x, CH - 0.5, camera.position.z - 4);
+    }
+    if (backRef.current) {
+      backRef.current.position.set(camera.position.x, CH - 0.5, camera.position.z + 4);
+    }
+  });
+
+  return (
+    <>
+      <pointLight ref={frontRef} intensity={1.0} distance={20} color="#eecc88" decay={2} />
+      <pointLight ref={backRef} intensity={0.6} distance={15} color="#ddbbaa" decay={2} />
+    </>
+  );
+}
+
+/* ================================================================== */
+/*  RenderLoop – forces continuous render (since we use frameloop=demand) */
+/* ================================================================== */
+function RenderLoop() {
+  useFrame(({ invalidate }) => { invalidate(); });
+  return null;
+}
+
+/* ================================================================== */
+/*  NearbyItems – only mounts TVs/banners within MOUNT_RANGE of camera */
+/* ================================================================== */
+function NearbyItems({ items }) {
+  const { camera } = useThree();
+  const [visible, setVisible] = useState([]);
+  const frameCount = useRef(0);
+
+  useFrame(() => {
+    frameCount.current++;
+    if (frameCount.current % 20 !== 0) return; // check every ~20 frames
+    const camZ = camera.position.z;
+    const next = [];
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i];
+      const itemZ = item.type === 'season' ? item.z : item.pos[2];
+      if (Math.abs(camZ - itemZ) < MOUNT_RANGE) next.push(i);
+    }
+    setVisible(prev => {
+      if (prev.length === next.length && prev.every((v, j) => v === next[j])) return prev;
+      return next;
+    });
+  });
+
+  return (
+    <>
+      {visible.map(i => {
+        const item = items[i];
+        return item.type === 'season'
+          ? <SeasonBanner key={`s-${i}`} season={item.season} count={item.count} z={item.z} />
+          : <WallTV key={`tv-${i}`} edition={item.edition} pos={item.pos} rot={item.rot} owned={item.owned} />;
+      })}
+    </>
+  );
+}
+
+/* ================================================================== */
+/*  Corridor – floor, walls, ceiling geometry (meshBasicMaterial = no  */
+/*  per-pixel lighting calc → huge GPU savings)                        */
 /* ================================================================== */
 function Corridor({ length }) {
+  /* Tiled floor texture – baked lighting look */
   const floorTex = useMemo(() => {
     const c = document.createElement('canvas');
     c.width = 512; c.height = 512;
     const ctx = c.getContext('2d');
-    ctx.fillStyle = '#12122a';
+    // Warm dark brown base
+    ctx.fillStyle = '#2a2018';
     ctx.fillRect(0, 0, 512, 512);
-    ctx.strokeStyle = '#1a1a3a';
-    ctx.lineWidth = 1;
+    // Tile grid
+    ctx.strokeStyle = '#3a3028';
+    ctx.lineWidth = 2;
     for (let i = 0; i <= 512; i += 64) {
       ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, 512); ctx.stroke();
       ctx.beginPath(); ctx.moveTo(0, i); ctx.lineTo(512, i); ctx.stroke();
     }
-    // Center line
-    ctx.strokeStyle = '#FDB92718';
+    // Gold center runner
+    ctx.fillStyle = '#FDB92718';
+    ctx.fillRect(232, 0, 48, 512);
+    const t = new THREE.CanvasTexture(c);
+    t.wrapS = t.wrapT = THREE.RepeatWrapping;
+    t.repeat.set(CW / 4, length / 4);
+    return t;
+  }, [length]);
+
+  /* Wall texture – paneled look with baked highlights */
+  const wallTex = useMemo(() => {
+    const c = document.createElement('canvas');
+    c.width = 512; c.height = 512;
+    const ctx = c.getContext('2d');
+    // Dark navy base
+    ctx.fillStyle = '#1a1e38';
+    ctx.fillRect(0, 0, 512, 512);
+    // Upper portion slightly lighter (simulates overhead light)
+    const grad = ctx.createLinearGradient(0, 0, 0, 512);
+    grad.addColorStop(0, 'rgba(60,60,100,0.15)');
+    grad.addColorStop(0.4, 'rgba(30,30,60,0.05)');
+    grad.addColorStop(1, 'rgba(0,0,0,0.1)');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, 512, 512);
+    // Vertical panel lines
+    ctx.strokeStyle = '#282c4a';
+    ctx.lineWidth = 1;
+    for (let i = 0; i <= 512; i += 128) {
+      ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, 512); ctx.stroke();
+    }
+    // Wainscoting line at lower third
+    ctx.strokeStyle = '#303460';
     ctx.lineWidth = 3;
-    ctx.beginPath(); ctx.moveTo(256, 0); ctx.lineTo(256, 512); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(0, 340); ctx.lineTo(512, 340); ctx.stroke();
+    // Subtle highlight strip at top (crown molding glow)
+    ctx.fillStyle = 'rgba(80,80,130,0.12)';
+    ctx.fillRect(0, 0, 512, 8);
+    const t = new THREE.CanvasTexture(c);
+    t.wrapS = t.wrapT = THREE.RepeatWrapping;
+    t.repeat.set(length / 6, 1);
+    return t;
+  }, [length]);
+
+  /* Ceiling texture – subtle grid */
+  const ceilTex = useMemo(() => {
+    const c = document.createElement('canvas');
+    c.width = 256; c.height = 256;
+    const ctx = c.getContext('2d');
+    ctx.fillStyle = '#151528';
+    ctx.fillRect(0, 0, 256, 256);
+    ctx.strokeStyle = '#1c1c38';
+    ctx.lineWidth = 1;
+    for (let i = 0; i <= 256; i += 64) {
+      ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, 256); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(0, i); ctx.lineTo(256, i); ctx.stroke();
+    }
     const t = new THREE.CanvasTexture(c);
     t.wrapS = t.wrapT = THREE.RepeatWrapping;
     t.repeat.set(CW / 4, length / 4);
@@ -298,35 +429,60 @@ function Corridor({ length }) {
 
   return (
     <group>
-      {/* Floor */}
+      {/* Floor – warm brown tiles */}
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0, midZ]}>
         <planeGeometry args={[CW, length]} />
-        <meshStandardMaterial map={floorTex} roughness={0.5} metalness={0.35} />
+        <meshStandardMaterial map={floorTex} roughness={0.4} metalness={0.3} />
       </mesh>
+
       {/* Ceiling */}
       <mesh rotation={[Math.PI / 2, 0, 0]} position={[0, CH, midZ]}>
         <planeGeometry args={[CW, length]} />
-        <meshStandardMaterial color="#080818" roughness={1} />
+        <meshBasicMaterial map={ceilTex} />
       </mesh>
+
       {/* Left wall */}
       <mesh rotation={[0, Math.PI / 2, 0]} position={[-CW / 2, CH / 2, midZ]}>
         <planeGeometry args={[length, CH]} />
-        <meshStandardMaterial color="#0c0c22" roughness={0.85} metalness={0.1} />
+        <meshStandardMaterial map={wallTex} roughness={0.7} metalness={0.1} />
       </mesh>
       {/* Right wall */}
       <mesh rotation={[0, -Math.PI / 2, 0]} position={[CW / 2, CH / 2, midZ]}>
         <planeGeometry args={[length, CH]} />
-        <meshStandardMaterial color="#0c0c22" roughness={0.85} metalness={0.1} />
+        <meshStandardMaterial map={wallTex} roughness={0.7} metalness={0.1} />
       </mesh>
+
+      {/* Baseboard – left */}
+      <mesh position={[-CW / 2 + 0.06, 0.12, midZ]} rotation={[0, Math.PI / 2, 0]}>
+        <planeGeometry args={[length, 0.24]} />
+        <meshBasicMaterial color="#12122a" />
+      </mesh>
+      {/* Baseboard – right */}
+      <mesh position={[CW / 2 - 0.06, 0.12, midZ]} rotation={[0, -Math.PI / 2, 0]}>
+        <planeGeometry args={[length, 0.24]} />
+        <meshBasicMaterial color="#12122a" />
+      </mesh>
+
+      {/* Crown molding – left */}
+      <mesh position={[-CW / 2 + 0.06, CH - 0.06, midZ]} rotation={[0, Math.PI / 2, 0]}>
+        <planeGeometry args={[length, 0.12]} />
+        <meshBasicMaterial color="#282850" />
+      </mesh>
+      {/* Crown molding – right */}
+      <mesh position={[CW / 2 - 0.06, CH - 0.06, midZ]} rotation={[0, -Math.PI / 2, 0]}>
+        <planeGeometry args={[length, 0.12]} />
+        <meshBasicMaterial color="#282850" />
+      </mesh>
+
       {/* Back wall */}
       <mesh position={[0, CH / 2, -length]}>
         <planeGeometry args={[CW, CH]} />
-        <meshStandardMaterial color="#0a0a1e" roughness={0.9} />
+        <meshBasicMaterial color="#0e1028" />
       </mesh>
       {/* Entrance wall */}
       <mesh rotation={[0, Math.PI, 0]} position={[0, CH / 2, 5]}>
         <planeGeometry args={[CW, CH]} />
-        <meshStandardMaterial color="#0a0a1e" roughness={0.9} />
+        <meshBasicMaterial color="#0e1028" />
       </mesh>
     </group>
   );
@@ -390,6 +546,7 @@ function SeasonBanner({ season, count, z }) {
       </mesh>
       {/* Season label */}
       <Html
+        transform
         center
         position={[0, CH - 0.3, 0.2]}
         distanceFactor={8}
@@ -409,13 +566,15 @@ function SeasonBanner({ season, count, z }) {
 /* ================================================================== */
 /*  Wall TV – screen + plaque with proximity-based loading             */
 /* ================================================================== */
+let activeVideoCount = 0; // global counter for concurrent video elements
+
 const WallTV = React.memo(function WallTV({ edition, pos, rot, owned }) {
   const { camera } = useThree();
   const [imgTex, setImgTex] = useState(null);
   const [vidTex, setVidTex] = useState(null);
   const videoRef = useRef(null);
   const loadingImg = useRef(false);
-  const frameIdx = useRef(Math.floor(Math.random() * 15)); // stagger checks
+  const frameIdx = useRef(Math.floor(Math.random() * 30)); // stagger checks
   const [showPlaque, setShowPlaque] = useState(false);
 
   const posVec = useMemo(() => new THREE.Vector3(...pos), [pos]);
@@ -423,7 +582,7 @@ const WallTV = React.memo(function WallTV({ edition, pos, rot, owned }) {
 
   useFrame(() => {
     frameIdx.current++;
-    if (frameIdx.current % 15 !== 0) return;
+    if (frameIdx.current % 30 !== 0) return; // check every ~30 frames
 
     const dist = camera.position.distanceTo(posVec);
 
@@ -438,8 +597,9 @@ const WallTV = React.memo(function WallTV({ edition, pos, rot, owned }) {
       );
     }
 
-    // Video
-    if (dist < VID_RANGE && !videoRef.current && edition.videoUrl) {
+    // Video – respect global cap
+    if (dist < VID_RANGE && !videoRef.current && edition.videoUrl && activeVideoCount < MAX_VIDEOS) {
+      activeVideoCount++;
       const v = document.createElement('video');
       v.crossOrigin = 'anonymous';
       v.src = edition.videoUrl;
@@ -456,6 +616,7 @@ const WallTV = React.memo(function WallTV({ edition, pos, rot, owned }) {
       videoRef.current.removeAttribute('src');
       videoRef.current.load();
       videoRef.current = null;
+      activeVideoCount = Math.max(0, activeVideoCount - 1);
       if (vidTex) vidTex.dispose();
       setVidTex(null);
     }
@@ -471,6 +632,8 @@ const WallTV = React.memo(function WallTV({ edition, pos, rot, owned }) {
       videoRef.current.pause();
       videoRef.current.removeAttribute('src');
       videoRef.current.load();
+      videoRef.current = null;
+      activeVideoCount = Math.max(0, activeVideoCount - 1);
     }
   }, []);
 
@@ -497,27 +660,38 @@ const WallTV = React.memo(function WallTV({ edition, pos, rot, owned }) {
       </mesh>
 
       {/* Screen */}
-      <mesh>
+      <mesh position={[0, 0, 0.005]}>
         <planeGeometry args={[TV_SZ, TV_SZ]} />
         {activeTex ? (
           <meshBasicMaterial map={activeTex} toneMapped={false} />
         ) : (
-          <meshBasicMaterial color="#0a0a18" />
+          <meshStandardMaterial color="#181830" emissive="#101028" emissiveIntensity={0.8} roughness={0.5} />
         )}
       </mesh>
 
-      {/* Subtle glow light from TV */}
-      <pointLight
-        position={[0, 0, 0.8]}
-        intensity={activeTex ? 0.25 : 0.05}
-        distance={4}
-        color={tierColor}
-        decay={2}
-      />
+      {/* Static noise overlay when no image loaded yet */}
+      {!activeTex && (
+        <mesh position={[0, TV_SZ / 2 - 0.3, 0.01]}>
+          <planeGeometry args={[TV_SZ * 0.6, 0.08]} />
+          <meshBasicMaterial color="#FDB927" transparent opacity={0.15} />
+        </mesh>
+      )}
+
+      {/* Single glow light from TV screen – only when texture loaded */}
+      {activeTex && (
+        <pointLight
+          position={[0, 0, 1.0]}
+          intensity={0.4}
+          distance={4}
+          color={tierColor}
+          decay={2}
+        />
+      )}
 
       {/* Owned badge */}
       {owned && (
         <Html
+          transform
           position={[TV_SZ / 2 - 0.35, TV_SZ / 2 - 0.25, 0.02]}
           distanceFactor={4}
           className="owned-badge-html"
@@ -526,10 +700,11 @@ const WallTV = React.memo(function WallTV({ edition, pos, rot, owned }) {
         </Html>
       )}
 
-      {/* Plaque – only rendered when close */}
+      {/* Plaque – only rendered when close, transform keeps it attached to wall */}
       {showPlaque && (
         <Html
-          position={[0, -(TV_SZ / 2 + 1.1), 0.05]}
+          transform
+          position={[0, -(TV_SZ / 2 + 1.2), 0.06]}
           center
           distanceFactor={5}
           className="plaque-html"
