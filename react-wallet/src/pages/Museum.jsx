@@ -612,6 +612,7 @@ function SeasonBanner({ season, count, z }) {
         position={[0, CH - 0.65, 0.2]}
         distanceFactor={8}
         className="season-banner-html"
+        zIndexRange={[100, 0]}
       >
         <div className="season-banner-inner">
           <span className="sb-year">{season}</span>
@@ -756,6 +757,7 @@ const WallTV = React.memo(function WallTV({ edition, pos, rot, owned }) {
           position={[TV_SZ / 2 - 0.35, TV_SZ / 2 - 0.25, 0.02]}
           distanceFactor={4}
           className="owned-badge-html"
+          zIndexRange={[100, 0]}
         >
           <span className="owned-badge-inner">✓ OWNED</span>
         </Html>
@@ -769,6 +771,7 @@ const WallTV = React.memo(function WallTV({ edition, pos, rot, owned }) {
           center
           distanceFactor={5}
           className="plaque-html"
+          zIndexRange={[100, 0]}
         >
           <div className="plaque-3d" style={{ '--tier-color': tierColor }}>
             <div className="p3d-header">
