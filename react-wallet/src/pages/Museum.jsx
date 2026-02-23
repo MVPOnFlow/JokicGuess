@@ -788,7 +788,6 @@ const WallTV = React.memo(function WallTV({ edition, pos, rot, owned }) {
           <div className="desc-plaque">
             <div className="dp-label">About this Moment</div>
             <div className="dp-text">{edition.description || edition.shortDescription}</div>
-            {edition.retired && <div className="dp-retired">RETIRED</div>}
           </div>
         </Html>
       )}

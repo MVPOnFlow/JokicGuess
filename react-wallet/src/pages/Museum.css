@@ -426,7 +426,7 @@
 
 /* Description plaque (beside the TV) */
 .desc-plaque {
-  width: 220px;
+  width: 280px;
   background: linear-gradient(180deg, #181c36, #12152c);
   border: 1px solid #252850;
   border-radius: 6px;
@@ -445,24 +445,9 @@
 }
 
 .dp-text {
-  font-size: 10px;
-  color: #b0b0c8;
-  line-height: 1.55;
-  max-height: 160px;
-  overflow-y: auto;
-}
-
-.dp-retired {
-  display: inline-block;
-  margin-top: 8px;
   font-size: 9px;
-  font-weight: 800;
-  letter-spacing: 1px;
-  color: #ff6b6b;
-  background: rgba(255,107,107,0.1);
-  padding: 2px 8px;
-  border-radius: 3px;
-  border: 1px solid rgba(255,107,107,0.2);
+  color: #b0b0c8;
+  line-height: 1.5;
 }
 
 /* ==========================================================
