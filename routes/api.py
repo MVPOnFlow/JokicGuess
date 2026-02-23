@@ -10,7 +10,8 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from utils.helpers import (
     prepare_query, map_wallet_to_username, 
     get_rank_and_lineup_for_user, get_flow_wallet_from_ts_username,
-    get_ts_username_from_flow_wallet, get_jokic_editions
+    get_ts_username_from_flow_wallet, get_jokic_editions,
+    get_dapper_id_from_flow_wallet
 )
 from config import (
     SWAPFEST_START_TIME, SWAPFEST_END_TIME,
@@ -535,9 +536,14 @@ def register_routes(app):
 
     @app.route("/api/showcase")
     def showcase_editions():
-        """Get all Jokic editions from TopShot marketplace."""
+        """Get all Jokic editions from TopShot marketplace.
+        Optional query param: wallet=<flow_address> to include userOwnedCount."""
         try:
-            result = get_jokic_editions()
+            wallet = request.args.get('wallet', '')
+            dapper_id = ''
+            if wallet:
+                dapper_id = get_dapper_id_from_flow_wallet(wallet)
+            result = get_jokic_editions(dapper_id=dapper_id)
             return jsonify(result)
         except Exception as e:
             return jsonify({"error": str(e)}), 500

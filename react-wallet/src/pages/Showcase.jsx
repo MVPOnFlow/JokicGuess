@@ -1,5 +1,6 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Container, Row, Col, Card, Badge, Spinner, Form, Alert, Modal } from 'react-bootstrap';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { Spinner, Alert } from 'react-bootstrap';
+import * as fcl from '@onflow/fcl';
 import './Showcase.css';
 
 const TIER_COLORS = {
@@ -10,225 +11,194 @@ const TIER_COLORS = {
   COMMON: '#adb5bd',
 };
 
-const TIER_ORDER = ['ULTIMATE', 'LEGENDARY', 'RARE', 'FANDOM', 'COMMON'];
-
-function tierBadge(tier) {
-  const color = TIER_COLORS[tier] || '#adb5bd';
-  return (
-    <Badge
-      className="tier-badge"
-      style={{ backgroundColor: color, color: ['LEGENDARY', 'COMMON'].includes(tier) ? '#1a1a2e' : '#fff' }}
-    >
-      {tier}
-    </Badge>
-  );
-}
-
-function formatPrice(val) {
-  if (!val || val === 0 || val === "0.00") return null;
-  const n = typeof val === 'string' ? parseFloat(val) : val;
-  if (isNaN(n) || n === 0) return null;
-  return `$${n.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
-}
-
+/* ------------------------------------------------------------------ */
+/*  Main Showcase – "The Jokić Museum"                                 */
+/* ------------------------------------------------------------------ */
 export default function Showcase() {
-  const [data, setData] = useState(null);
+  const [editions, setEditions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [filterTier, setFilterTier] = useState('ALL');
-  const [filterCategory, setFilterCategory] = useState('ALL');
-  const [filterSeason, setFilterSeason] = useState('ALL');
-  const [sortBy, setSortBy] = useState('DATE_DESC');
+  const [user, setUser] = useState({ loggedIn: null });
+  const [ownershipLoaded, setOwnershipLoaded] = useState(false);
 
+  // Subscribe to FCL user
   useEffect(() => {
-    fetchEditions();
+    fcl.currentUser().subscribe(setUser);
   }, []);
 
-  async function fetchEditions() {
-    setLoading(true);
-    setError(null);
-    try {
-      const resp = await fetch('/api/showcase');
-      const json = await resp.json();
-      if (!resp.ok) {
-        setError(json.error || 'Failed to load editions');
-        return;
-      }
-      setData(json);
-    } catch (e) {
-      setError('Network error: ' + e.message);
-    } finally {
-      setLoading(false);
+  // Fetch editions (without ownership) on mount
+  useEffect(() => {
+    (async () => {
+      setLoading(true);
+      try {
+        const resp = await fetch('/api/showcase');
+        const json = await resp.json();
+        if (!resp.ok) { setError(json.error || 'Failed'); return; }
+        setEditions(json.editions || []);
+      } catch (e) { setError(e.message); }
+      finally { setLoading(false); }
+    })();
+  }, []);
+
+  // Re-fetch with wallet param when user connects (to get userOwnedCount)
+  useEffect(() => {
+    if (!user?.addr) { setOwnershipLoaded(false); return; }
+    let cancelled = false;
+    (async () => {
+      try {
+        const resp = await fetch(`/api/showcase?wallet=${user.addr}`);
+        const json = await resp.json();
+        if (!cancelled && !resp.ok) return;
+        if (!cancelled) {
+          setEditions(json.editions || []);
+          setOwnershipLoaded(true);
+        }
+      } catch { /* ignore */ }
+    })();
+    return () => { cancelled = true; };
+  }, [user?.addr]);
+
+  // Sort by game date ascending (chronological walk through museum).
+  // Some editions have no dateOfMoment (e.g. Honors, Hardware, Champion's Path).
+  // For those, derive a synthetic sort key from nbaSeason so they land at the end
+  // of their season rather than floating to the very top.
+  const sortKey = (ed) => {
+    if (ed.dateOfMoment) return ed.dateOfMoment;
+    // nbaSeason like "2022-23" → place after regular season ends (use Oct of end-year)
+    const m = (ed.nbaSeason || '').match(/\d{4}-(\d{2})/);
+    if (m) {
+      const endYear = parseInt(m[1], 10) + (m[1] < '50' ? 2000 : 1900);
+      return `${endYear}-10-01T00:00:00Z`;   // after season ends, before next starts
     }
-  }
+    return 'Z'; // unknown → very end
+  };
+  const sorted = useMemo(() =>
+    [...editions].sort((a, b) => sortKey(a).localeCompare(sortKey(b))),
+    [editions]
+  );
 
-  const editions = data?.editions || [];
-
-  // Filter
-  const filtered = editions.filter(m => {
-    if (filterTier !== 'ALL' && m.tier !== filterTier) return false;
-    if (filterCategory !== 'ALL' && m.playCategory !== filterCategory) return false;
-    if (filterSeason !== 'ALL' && m.nbaSeason !== filterSeason) return false;
-    return true;
-  });
-
-  // Sort
-  const sorted = [...filtered].sort((a, b) => {
-    switch (sortBy) {
-      case 'DATE_DESC':
-        return (b.dateOfMoment || '').localeCompare(a.dateOfMoment || '');
-      case 'DATE_ASC':
-        return (a.dateOfMoment || '').localeCompare(b.dateOfMoment || '');
-      case 'PRICE_DESC':
-        return (b.lowAsk || 0) - (a.lowAsk || 0);
-      case 'PRICE_ASC': {
-        const aPrice = a.lowAsk || Infinity;
-        const bPrice = b.lowAsk || Infinity;
-        return aPrice - bPrice;
+  // Group by NBA season
+  const seasonGroups = useMemo(() => {
+    const groups = [];
+    let currentSeason = null;
+    for (const ed of sorted) {
+      const season = ed.nbaSeason || 'Unknown';
+      if (season !== currentSeason) {
+        currentSeason = season;
+        groups.push({ season, editions: [] });
       }
-      case 'TIER': {
-        const order = { ULTIMATE: 0, LEGENDARY: 1, RARE: 2, FANDOM: 3, COMMON: 4 };
-        return (order[a.tier] ?? 5) - (order[b.tier] ?? 5);
-      }
-      default:
-        return 0;
+      groups[groups.length - 1].editions.push(ed);
     }
-  });
+    return groups;
+  }, [sorted]);
 
-  // Unique values for filters
-  const categories = [...new Set(editions.map(m => m.playCategory).filter(Boolean))].sort();
-  const seasons = [...new Set(editions.map(m => m.nbaSeason).filter(Boolean))].sort().reverse();
+  // Ownership helper — uses userOwnedCount from the API
+  const isOwned = useCallback((edition) => {
+    return (edition.userOwnedCount || 0) > 0;
+  }, []);
 
-  // Total market value (sum of lowAsk for all editions)
-  const totalMarketValue = editions.reduce((sum, e) => sum + (e.lowAsk || 0), 0);
+  const walletConnected = !!user?.addr;
+  const ownedCount = ownershipLoaded ? sorted.filter(e => isOwned(e)).length : 0;
 
   return (
-    <Container className="showcase-page py-4">
-      {/* Header */}
-      <div className="text-center mb-4">
-        <h1 className="showcase-title">🏀 Jokić Moment Catalog</h1>
-        <p className="text-muted">
-          Every Nikola Jokić NBA TopShot edition — prices, stats, and market data
-        </p>
+    <div className="museum-root">
+      {/* Entrance arch */}
+      <div className="museum-entrance">
+        <div className="entrance-arch">
+          <h1 className="museum-title">The Jokić Museum</h1>
+          <p className="museum-subtitle">Walk through every Nikola Jokić NBA TopShot moment</p>
+          {walletConnected && ownershipLoaded && (
+            <p className="museum-owned-count">
+              🎟️ You own <strong>{ownedCount}</strong> of {sorted.length} moments — hover your TVs to play them
+            </p>
+          )}
+          {walletConnected && !ownershipLoaded && (
+            <p className="museum-owned-count">
+              <Spinner animation="border" size="sm" variant="warning" /> Checking your collection...
+            </p>
+          )}
+          {!walletConnected && (
+            <p className="museum-connect-hint">Connect your wallet to unlock video playback on moments you own</p>
+          )}
+        </div>
+        <div className="entrance-arrow">▼</div>
       </div>
 
       {/* Loading */}
       {loading && (
         <div className="text-center py-5">
           <Spinner animation="border" variant="warning" />
-          <p className="mt-3 text-muted">Loading all Jokić editions...</p>
+          <p className="mt-3 text-muted">Preparing the museum...</p>
         </div>
       )}
 
-      {/* Error */}
-      {error && <Alert variant="danger" className="text-center">{error}</Alert>}
+      {error && <Alert variant="danger" className="text-center mx-auto" style={{ maxWidth: 500 }}>{error}</Alert>}
 
-      {data && !loading && (
-        <>
-          {/* Summary */}
-          <Card className="shadow mb-4 summary-card">
-            <Card.Body>
-              <Row className="text-center align-items-center">
-                <Col xs={6} md={3}>
-                  <h2 className="showcase-count mb-0">{data.totalCount}</h2>
-                  <small className="text-muted">Total Editions</small>
-                </Col>
-                <Col xs={6} md={3}>
-                  <h2 className="showcase-count mb-0">{formatPrice(totalMarketValue) || '$0'}</h2>
-                  <small className="text-muted">Total Market (Low Ask)</small>
-                </Col>
-                <Col xs={12} md={6} className="mt-3 mt-md-0">
-                  <div className="tier-breakdown">
-                    {TIER_ORDER.map(tier => {
-                      const count = data.tierBreakdown?.[tier];
-                      if (!count) return null;
-                      return (
-                        <span
-                          key={tier}
-                          className={`tier-chip me-2 ${filterTier === tier ? 'active' : ''}`}
-                          style={{ borderColor: TIER_COLORS[tier], cursor: 'pointer' }}
-                          onClick={() => setFilterTier(filterTier === tier ? 'ALL' : tier)}
-                        >
-                          <span className="tier-dot" style={{ backgroundColor: TIER_COLORS[tier] }} />
-                          {count} {tier.charAt(0) + tier.slice(1).toLowerCase()}
-                        </span>
-                      );
-                    })}
-                  </div>
-                </Col>
-              </Row>
-            </Card.Body>
-          </Card>
+      {/* The hallway */}
+      {!loading && !error && (
+        <div className="hallway">
+          <div className="hallway-floor" />
+          {seasonGroups.map((group) => (
+            <SeasonWing key={group.season} season={group.season} editions={group.editions} isOwned={isOwned} walletConnected={walletConnected} />
+          ))}
 
-          {/* Filters */}
-          <Row className="mb-3 gx-2 filter-row">
-            <Col xs="auto">
-              <Form.Select size="sm" value={filterTier} onChange={e => setFilterTier(e.target.value)} className="filter-select">
-                <option value="ALL">All Tiers</option>
-                {TIER_ORDER.map(t => (
-                  <option key={t} value={t}>{t.charAt(0) + t.slice(1).toLowerCase()}</option>
-                ))}
-              </Form.Select>
-            </Col>
-            <Col xs="auto">
-              <Form.Select size="sm" value={filterCategory} onChange={e => setFilterCategory(e.target.value)} className="filter-select">
-                <option value="ALL">All Play Types</option>
-                {categories.map(c => <option key={c} value={c}>{c}</option>)}
-              </Form.Select>
-            </Col>
-            <Col xs="auto">
-              <Form.Select size="sm" value={filterSeason} onChange={e => setFilterSeason(e.target.value)} className="filter-select">
-                <option value="ALL">All Seasons</option>
-                {seasons.map(s => <option key={s} value={s}>{s}</option>)}
-              </Form.Select>
-            </Col>
-            <Col xs="auto">
-              <Form.Select size="sm" value={sortBy} onChange={e => setSortBy(e.target.value)} className="filter-select">
-                <option value="DATE_DESC">Newest First</option>
-                <option value="DATE_ASC">Oldest First</option>
-                <option value="PRICE_DESC">Price: High → Low</option>
-                <option value="PRICE_ASC">Price: Low → High</option>
-                <option value="TIER">By Tier</option>
-              </Form.Select>
-            </Col>
-            <Col xs="auto" className="d-flex align-items-center">
-              <small className="text-muted">{sorted.length} edition{sorted.length !== 1 ? 's' : ''}</small>
-            </Col>
-          </Row>
-
-          {/* Edition grid */}
-          {sorted.length === 0 ? (
-            <Alert variant="secondary" className="text-center">
-              No editions match the current filters.
-            </Alert>
-          ) : (
-            <Row xs={1} sm={2} md={3} lg={4} className="g-3 moment-grid">
-              {sorted.map(edition => (
-                <Col key={edition.id}>
-                  <EditionCard edition={edition} />
-                </Col>
-              ))}
-            </Row>
-          )}
-        </>
+          {/* End of museum */}
+          <div className="museum-end">
+            <div className="end-sign">🏆 End of Tour — {sorted.length} Moments</div>
+          </div>
+        </div>
       )}
-    </Container>
+    </div>
   );
 }
 
-function EditionCard({ edition }) {
-  const tierColor = TIER_COLORS[edition.tier] || '#adb5bd';
-  const [imgError, setImgError] = useState(false);
+/* ------------------------------------------------------------------ */
+/*  Season Wing – year sign + TVs on alternating sides                 */
+/* ------------------------------------------------------------------ */
+function SeasonWing({ season, editions, isOwned, walletConnected }) {
+  return (
+    <div className="season-wing">
+      {/* Overhead sign */}
+      <div className="season-sign-wrapper">
+        <div className="season-sign">
+          <span className="season-sign-icon">🏀</span>
+          <span className="season-sign-text">{season}</span>
+          <span className="season-sign-count">{editions.length} moment{editions.length !== 1 ? 's' : ''}</span>
+        </div>
+      </div>
+
+      {/* TV pairs */}
+      <div className="tv-corridor">
+        {editions.map((edition, idx) => (
+          <TV
+            key={edition.id}
+            edition={edition}
+            side={idx % 2 === 0 ? 'left' : 'right'}
+            owned={isOwned(edition)}
+            walletConnected={walletConnected}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/*  TV – a single "television" on the wall                             */
+/* ------------------------------------------------------------------ */
+function TV({ edition, side, owned, walletConnected }) {
   const [hovering, setHovering] = useState(false);
+  const [imgError, setImgError] = useState(false);
   const videoRef = useRef(null);
+  const tierColor = TIER_COLORS[edition.tier] || '#adb5bd';
 
-  const videoUrl = edition.videoUrl || '';
+  const canPlay = owned && edition.videoUrl;
 
-  const handleMouseEnter = useCallback(() => { if (videoUrl) setHovering(true); }, [videoUrl]);
-  const handleMouseLeave = useCallback(() => setHovering(false), []);
+  const handleEnter = useCallback(() => setHovering(true), []);
+  const handleLeave = useCallback(() => setHovering(false), []);
 
   const dateStr = edition.dateOfMoment
-    ? new Date(edition.dateOfMoment).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })
+    ? new Date(edition.dateOfMoment).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
     : '';
 
   const statsLine = edition.gameStats
@@ -236,116 +206,77 @@ function EditionCard({ edition }) {
         edition.gameStats.points != null && `${edition.gameStats.points} PTS`,
         edition.gameStats.rebounds != null && `${edition.gameStats.rebounds} REB`,
         edition.gameStats.assists != null && `${edition.gameStats.assists} AST`,
-      ].filter(Boolean).join(' / ')
+      ].filter(Boolean).join(' · ')
     : '';
 
-  const lowAskStr = formatPrice(edition.lowAsk);
-  const avgPriceStr = formatPrice(edition.averagePrice);
-  const offerStr = formatPrice(edition.highestOffer);
-
   return (
-    <Card className="moment-card h-100 shadow-sm" style={{ borderColor: tierColor }}>
-      {/* Image / Video */}
+    <div className={`tv-row tv-${side}`}>
       <div
-        className="moment-image-wrapper"
-        style={{ borderBottomColor: tierColor }}
-        onMouseEnter={handleMouseEnter}
-        onMouseLeave={handleMouseLeave}
+        className={`tv-frame ${owned ? 'tv-owned' : ''}`}
+        style={{ '--tier-color': tierColor }}
+        onMouseEnter={handleEnter}
+        onMouseLeave={handleLeave}
       >
-        {/* Static image (hidden while hovering) */}
-        {edition.imageUrl && !imgError ? (
-          <img
-            src={edition.imageUrl}
-            alt={`${edition.setName} - ${edition.playCategory}`}
-            className="moment-image"
-            style={{ opacity: hovering && videoUrl ? 0 : 1 }}
-            onError={() => setImgError(true)}
-            loading="lazy"
-          />
-        ) : (
-          <div className="moment-placeholder">
-            <span>🏀</span>
+        {/* Screen */}
+        <div className="tv-screen">
+          {/* Static image */}
+          {edition.imageUrl && !imgError ? (
+            <img
+              src={edition.imageUrl}
+              alt={edition.setName}
+              className="tv-image"
+              style={{ opacity: hovering && canPlay ? 0 : 1 }}
+              onError={() => setImgError(true)}
+              loading="lazy"
+            />
+          ) : (
+            <div className="tv-placeholder">🏀</div>
+          )}
+
+          {/* Video on hover (only if owned) */}
+          {hovering && canPlay && (
+            <video
+              ref={videoRef}
+              src={edition.videoUrl}
+              className="tv-video"
+              autoPlay
+              loop
+              playsInline
+              muted
+            />
+          )}
+
+          {/* Locked overlay for non-owned */}
+          {hovering && !owned && walletConnected && (
+            <div className="tv-locked-overlay">
+              <span className="tv-locked-icon">🔒</span>
+              <span className="tv-locked-text">Not in your collection</span>
+            </div>
+          )}
+          {hovering && !walletConnected && (
+            <div className="tv-locked-overlay">
+              <span className="tv-locked-icon">🔗</span>
+              <span className="tv-locked-text">Connect wallet to play</span>
+            </div>
+          )}
+
+          {/* Ownership glow indicator */}
+          {owned && <div className="tv-owned-indicator">✓ OWNED</div>}
+        </div>
+
+        {/* TV stand / label */}
+        <div className="tv-label">
+          <div className="tv-label-top">
+            <span className="tv-tier" style={{ color: tierColor }}>{edition.tier}</span>
+            {edition.playCategory && <span className="tv-category">{edition.playCategory}</span>}
           </div>
-        )}
-        {/* Video (plays on hover) */}
-        {hovering && videoUrl && (
-          <video
-            ref={videoRef}
-            src={videoUrl}
-            className="moment-video"
-            autoPlay
-            loop
-            playsInline
-            muted
-          />
-        )}
-        {/* Circulation badge */}
-        <div className="moment-serial" style={{ backgroundColor: tierColor }}>
-          {edition.retired ? '🔒 ' : ''}{edition.circulationCount ? `/${edition.circulationCount}` : ''}
+          <div className="tv-set-name">{edition.setName}</div>
+          <div className="tv-meta">
+            {dateStr && <span>{dateStr}</span>}
+            {statsLine && <span className="tv-stats">{statsLine}</span>}
+          </div>
         </div>
       </div>
-
-      <Card.Body className="d-flex flex-column p-2">
-        {/* Tier + play category */}
-        <div className="d-flex justify-content-between align-items-start mb-1">
-          {tierBadge(edition.tier)}
-          {edition.playCategory && (
-            <Badge bg="dark" className="play-badge">{edition.playCategory}</Badge>
-          )}
-        </div>
-
-        {/* Set name */}
-        <h6 className="moment-set-name mb-1">{edition.setName}</h6>
-
-        {/* Description */}
-        {edition.shortDescription && (
-          <small className="text-muted moment-description">{edition.shortDescription}</small>
-        )}
-
-        {/* Date + Season */}
-        <div className="d-flex justify-content-between mt-1">
-          {dateStr && <small className="text-muted">{dateStr}</small>}
-          {edition.nbaSeason && <small className="season-badge">{edition.nbaSeason}</small>}
-        </div>
-
-        {/* Game stats */}
-        {statsLine && (
-          <div className="game-stats mt-1">
-            <small className="stats-line">{statsLine}</small>
-          </div>
-        )}
-
-        {/* Market data */}
-        <div className="market-data mt-auto pt-2">
-          {lowAskStr && (
-            <div className="d-flex justify-content-between">
-              <small className="text-muted">Low Ask</small>
-              <small className="price-value">{lowAskStr}</small>
-            </div>
-          )}
-          {offerStr && (
-            <div className="d-flex justify-content-between">
-              <small className="text-muted">Top Offer</small>
-              <small className="offer-value">{offerStr}</small>
-            </div>
-          )}
-          {avgPriceStr && (
-            <div className="d-flex justify-content-between">
-              <small className="text-muted">Avg Sale</small>
-              <small className="avg-value">{avgPriceStr}</small>
-            </div>
-          )}
-        </div>
-
-        {/* Tags */}
-        {edition.tags?.length > 0 && (
-          <div className="mt-1">
-            {edition.tags.map((tag, i) => (
-              <Badge key={i} bg="secondary" className="tag-badge me-1">{tag}</Badge>
-            ))}
-          </div>
-        )}
-      </Card.Body>
-    </Card>
+    </div>
   );
 }

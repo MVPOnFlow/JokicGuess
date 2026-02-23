@@ -873,108 +873,113 @@ def get_flow_wallet_from_ts_username(username):
     return asyncio.run(get_linked_parent_account(get_flow_address_by_username(username)))
 
 
-def get_jokic_editions(cursor="", limit=100) -> dict:
+def get_jokic_editions(cursor="", limit=100, dapper_id="") -> dict:
     """
     Fetches all Nikola Jokic editions from the TopShot marketplace.
     Uses the SearchMarketplaceEditions query.
+    If dapper_id is provided, includes userOwnedCount per edition.
     Returns dict with editions list and summary stats.
     Paginates automatically to fetch all editions.
     """
     url = "https://public-api.nbatopshot.com/graphql"
 
-    query = """
+    # Build userID clause — must be hardcoded in query string (not a variable)
+    user_id_clause = f', userID: "{dapper_id}"' if dapper_id else ''
+
+    query = f"""
     query SearchMarketplaceEditions(
       $byPlayers: [ID] = [],
       $byMomentTiers: [MomentTier] = [],
       $byPlayCategory: [ID] = [],
       $bySeries: [ID] = [],
       $orderBy: MarketplaceEditionsSortType = GAME_DATE_DESC,
-      $searchInput: BaseSearchInput = {pagination: {direction: RIGHT, limit: 100, cursor: ""}}
-    ) {
-      searchMarketplaceEditions(input: {
-        filters: {
+      $searchInput: BaseSearchInput = {{pagination: {{direction: RIGHT, limit: 100, cursor: ""}}}}
+    ) {{
+      searchMarketplaceEditions(input: {{
+        filters: {{
           byPlayers: $byPlayers,
           byMomentTiers: $byMomentTiers,
           byPlayCategory: $byPlayCategory,
           bySeries: $bySeries
-        },
+        }},
         sortBy: $orderBy,
-        searchInput: $searchInput
-      }) {
-        data {
-          searchSummary {
-            pagination {
+        searchInput: $searchInput{user_id_clause}
+      }}) {{
+        data {{
+          searchSummary {{
+            pagination {{
               leftCursor
               rightCursor
-            }
-            data {
+            }}
+            data {{
               size
-              data {
-                ... on MarketplaceEdition {
+              data {{
+                ... on MarketplaceEdition {{
                   id
                   assetPathPrefix
                   tier
-                  set {
+                  set {{
                     id
                     flowName
                     setVisualId
                     flowSeriesNumber
-                  }
-                  play {
+                  }}
+                  play {{
                     id
                     description
                     shortDescription
-                    stats {
+                    stats {{
                       playerName
                       dateOfMoment
                       playCategory
                       teamAtMoment
                       nbaSeason
                       jerseyNumber
-                    }
-                    statsPlayerGameScores {
+                    }}
+                    statsPlayerGameScores {{
                       points
                       assists
                       rebounds
-                    }
-                    tags {
+                    }}
+                    tags {{
                       id
                       title
                       visible
-                    }
-                  }
-                  setPlay {
+                    }}
+                  }}
+                  setPlay {{
                     ID
                     flowRetired
-                    circulations {
+                    circulations {{
                       circulationCount
                       forSaleByCollectors
                       ownedByCollectors
                       burned
                       locked
-                    }
-                  }
-                  priceRange {
+                    }}
+                  }}
+                  priceRange {{
                     min
                     max
-                  }
+                  }}
                   lowAsk
                   highestOffer
                   circulationCount
                   editionListingCount
                   parallelID
                   parallelName
-                  averageSaleData {
+                  userOwnedCount
+                  averageSaleData {{
                     averagePrice
                     numSales
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    }
+                  }}
+                }}
+              }}
+            }}
+          }}
+        }}
+      }}
+    }}
     """
 
     headers = {
@@ -1098,4 +1103,36 @@ def _parse_marketplace_edition(m: dict) -> dict:
         "numSales": avg_sale.get("numSales"),
         "editionListingCount": m.get("editionListingCount", 0),
         "parallelName": m.get("parallelName", ""),
+        "userOwnedCount": m.get("userOwnedCount", 0),
     }
+
+
+def get_dapper_id_from_flow_wallet(flow_address: str) -> str:
+    """
+    Given a Flow wallet address, resolve through the Dapper wallet chain
+    to get the TopShot dapperID (auth0|... or google-oauth2|... format).
+    Returns the dapperID string or empty string if not found.
+    """
+    try:
+        ts_username = get_ts_username_from_flow_wallet(flow_address)
+        if not ts_username:
+            return ""
+
+        url = "https://public-api.nbatopshot.com/graphql"
+        query = """
+        query GetUserProfileByUsername($input: getUserProfileByUsernameInput!) {
+          getUserProfileByUsername(input: $input) {
+            publicInfo { dapperID }
+          }
+        }
+        """
+        headers = {"User-Agent": "PetJokicsHorses", "Content-Type": "application/json"}
+        resp = requests.post(url, json={"query": query, "variables": {"input": {"username": ts_username}}}, headers=headers, timeout=10)
+        data = resp.json()
+        if "errors" in data:
+            print(f"❌ GraphQL Error getting dapperID: {data['errors']}")
+            return ""
+        return data["data"]["getUserProfileByUsername"]["publicInfo"].get("dapperID", "")
+    except Exception as e:
+        print(f"❌ Error resolving dapperID for {flow_address}: {e}")
+        return ""
