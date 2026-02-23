@@ -383,34 +383,41 @@ function Corridor({ length }) {
     return t;
   }, [length]);
 
-  /* Wall texture – paneled look with baked highlights */
+  /* Wall texture – rich museum fabric / velvet panels with depth */
   const wallTex = useMemo(() => {
     const c = document.createElement('canvas');
     c.width = 512; c.height = 512;
     const ctx = c.getContext('2d');
-    // Lighter navy base
-    ctx.fillStyle = '#252a48';
+    // Deep navy-charcoal base
+    ctx.fillStyle = '#1e2240';
     ctx.fillRect(0, 0, 512, 512);
-    // Upper portion lighter (simulates overhead light)
+    // Subtle vertical fabric grain
+    for (let x = 0; x < 512; x += 2) {
+      const v = Math.sin(x * 0.3) * 4 + Math.sin(x * 1.7) * 2;
+      ctx.fillStyle = `rgba(${40 + v},${44 + v},${75 + v},0.6)`;
+      ctx.fillRect(x, 0, 1, 512);
+    }
+    // Upper portion lighter (overhead light simulation)
     const grad = ctx.createLinearGradient(0, 0, 0, 512);
-    grad.addColorStop(0, 'rgba(80,80,130,0.2)');
-    grad.addColorStop(0.3, 'rgba(50,50,90,0.1)');
-    grad.addColorStop(1, 'rgba(10,10,30,0.15)');
+    grad.addColorStop(0, 'rgba(90,90,140,0.18)');
+    grad.addColorStop(0.15, 'rgba(60,60,100,0.08)');
+    grad.addColorStop(0.6, 'rgba(20,20,50,0.02)');
+    grad.addColorStop(1, 'rgba(0,0,0,0.12)');
     ctx.fillStyle = grad;
     ctx.fillRect(0, 0, 512, 512);
-    // Vertical panel lines
-    ctx.strokeStyle = '#353a5a';
-    ctx.lineWidth = 1;
-    for (let i = 0; i <= 512; i += 128) {
-      ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, 512); ctx.stroke();
-    }
-    // Wainscoting line at lower third
-    ctx.strokeStyle = '#404570';
-    ctx.lineWidth = 3;
+    // Wainscoting: lower panel darker with border line
+    ctx.fillStyle = 'rgba(0,0,0,0.08)';
+    ctx.fillRect(0, 340, 512, 172);
+    ctx.strokeStyle = '#3a4068';
+    ctx.lineWidth = 2;
     ctx.beginPath(); ctx.moveTo(0, 340); ctx.lineTo(512, 340); ctx.stroke();
-    // Crown molding glow
-    ctx.fillStyle = 'rgba(100,100,160,0.15)';
-    ctx.fillRect(0, 0, 512, 8);
+    // Decorative chair rail highlight
+    ctx.strokeStyle = 'rgba(120,120,180,0.15)';
+    ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(0, 336); ctx.lineTo(512, 336); ctx.stroke();
+    // Upper crown molding highlight
+    ctx.fillStyle = 'rgba(100,100,160,0.12)';
+    ctx.fillRect(0, 0, 512, 6);
     const t = new THREE.CanvasTexture(c);
     t.wrapS = t.wrapT = THREE.RepeatWrapping;
     t.repeat.set(length / 6, 1);
@@ -434,21 +441,6 @@ function Corridor({ length }) {
     t.wrapS = t.wrapT = THREE.RepeatWrapping;
     t.repeat.set(CW / 4, length / 4);
     return t;
-  }, [length]);
-
-  /* Deterministic ornament positions – generated once */
-  const ornaments = useMemo(() => {
-    const items = [];
-    const seed = (n) => ((n * 9301 + 49297) % 233280) / 233280;
-    const numOrnaments = Math.floor(length / 6);
-    for (let i = 0; i < numOrnaments; i++) {
-      const z = -(seed(i * 7 + 1) * (length - 20) + 10);
-      const side = seed(i * 13 + 3) > 0.5 ? 1 : -1;
-      const type = seed(i * 17 + 5) > 0.5 ? 'frame' : 'sconce';
-      const y = type === 'sconce' ? 2.0 + seed(i * 23) * 0.8 : 2.6 + seed(i * 29) * 0.6;
-      items.push({ z, side, type, y, idx: i });
-    }
-    return items;
   }, [length]);
 
   const midZ = -length / 2;
@@ -509,54 +501,6 @@ function Corridor({ length }) {
       <mesh rotation={[0, Math.PI, 0]} position={[0, CH / 2, 5]}>
         <planeGeometry args={[CW, CH]} />
         <meshBasicMaterial color="#141432" />
-      </mesh>
-
-      {/* Wall ornaments */}
-      {ornaments.map(o => (
-        <WallOrnament key={`orn-${o.idx}`} z={o.z} side={o.side} y={o.y} type={o.type} />
-      ))}
-    </group>
-  );
-}
-
-/* ================================================================== */
-/*  WallOrnament – decorative frames and sconces on walls              */
-/* ================================================================== */
-function WallOrnament({ z, side, y, type }) {
-  const x = side * (CW / 2 - 0.02);
-  const rotY = side === -1 ? Math.PI / 2 : -Math.PI / 2;
-
-  if (type === 'sconce') {
-    return (
-      <group position={[x, y, z]} rotation={[0, rotY, 0]}>
-        {/* Sconce bracket */}
-        <mesh position={[0, 0, 0.04]}>
-          <boxGeometry args={[0.12, 0.25, 0.08]} />
-          <meshBasicMaterial color="#3a3a5a" />
-        </mesh>
-        {/* Sconce bulb glow */}
-        <mesh position={[0, 0.18, 0.08]}>
-          <sphereGeometry args={[0.06, 8, 8]} />
-          <meshBasicMaterial color="#FDB927" transparent opacity={0.6} />
-        </mesh>
-      </group>
-    );
-  }
-
-  // Decorative empty picture frame
-  const fw = 0.6 + ((z * 7 + side * 13) % 5) * 0.1;
-  const fh = 0.5 + ((z * 11 + side * 7) % 4) * 0.08;
-  return (
-    <group position={[x, y, z]} rotation={[0, rotY, 0]}>
-      {/* Frame border */}
-      <mesh position={[0, 0, 0.02]}>
-        <boxGeometry args={[fw + 0.08, fh + 0.08, 0.03]} />
-        <meshBasicMaterial color="#2a2845" />
-      </mesh>
-      {/* Frame inner (dark) */}
-      <mesh position={[0, 0, 0.04]}>
-        <planeGeometry args={[fw, fh]} />
-        <meshBasicMaterial color="#161630" />
       </mesh>
     </group>
   );
@@ -833,7 +777,7 @@ const WallTV = React.memo(function WallTV({ edition, pos, rot, owned }) {
       )}
 
       {/* Description plaque – beside the TV (offset to the right in local space) */}
-      {showPlaque && edition.description && (
+      {showPlaque && (edition.description || edition.shortDescription) && (
         <Html
           transform
           position={[TV_SZ / 2 + 1.6, 0, 0.06]}
@@ -843,7 +787,7 @@ const WallTV = React.memo(function WallTV({ edition, pos, rot, owned }) {
         >
           <div className="desc-plaque">
             <div className="dp-label">About this Moment</div>
-            <div className="dp-text">{edition.description}</div>
+            <div className="dp-text">{edition.description || edition.shortDescription}</div>
             {edition.retired && <div className="dp-retired">RETIRED</div>}
           </div>
         </Html>
