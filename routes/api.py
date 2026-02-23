@@ -534,8 +534,8 @@ def register_routes(app):
 
         return jsonify({"hasLineup": bool(get_rank_and_lineup_for_user(username, fastbreak_id))})
 
-    @app.route("/api/showcase")
-    def showcase_editions():
+    @app.route("/api/museum")
+    def museum_editions():
         """Get all Jokic editions from TopShot marketplace.
         Optional query param: wallet=<flow_address> to include userOwnedCount."""
         try:

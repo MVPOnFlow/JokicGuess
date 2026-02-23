@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { Spinner, Alert } from 'react-bootstrap';
 import * as fcl from '@onflow/fcl';
-import './Showcase.css';
+import './Museum.css';
 
 const TIER_COLORS = {
   ULTIMATE: '#e600ff',
@@ -15,9 +15,9 @@ const TIER_COLORS = {
 const TIER_RANK = { ULTIMATE: 5, LEGENDARY: 4, RARE: 3, FANDOM: 2, COMMON: 1 };
 
 /* ------------------------------------------------------------------ */
-/*  Main Showcase – "The Jokić Museum"                                 */
+/*  Main – "The Jokić Museum"                                          */
 /* ------------------------------------------------------------------ */
-export default function Showcase() {
+export default function Museum() {
   const [editions, setEditions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -34,7 +34,7 @@ export default function Showcase() {
     (async () => {
       setLoading(true);
       try {
-        const resp = await fetch('/api/showcase');
+        const resp = await fetch('/api/museum');
         const json = await resp.json();
         if (!resp.ok) { setError(json.error || 'Failed'); return; }
         setEditions(json.editions || []);
@@ -49,7 +49,7 @@ export default function Showcase() {
     let cancelled = false;
     (async () => {
       try {
-        const resp = await fetch(`/api/showcase?wallet=${user.addr}`);
+        const resp = await fetch(`/api/museum?wallet=${user.addr}`);
         const json = await resp.json();
         if (!cancelled && !resp.ok) return;
         if (!cancelled) {
