@@ -221,31 +221,6 @@
   background: linear-gradient(135deg, #0a0d1f 0%, #1a1a2e 100%);
 }
 
-/* Locked overlay */
-.tv-locked-overlay {
-  position: absolute;
-  top: 0; left: 0;
-  width: 100%; height: 100%;
-  background: rgba(0, 0, 0, 0.65);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  z-index: 2;
-  backdrop-filter: blur(2px);
-}
-
-.tv-locked-icon {
-  font-size: 2rem;
-}
-
-.tv-locked-text {
-  font-size: 0.75rem;
-  color: #aaa;
-  text-align: center;
-}
-
 /* Owned indicator badge */
 .tv-owned-indicator {
   position: absolute;
@@ -298,6 +273,27 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.tv-parallels {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+  margin-top: 3px;
+}
+
+.tv-parallel-badge {
+  font-size: 0.6rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  padding: 1px 5px;
+  border: 1px solid;
+  border-radius: 3px;
+  background: rgba(255,255,255,0.05);
+}
+
+.tv-parallel-owned {
+  background: rgba(255,255,255,0.12);
 }
 
 .tv-meta {

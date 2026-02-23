@@ -1072,6 +1072,7 @@ def _parse_marketplace_edition(m: dict) -> dict:
 
     return {
         "id": m.get("id"),
+        "playId": play.get("id", ""),
         "tier": tier,
         "setName": set_info.get("flowName", "Unknown Set"),
         "setVisualId": set_info.get("setVisualId", ""),

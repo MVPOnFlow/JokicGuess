@@ -11,6 +11,9 @@ const TIER_COLORS = {
   COMMON: '#adb5bd',
 };
 
+// Higher = rarer; used to pick the "best" edition when deduplicating
+const TIER_RANK = { ULTIMATE: 5, LEGENDARY: 4, RARE: 3, FANDOM: 2, COMMON: 1 };
+
 /* ------------------------------------------------------------------ */
 /*  Main Showcase – "The Jokić Museum"                                 */
 /* ------------------------------------------------------------------ */
@@ -58,23 +61,49 @@ export default function Showcase() {
     return () => { cancelled = true; };
   }, [user?.addr]);
 
+  // Deduplicate editions that share the same video highlight (same playId).
+  // Keep the highest-tier edition as the "primary", but gather parallel info.
+  const deduped = useMemo(() => {
+    const byPlay = new Map();
+    for (const ed of editions) {
+      const key = ed.playId || ed.id;            // fallback to id if no playId
+      if (!byPlay.has(key)) {
+        byPlay.set(key, { primary: ed, parallels: [ed] });
+      } else {
+        const entry = byPlay.get(key);
+        entry.parallels.push(ed);
+        // Promote higher tier as primary
+        if ((TIER_RANK[ed.tier] || 0) > (TIER_RANK[entry.primary.tier] || 0)) {
+          entry.primary = ed;
+        }
+      }
+    }
+    return [...byPlay.values()].map(({ primary, parallels }) => ({
+      ...primary,
+      // Merge ownership across all parallels
+      userOwnedCount: parallels.reduce((sum, p) => sum + (p.userOwnedCount || 0), 0),
+      parallels: parallels.length > 1
+        ? parallels.map(p => ({ tier: p.tier, setName: p.setName, owned: (p.userOwnedCount || 0) > 0 }))
+        : null,
+    }));
+  }, [editions]);
+
   // Sort by game date ascending (chronological walk through museum).
   // Some editions have no dateOfMoment (e.g. Honors, Hardware, Champion's Path).
   // For those, derive a synthetic sort key from nbaSeason so they land at the end
   // of their season rather than floating to the very top.
   const sortKey = (ed) => {
     if (ed.dateOfMoment) return ed.dateOfMoment;
-    // nbaSeason like "2022-23" → place after regular season ends (use Oct of end-year)
     const m = (ed.nbaSeason || '').match(/\d{4}-(\d{2})/);
     if (m) {
       const endYear = parseInt(m[1], 10) + (m[1] < '50' ? 2000 : 1900);
-      return `${endYear}-10-01T00:00:00Z`;   // after season ends, before next starts
+      return `${endYear}-10-01T00:00:00Z`;
     }
-    return 'Z'; // unknown → very end
+    return 'Z';
   };
   const sorted = useMemo(() =>
-    [...editions].sort((a, b) => sortKey(a).localeCompare(sortKey(b))),
-    [editions]
+    [...deduped].sort((a, b) => sortKey(a).localeCompare(sortKey(b))),
+    [deduped]
   );
 
   // Group by NBA season
@@ -109,7 +138,7 @@ export default function Showcase() {
           <p className="museum-subtitle">Walk through every Nikola Jokić NBA TopShot moment</p>
           {walletConnected && ownershipLoaded && (
             <p className="museum-owned-count">
-              🎟️ You own <strong>{ownedCount}</strong> of {sorted.length} moments — hover your TVs to play them
+              🎟️ You own <strong>{ownedCount}</strong> of {sorted.length} unique moments — hover any TV to play
             </p>
           )}
           {walletConnected && !ownershipLoaded && (
@@ -118,7 +147,7 @@ export default function Showcase() {
             </p>
           )}
           {!walletConnected && (
-            <p className="museum-connect-hint">Connect your wallet to unlock video playback on moments you own</p>
+            <p className="museum-connect-hint">Hover any TV to play — connect your wallet to see which moments you own</p>
           )}
         </div>
         <div className="entrance-arrow">▼</div>
@@ -171,7 +200,7 @@ function SeasonWing({ season, editions, isOwned, walletConnected }) {
       <div className="tv-corridor">
         {editions.map((edition, idx) => (
           <TV
-            key={edition.id}
+            key={edition.playId || edition.id}
             edition={edition}
             side={idx % 2 === 0 ? 'left' : 'right'}
             owned={isOwned(edition)}
@@ -191,8 +220,6 @@ function TV({ edition, side, owned, walletConnected }) {
   const [imgError, setImgError] = useState(false);
   const videoRef = useRef(null);
   const tierColor = TIER_COLORS[edition.tier] || '#adb5bd';
-
-  const canPlay = owned && edition.videoUrl;
 
   const handleEnter = useCallback(() => setHovering(true), []);
   const handleLeave = useCallback(() => setHovering(false), []);
@@ -225,7 +252,7 @@ function TV({ edition, side, owned, walletConnected }) {
               src={edition.imageUrl}
               alt={edition.setName}
               className="tv-image"
-              style={{ opacity: hovering && canPlay ? 0 : 1 }}
+              style={{ opacity: hovering && edition.videoUrl ? 0 : 1 }}
               onError={() => setImgError(true)}
               loading="lazy"
             />
@@ -233,8 +260,8 @@ function TV({ edition, side, owned, walletConnected }) {
             <div className="tv-placeholder">🏀</div>
           )}
 
-          {/* Video on hover (only if owned) */}
-          {hovering && canPlay && (
+          {/* Video on hover (always plays) */}
+          {hovering && edition.videoUrl && (
             <video
               ref={videoRef}
               src={edition.videoUrl}
@@ -244,20 +271,6 @@ function TV({ edition, side, owned, walletConnected }) {
               playsInline
               muted
             />
-          )}
-
-          {/* Locked overlay for non-owned */}
-          {hovering && !owned && walletConnected && (
-            <div className="tv-locked-overlay">
-              <span className="tv-locked-icon">🔒</span>
-              <span className="tv-locked-text">Not in your collection</span>
-            </div>
-          )}
-          {hovering && !walletConnected && (
-            <div className="tv-locked-overlay">
-              <span className="tv-locked-icon">🔗</span>
-              <span className="tv-locked-text">Connect wallet to play</span>
-            </div>
           )}
 
           {/* Ownership glow indicator */}
@@ -271,6 +284,17 @@ function TV({ edition, side, owned, walletConnected }) {
             {edition.playCategory && <span className="tv-category">{edition.playCategory}</span>}
           </div>
           <div className="tv-set-name">{edition.setName}</div>
+          {/* Show parallel editions if this play appears in multiple sets */}
+          {edition.parallels && (
+            <div className="tv-parallels">
+              {edition.parallels.map((p, i) => (
+                <span key={i} className={`tv-parallel-badge ${p.owned ? 'tv-parallel-owned' : ''}`}
+                      style={{ borderColor: TIER_COLORS[p.tier] || '#adb5bd', color: TIER_COLORS[p.tier] || '#adb5bd' }}>
+                  {p.tier}{p.owned ? ' ✓' : ''}
+                </span>
+              ))}
+            </div>
+          )}
           <div className="tv-meta">
             {dateStr && <span>{dateStr}</span>}
             {statsLine && <span className="tv-stats">{statsLine}</span>}
