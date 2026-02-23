@@ -222,7 +222,7 @@ export default function Museum() {
         frameloop="demand"
       >
         <fog attach="fog" args={['#080812', 12, 65]} />
-        <ambientLight intensity={0.6} color="#aaaacc" />
+        <ambientLight intensity={0.7} color="#d4d4d4" />
         <directionalLight position={[2, CH, 5]} intensity={0.3} color="#ccbbaa" />
 
         {/* Ceiling light fixtures (visual only – no pointLights here, corridor uses baked/basic materials) */}
@@ -231,12 +231,12 @@ export default function Museum() {
             {/* Visible light fixture on ceiling */}
             <mesh position={[0, CH - 0.05, -i * LIGHT_SPACING - 8]}>
               <boxGeometry args={[1.2, 0.06, 0.4]} />
-              <meshBasicMaterial color="#eecc88" />
+              <meshBasicMaterial color="#f0f0f0" />
             </mesh>
             {/* Small warm glow marker below fixture */}
             <mesh position={[0, CH - 0.15, -i * LIGHT_SPACING - 8]}>
               <planeGeometry args={[0.6, 0.02]} />
-              <meshBasicMaterial color="#FDB927" transparent opacity={0.3} />
+              <meshBasicMaterial color="#ffe8b0" transparent opacity={0.4} />
             </mesh>
           </group>
         ))}
@@ -293,8 +293,8 @@ function CameraLights() {
 
   return (
     <>
-      <pointLight ref={frontRef} intensity={1.0} distance={20} color="#eecc88" decay={2} />
-      <pointLight ref={backRef} intensity={0.6} distance={15} color="#ddbbaa" decay={2} />
+      <pointLight ref={frontRef} intensity={1.0} distance={20} color="#fff5e0" decay={2} />
+      <pointLight ref={backRef} intensity={0.6} distance={15} color="#f0e8d8" decay={2} />
     </>
   );
 }
@@ -348,90 +348,75 @@ function NearbyItems({ items }) {
 /*  per-pixel lighting calc → huge GPU savings)                        */
 /* ================================================================== */
 function Corridor({ length }) {
-  /* Wooden floor texture – light yellow planks */
+  /* Wooden floor texture – light natural maple planks */
   const floorTex = useMemo(() => {
     const c = document.createElement('canvas');
     c.width = 512; c.height = 512;
     const ctx = c.getContext('2d');
-    // Light yellow wood base
-    ctx.fillStyle = '#c4a86a';
+    // Light honey-maple base
+    ctx.fillStyle = '#d4b87a';
     ctx.fillRect(0, 0, 512, 512);
     // Plank gaps (horizontal lines for lengthwise planks)
     const plankH = 64;
     for (let y = 0; y < 512; y += plankH) {
       // Slight color variation per plank
       const shade = (y * 7 % 30) - 15;
-      ctx.fillStyle = `rgb(${196 + shade}, ${168 + shade}, ${106 + shade})`;
+      ctx.fillStyle = `rgb(${212 + shade}, ${184 + shade}, ${122 + shade})`;
       ctx.fillRect(0, y + 2, 512, plankH - 2);
       // Plank gap line
-      ctx.fillStyle = '#9e8550';
+      ctx.fillStyle = '#b89860';
       ctx.fillRect(0, y, 512, 2);
       // Subtle wood grain lines within each plank
-      ctx.strokeStyle = 'rgba(140,110,60,0.12)';
+      ctx.strokeStyle = 'rgba(160,130,70,0.10)';
       ctx.lineWidth = 1;
       for (let g = 0; g < 3; g++) {
         const gy = y + 12 + g * 18 + ((y * 13 + g * 7) % 8);
         ctx.beginPath(); ctx.moveTo(0, gy); ctx.lineTo(512, gy); ctx.stroke();
       }
     }
-    // Gold center runner (subtle)
-    ctx.fillStyle = '#FDB92715';
-    ctx.fillRect(224, 0, 64, 512);
     const t = new THREE.CanvasTexture(c);
     t.wrapS = t.wrapT = THREE.RepeatWrapping;
     t.repeat.set(CW / 4, length / 4);
     return t;
   }, [length]);
 
-  /* Wall texture – rich museum fabric / velvet panels with depth */
+  /* Wall texture – muted sage/teal-gray gallery walls */
   const wallTex = useMemo(() => {
     const c = document.createElement('canvas');
     c.width = 512; c.height = 512;
     const ctx = c.getContext('2d');
-    // Deep navy-charcoal base
-    ctx.fillStyle = '#1e2240';
+    // Sage green-gray base matching reference gallery
+    ctx.fillStyle = '#6b7f7f';
     ctx.fillRect(0, 0, 512, 512);
-    // Subtle vertical fabric grain
+    // Very subtle vertical texture for matte paint feel
     for (let x = 0; x < 512; x += 2) {
-      const v = Math.sin(x * 0.3) * 4 + Math.sin(x * 1.7) * 2;
-      ctx.fillStyle = `rgba(${40 + v},${44 + v},${75 + v},0.6)`;
+      const v = Math.sin(x * 0.4) * 2 + Math.sin(x * 2.1) * 1;
+      ctx.fillStyle = `rgba(${107 + v},${127 + v},${127 + v},0.3)`;
       ctx.fillRect(x, 0, 1, 512);
     }
-    // Upper portion lighter (overhead light simulation)
+    // Subtle lighting gradient – lighter toward top
     const grad = ctx.createLinearGradient(0, 0, 0, 512);
-    grad.addColorStop(0, 'rgba(90,90,140,0.18)');
-    grad.addColorStop(0.15, 'rgba(60,60,100,0.08)');
-    grad.addColorStop(0.6, 'rgba(20,20,50,0.02)');
-    grad.addColorStop(1, 'rgba(0,0,0,0.12)');
+    grad.addColorStop(0, 'rgba(180,195,195,0.12)');
+    grad.addColorStop(0.3, 'rgba(140,155,155,0.04)');
+    grad.addColorStop(0.7, 'rgba(80,95,95,0.02)');
+    grad.addColorStop(1, 'rgba(50,65,65,0.10)');
     ctx.fillStyle = grad;
     ctx.fillRect(0, 0, 512, 512);
-    // Wainscoting: lower panel darker with border line
-    ctx.fillStyle = 'rgba(0,0,0,0.08)';
-    ctx.fillRect(0, 340, 512, 172);
-    ctx.strokeStyle = '#3a4068';
-    ctx.lineWidth = 2;
-    ctx.beginPath(); ctx.moveTo(0, 340); ctx.lineTo(512, 340); ctx.stroke();
-    // Decorative chair rail highlight
-    ctx.strokeStyle = 'rgba(120,120,180,0.15)';
-    ctx.lineWidth = 1;
-    ctx.beginPath(); ctx.moveTo(0, 336); ctx.lineTo(512, 336); ctx.stroke();
-    // Upper crown molding highlight
-    ctx.fillStyle = 'rgba(100,100,160,0.12)';
-    ctx.fillRect(0, 0, 512, 6);
     const t = new THREE.CanvasTexture(c);
     t.wrapS = t.wrapT = THREE.RepeatWrapping;
     t.repeat.set(length / 6, 1);
     return t;
   }, [length]);
 
-  /* Ceiling texture – subtle grid */
+  /* Ceiling texture – clean white with subtle panel grid */
   const ceilTex = useMemo(() => {
     const c = document.createElement('canvas');
     c.width = 256; c.height = 256;
     const ctx = c.getContext('2d');
-    ctx.fillStyle = '#1a1a32';
+    ctx.fillStyle = '#e8e8e8';
     ctx.fillRect(0, 0, 256, 256);
-    ctx.strokeStyle = '#222244';
+    // Subtle recessed panel grid
+    ctx.strokeStyle = '#d0d0d0';
     ctx.lineWidth = 1;
     for (let i = 0; i <= 256; i += 64) {
       ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, 256); ctx.stroke();
@@ -447,10 +432,10 @@ function Corridor({ length }) {
 
   return (
     <group>
-      {/* Floor – warm brown tiles */}
+      {/* Floor – light maple wood */}
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0, midZ]}>
         <planeGeometry args={[CW, length]} />
-        <meshStandardMaterial map={floorTex} roughness={0.4} metalness={0.3} />
+        <meshStandardMaterial map={floorTex} roughness={0.5} metalness={0.15} />
       </mesh>
 
       {/* Ceiling */}
@@ -462,45 +447,45 @@ function Corridor({ length }) {
       {/* Left wall */}
       <mesh rotation={[0, Math.PI / 2, 0]} position={[-CW / 2, CH / 2, midZ]}>
         <planeGeometry args={[length, CH]} />
-        <meshStandardMaterial map={wallTex} roughness={0.7} metalness={0.1} />
+        <meshStandardMaterial map={wallTex} roughness={0.85} metalness={0.05} />
       </mesh>
       {/* Right wall */}
       <mesh rotation={[0, -Math.PI / 2, 0]} position={[CW / 2, CH / 2, midZ]}>
         <planeGeometry args={[length, CH]} />
-        <meshStandardMaterial map={wallTex} roughness={0.7} metalness={0.1} />
+        <meshStandardMaterial map={wallTex} roughness={0.85} metalness={0.05} />
       </mesh>
 
-      {/* Baseboard – left */}
+      {/* Baseboard – left (wood tone) */}
       <mesh position={[-CW / 2 + 0.06, 0.12, midZ]} rotation={[0, Math.PI / 2, 0]}>
         <planeGeometry args={[length, 0.24]} />
-        <meshBasicMaterial color="#1a1a35" />
+        <meshBasicMaterial color="#b89860" />
       </mesh>
-      {/* Baseboard – right */}
+      {/* Baseboard – right (wood tone) */}
       <mesh position={[CW / 2 - 0.06, 0.12, midZ]} rotation={[0, -Math.PI / 2, 0]}>
         <planeGeometry args={[length, 0.24]} />
-        <meshBasicMaterial color="#1a1a35" />
+        <meshBasicMaterial color="#b89860" />
       </mesh>
 
       {/* Crown molding – left */}
       <mesh position={[-CW / 2 + 0.06, CH - 0.06, midZ]} rotation={[0, Math.PI / 2, 0]}>
         <planeGeometry args={[length, 0.12]} />
-        <meshBasicMaterial color="#333360" />
+        <meshBasicMaterial color="#d0d0d0" />
       </mesh>
       {/* Crown molding – right */}
       <mesh position={[CW / 2 - 0.06, CH - 0.06, midZ]} rotation={[0, -Math.PI / 2, 0]}>
         <planeGeometry args={[length, 0.12]} />
-        <meshBasicMaterial color="#333360" />
+        <meshBasicMaterial color="#d0d0d0" />
       </mesh>
 
       {/* Back wall */}
       <mesh position={[0, CH / 2, -length]}>
         <planeGeometry args={[CW, CH]} />
-        <meshBasicMaterial color="#141432" />
+        <meshBasicMaterial color="#5a6e6e" />
       </mesh>
       {/* Entrance wall */}
       <mesh rotation={[0, Math.PI, 0]} position={[0, CH / 2, 5]}>
         <planeGeometry args={[CW, CH]} />
-        <meshBasicMaterial color="#141432" />
+        <meshBasicMaterial color="#5a6e6e" />
       </mesh>
     </group>
   );
@@ -566,7 +551,7 @@ function SeasonBanner({ season, count, z }) {
       <Html
         transform
         center
-        position={[0, CH - 0.3, 0.2]}
+        position={[0, CH - 0.65, 0.2]}
         distanceFactor={8}
         className="season-banner-html"
       >
@@ -783,7 +768,7 @@ const WallTV = React.memo(function WallTV({ edition, pos, rot, owned }) {
       {showPlaque && (edition.description || edition.shortDescription) && (
         <Html
           transform
-          position={[TV_SZ / 2 + 1.6, 0, 0.06]}
+          position={[TV_SZ / 2 + 2.2, 0, 0.06]}
           center
           distanceFactor={5}
           className="plaque-html"
