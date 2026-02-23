@@ -231,6 +231,7 @@ export default function Museum() {
         gl={{ antialias: true, toneMapping: THREE.LinearToneMapping, toneMappingExposure: 1.0 }}
         style={{ background: '#080812' }}
         frameloop="demand"
+        onCreated={({ camera }) => camera.lookAt(0, EYE_Y, -10)}
       >
         <fog attach="fog" args={['#080812', 12, 65]} />
         <ambientLight intensity={0.7} color="#d4d4d4" />
