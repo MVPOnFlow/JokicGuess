@@ -348,23 +348,34 @@ function NearbyItems({ items }) {
 /*  per-pixel lighting calc → huge GPU savings)                        */
 /* ================================================================== */
 function Corridor({ length }) {
-  /* Tiled floor texture – baked lighting look */
+  /* Wooden floor texture – light yellow planks */
   const floorTex = useMemo(() => {
     const c = document.createElement('canvas');
     c.width = 512; c.height = 512;
     const ctx = c.getContext('2d');
-    // Lighter warm brown base
-    ctx.fillStyle = '#3d3228';
+    // Light yellow wood base
+    ctx.fillStyle = '#c4a86a';
     ctx.fillRect(0, 0, 512, 512);
-    // Tile grid
-    ctx.strokeStyle = '#4d4238';
-    ctx.lineWidth = 2;
-    for (let i = 0; i <= 512; i += 64) {
-      ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, 512); ctx.stroke();
-      ctx.beginPath(); ctx.moveTo(0, i); ctx.lineTo(512, i); ctx.stroke();
+    // Plank gaps (horizontal lines for lengthwise planks)
+    const plankH = 64;
+    for (let y = 0; y < 512; y += plankH) {
+      // Slight color variation per plank
+      const shade = (y * 7 % 30) - 15;
+      ctx.fillStyle = `rgb(${196 + shade}, ${168 + shade}, ${106 + shade})`;
+      ctx.fillRect(0, y + 2, 512, plankH - 2);
+      // Plank gap line
+      ctx.fillStyle = '#9e8550';
+      ctx.fillRect(0, y, 512, 2);
+      // Subtle wood grain lines within each plank
+      ctx.strokeStyle = 'rgba(140,110,60,0.12)';
+      ctx.lineWidth = 1;
+      for (let g = 0; g < 3; g++) {
+        const gy = y + 12 + g * 18 + ((y * 13 + g * 7) % 8);
+        ctx.beginPath(); ctx.moveTo(0, gy); ctx.lineTo(512, gy); ctx.stroke();
+      }
     }
-    // Gold center runner
-    ctx.fillStyle = '#FDB92720';
+    // Gold center runner (subtle)
+    ctx.fillStyle = '#FDB92715';
     ctx.fillRect(224, 0, 64, 512);
     const t = new THREE.CanvasTexture(c);
     t.wrapS = t.wrapT = THREE.RepeatWrapping;
@@ -778,6 +789,7 @@ const WallTV = React.memo(function WallTV({ edition, pos, rot, owned }) {
               {edition.playCategory && <span className="p3d-cat">{edition.playCategory}</span>}
             </div>
             <div className="p3d-name">{edition.setName}</div>
+            {edition.shortDescription && <div className="p3d-desc">{edition.shortDescription}</div>}
             {dateStr && <div className="p3d-date">{dateStr}{edition.teamAtMoment ? ` • ${edition.teamAtMoment}` : ''}</div>}
             {hasStats && (
               <div className="p3d-stats">
@@ -821,7 +833,7 @@ const WallTV = React.memo(function WallTV({ edition, pos, rot, owned }) {
       )}
 
       {/* Description plaque – beside the TV (offset to the right in local space) */}
-      {showPlaque && (edition.description || edition.shortDescription) && (
+      {showPlaque && edition.description && (
         <Html
           transform
           position={[TV_SZ / 2 + 1.6, 0, 0.06]}
@@ -831,7 +843,7 @@ const WallTV = React.memo(function WallTV({ edition, pos, rot, owned }) {
         >
           <div className="desc-plaque">
             <div className="dp-label">About this Moment</div>
-            <div className="dp-text">{edition.description || edition.shortDescription}</div>
+            <div className="dp-text">{edition.description}</div>
             {edition.retired && <div className="dp-retired">RETIRED</div>}
           </div>
         </Html>

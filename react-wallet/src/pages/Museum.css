@@ -445,9 +445,11 @@
 }
 
 .dp-text {
-  font-size: 12px;
+  font-size: 10px;
   color: #b0b0c8;
-  line-height: 1.6;
+  line-height: 1.55;
+  max-height: 160px;
+  overflow-y: auto;
 }
 
 .dp-retired {
