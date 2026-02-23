@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { PointerLockControls, Html } from '@react-three/drei';
 import * as THREE from 'three';
@@ -36,7 +37,10 @@ const MAX_VIDEOS = 4;      // max simultaneous video elements
 /*  Museum – top-level data + routing between entrance & 3D scene      */
 /* ================================================================== */
 export default function Museum() {
+  const [searchParams] = useSearchParams();
+  const showcaseId = searchParams.get('showcaseId') || '';
   const [editions, setEditions] = useState([]);
+  const [showcaseName, setShowcaseName] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [user, setUser] = useState({ loggedIn: null });
@@ -50,22 +54,27 @@ export default function Museum() {
 
   useEffect(() => { fcl.currentUser().subscribe(setUser); }, []);
 
-  /* Fetch editions */
+  /* Fetch editions – from showcase binder or default Jokic museum */
   useEffect(() => {
     (async () => {
       setLoading(true);
       try {
-        const r = await fetch('/api/museum');
+        const url = showcaseId
+          ? `/api/showcase/${encodeURIComponent(showcaseId)}`
+          : '/api/museum';
+        const r = await fetch(url);
         const j = await r.json();
         if (!r.ok) { setError(j.error || 'Load failed'); return; }
         setEditions(j.editions || []);
+        if (j.showcaseName) setShowcaseName(j.showcaseName);
       } catch (e) { setError(e.message); }
       finally { setLoading(false); }
     })();
-  }, []);
+  }, [showcaseId]);
 
-  /* Re-fetch with wallet for ownership */
+  /* Re-fetch with wallet for ownership (only for default Jokic museum) */
   useEffect(() => {
+    if (showcaseId) { setOwnershipLoaded(false); return; }
     if (!user?.addr) { setOwnershipLoaded(false); return; }
     let cancelled = false;
     (async () => {
@@ -76,7 +85,7 @@ export default function Museum() {
       } catch { /* ignore */ }
     })();
     return () => { cancelled = true; };
-  }, [user?.addr]);
+  }, [user?.addr, showcaseId]);
 
   /* Deduplicate by playId */
   const deduped = useMemo(() => {
@@ -173,8 +182,12 @@ export default function Museum() {
       <div className="museum-root">
         <div className="entrance-screen">
           <div className="entrance-content">
-            <h1 className="entrance-title">THE JOKIĆ MUSEUM</h1>
-            <p className="entrance-sub">A first-person walk through every Nikola Jokić NBA TopShot moment</p>
+            <h1 className="entrance-title">{showcaseId ? (showcaseName || 'SHOWCASE MUSEUM') : 'THE JOKIĆ MUSEUM'}</h1>
+            <p className="entrance-sub">
+              {showcaseId
+                ? 'A first-person walk through a curated NBA TopShot showcase'
+                : 'A first-person walk through every Nikola Jokić NBA TopShot moment'}
+            </p>
 
             {loading && (
               <div className="entrance-loading">
