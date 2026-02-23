@@ -596,8 +596,8 @@ function SeasonBanner({ season, count, z }) {
   return (
     <group position={[0, 0, z]}>
       {/* Archway top beam */}
-      <mesh position={[0, CH - 0.3, 0]}>
-        <boxGeometry args={[CW - 0.5, 0.4, 0.3]} />
+      <mesh position={[0, CH - 0.65, 0]}>
+        <boxGeometry args={[CW - 0.5, 1.1, 0.3]} />
         <meshStandardMaterial color="#0f1029" roughness={0.5} metalness={0.4} />
       </mesh>
       {/* Gold accent strip */}
