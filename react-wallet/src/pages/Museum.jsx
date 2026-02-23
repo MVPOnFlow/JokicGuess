@@ -1,8 +1,12 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { Spinner, Alert } from 'react-bootstrap';
+import { Canvas, useFrame, useThree } from '@react-three/fiber';
+import { PointerLockControls, Html } from '@react-three/drei';
+import * as THREE from 'three';
+import { Spinner } from 'react-bootstrap';
 import * as fcl from '@onflow/fcl';
 import './Museum.css';
 
+/* ---- Tier look-up tables ---- */
 const TIER_COLORS = {
   ULTIMATE: '#e600ff',
   LEGENDARY: '#ffd700',
@@ -10,11 +14,23 @@ const TIER_COLORS = {
   FANDOM: '#40e0d0',
   COMMON: '#adb5bd',
 };
-
 const TIER_RANK = { ULTIMATE: 5, LEGENDARY: 4, RARE: 3, FANDOM: 2, COMMON: 1 };
 
+/* ---- Scene constants ---- */
+const CW = 14;            // corridor width
+const CH = 5.5;           // corridor height
+const TV_SZ = 3;          // TV screen size
+const TV_Y = 2.8;         // TV center height
+const TV_GAP = 8;         // Z gap between TV pairs
+const EYE_Y = 1.65;       // camera eye height
+const SPEED = 6;           // walk speed  units/s
+const VID_RANGE = 15;      // load video within this distance
+const TEX_RANGE = 30;      // load image texture within this distance
+const PLAQUE_RANGE = 12;   // show plaque within this distance
+const LIGHT_SPACING = 16;  // ceiling light spacing
+
 /* ================================================================== */
-/*  Museum – first-person immersive gallery                            */
+/*  Museum – top-level data + routing between entrance & 3D scene      */
 /* ================================================================== */
 export default function Museum() {
   const [editions, setEditions] = useState([]);
@@ -22,299 +38,539 @@ export default function Museum() {
   const [error, setError] = useState(null);
   const [user, setUser] = useState({ loggedIn: null });
   const [ownershipLoaded, setOwnershipLoaded] = useState(false);
+  const [entered, setEntered] = useState(false);
+  const [locked, setLocked] = useState(false);
 
   useEffect(() => { fcl.currentUser().subscribe(setUser); }, []);
 
-  // Fetch editions on mount
+  /* Fetch editions */
   useEffect(() => {
     (async () => {
       setLoading(true);
       try {
-        const resp = await fetch('/api/museum');
-        const json = await resp.json();
-        if (!resp.ok) { setError(json.error || 'Failed'); return; }
-        setEditions(json.editions || []);
+        const r = await fetch('/api/museum');
+        const j = await r.json();
+        if (!r.ok) { setError(j.error || 'Load failed'); return; }
+        setEditions(j.editions || []);
       } catch (e) { setError(e.message); }
       finally { setLoading(false); }
     })();
   }, []);
 
-  // Re-fetch with wallet for ownership
+  /* Re-fetch with wallet for ownership */
   useEffect(() => {
     if (!user?.addr) { setOwnershipLoaded(false); return; }
     let cancelled = false;
     (async () => {
       try {
-        const resp = await fetch(`/api/museum?wallet=${user.addr}`);
-        const json = await resp.json();
-        if (!cancelled && resp.ok) {
-          setEditions(json.editions || []);
-          setOwnershipLoaded(true);
-        }
+        const r = await fetch(`/api/museum?wallet=${user.addr}`);
+        const j = await r.json();
+        if (!cancelled && r.ok) { setEditions(j.editions || []); setOwnershipLoaded(true); }
       } catch { /* ignore */ }
     })();
     return () => { cancelled = true; };
   }, [user?.addr]);
 
-  // Deduplicate by playId — keep highest tier, merge ownership
+  /* Deduplicate by playId */
   const deduped = useMemo(() => {
-    const byPlay = new Map();
+    const map = new Map();
     for (const ed of editions) {
       const key = ed.playId || ed.id;
-      if (!byPlay.has(key)) {
-        byPlay.set(key, { primary: ed, parallels: [ed] });
-      } else {
-        const entry = byPlay.get(key);
-        entry.parallels.push(ed);
-        if ((TIER_RANK[ed.tier] || 0) > (TIER_RANK[entry.primary.tier] || 0)) {
-          entry.primary = ed;
-        }
+      if (!map.has(key)) { map.set(key, { primary: ed, all: [ed] }); }
+      else {
+        const entry = map.get(key);
+        entry.all.push(ed);
+        if ((TIER_RANK[ed.tier] || 0) > (TIER_RANK[entry.primary.tier] || 0)) entry.primary = ed;
       }
     }
-    return [...byPlay.values()].map(({ primary, parallels }) => ({
+    return [...map.values()].map(({ primary, all }) => ({
       ...primary,
-      userOwnedCount: parallels.reduce((sum, p) => sum + (p.userOwnedCount || 0), 0),
-      parallels: parallels.length > 1
-        ? parallels.map(p => ({ tier: p.tier, setName: p.setName, owned: (p.userOwnedCount || 0) > 0 }))
+      userOwnedCount: all.reduce((s, p) => s + (p.userOwnedCount || 0), 0),
+      parallels: all.length > 1
+        ? all.map(p => ({ tier: p.tier, setName: p.setName, owned: (p.userOwnedCount || 0) > 0 }))
         : null,
     }));
   }, [editions]);
 
-  // Sort chronologically; null dateOfMoment → end of season
+  /* Sort chronologically */
   const sortKey = (ed) => {
     if (ed.dateOfMoment) return ed.dateOfMoment;
     const m = (ed.nbaSeason || '').match(/\d{4}-(\d{2})/);
-    if (m) {
-      const endYear = parseInt(m[1], 10) + (m[1] < '50' ? 2000 : 1900);
-      return `${endYear}-10-01T00:00:00Z`;
-    }
+    if (m) { const y = parseInt(m[1], 10) + (m[1] < '50' ? 2000 : 1900); return `${y}-10-01T00:00:00Z`; }
     return 'Z';
   };
-  const sorted = useMemo(() =>
-    [...deduped].sort((a, b) => sortKey(a).localeCompare(sortKey(b))),
-    [deduped]
-  );
+  const sorted = useMemo(() => [...deduped].sort((a, b) => sortKey(a).localeCompare(sortKey(b))), [deduped]);
 
-  // Group by season
+  /* Group by season */
   const seasonGroups = useMemo(() => {
-    const groups = [];
-    let cur = null;
+    const g = []; let cur = null;
     for (const ed of sorted) {
-      const season = ed.nbaSeason || 'Unknown';
-      if (season !== cur) { cur = season; groups.push({ season, editions: [] }); }
-      groups[groups.length - 1].editions.push(ed);
+      const s = ed.nbaSeason || 'Unknown';
+      if (s !== cur) { cur = s; g.push({ season: s, editions: [] }); }
+      g[g.length - 1].editions.push(ed);
     }
-    return groups;
+    return g;
   }, [sorted]);
 
   const isOwned = useCallback((ed) => (ed.userOwnedCount || 0) > 0, []);
   const walletConnected = !!user?.addr;
   const ownedCount = ownershipLoaded ? sorted.filter(isOwned).length : 0;
 
-  return (
-    <div className="museum-root">
-      {/* ---- Entrance screen ---- */}
-      <div className="museum-entrance">
-        <div className="entrance-content">
-          <h1 className="museum-title">The Jokić Museum</h1>
-          <p className="museum-subtitle">Every Nikola Jokić NBA TopShot Moment — Walk Through History</p>
+  /* Compute 3D layout: positions for every TV and season banner */
+  const layout = useMemo(() => {
+    const items = [];
+    let z = -10;
+    for (const group of seasonGroups) {
+      items.push({ type: 'season', season: group.season, count: group.editions.length, z });
+      z -= 5;
+      for (let i = 0; i < group.editions.length; i += 2) {
+        items.push({
+          type: 'tv', edition: group.editions[i], side: 'left', owned: isOwned(group.editions[i]),
+          pos: [-(CW / 2) + 0.02, TV_Y, z], rot: [0, Math.PI / 2, 0],
+        });
+        if (group.editions[i + 1]) {
+          items.push({
+            type: 'tv', edition: group.editions[i + 1], side: 'right', owned: isOwned(group.editions[i + 1]),
+            pos: [(CW / 2) - 0.02, TV_Y, z], rot: [0, -Math.PI / 2, 0],
+          });
+        }
+        z -= TV_GAP;
+      }
+      z -= 4;
+    }
+    return { items, length: Math.abs(z) + 10 };
+  }, [seasonGroups, isOwned]);
 
-          {walletConnected && ownershipLoaded && (
-            <p className="museum-owned-count">
-              🎟️ You own <strong>{ownedCount}</strong> of {sorted.length} unique moments
-            </p>
-          )}
-          {walletConnected && !ownershipLoaded && (
-            <p className="museum-owned-count">
-              <Spinner animation="border" size="sm" variant="warning" /> Checking your collection…
-            </p>
-          )}
-          {!walletConnected && (
-            <p className="museum-connect-hint">
-              Connect your wallet to see which moments you own
-            </p>
-          )}
-        </div>
+  /* Pointer lock tracking */
+  useEffect(() => {
+    const h = () => setLocked(!!document.pointerLockElement);
+    document.addEventListener('pointerlockchange', h);
+    return () => document.removeEventListener('pointerlockchange', h);
+  }, []);
 
-        <div className="entrance-scroll">
-          <span>Scroll to enter</span>
-          <span className="scroll-arrow">▼</span>
-        </div>
-      </div>
+  const exitMuseum = useCallback(() => {
+    if (document.pointerLockElement) document.exitPointerLock();
+    setEntered(false);
+  }, []);
 
-      {/* ---- Loading / Error ---- */}
-      {loading && (
-        <div className="text-center py-5">
-          <Spinner animation="border" variant="warning" />
-          <p className="mt-3 text-muted">Opening the museum…</p>
-        </div>
-      )}
-      {error && (
-        <Alert variant="danger" className="text-center mx-auto" style={{ maxWidth: 500 }}>{error}</Alert>
-      )}
+  const resumePointerLock = useCallback(() => {
+    const canvas = document.querySelector('.museum-3d-active canvas');
+    if (canvas) canvas.requestPointerLock();
+  }, []);
 
-      {/* ---- The Corridor ---- */}
-      {!loading && !error && (
-        <div className="corridor">
-          {seasonGroups.map((group) => (
-            <SeasonRoom key={group.season} season={group.season} editions={group.editions} isOwned={isOwned} />
-          ))}
+  /* ---------------------------------------------------------------- */
+  /*  Entrance Screen                                                  */
+  /* ---------------------------------------------------------------- */
+  if (!entered) {
+    return (
+      <div className="museum-root">
+        <div className="entrance-screen">
+          <div className="entrance-content">
+            <h1 className="entrance-title">THE JOKIĆ MUSEUM</h1>
+            <p className="entrance-sub">A first-person walk through every Nikola Jokić NBA TopShot moment</p>
 
-          <div className="museum-end">
-            <div className="end-sign">🏆 End of Tour — {sorted.length} Moments</div>
+            {loading && (
+              <div className="entrance-loading">
+                <Spinner animation="border" variant="warning" size="sm" />
+                <span>Loading moments…</span>
+              </div>
+            )}
+            {error && <p className="entrance-error">{error}</p>}
+
+            {!loading && !error && (
+              <>
+                <p className="entrance-count">
+                  {sorted.length} unique moments across {seasonGroups.length} seasons
+                </p>
+                {walletConnected && ownershipLoaded && (
+                  <p className="entrance-owned">🎟️ You own {ownedCount} moments</p>
+                )}
+                {walletConnected && !ownershipLoaded && (
+                  <p className="entrance-owned">
+                    <Spinner animation="border" size="sm" variant="warning" /> Checking collection…
+                  </p>
+                )}
+                <button className="entrance-btn" onClick={() => setEntered(true)}>
+                  Enter Museum
+                </button>
+                <div className="entrance-controls">
+                  <span><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> Move</span>
+                  <span><kbd>Mouse</kbd> Look Around</span>
+                  <span><kbd>ESC</kbd> Pause</span>
+                </div>
+              </>
+            )}
           </div>
         </div>
-      )}
-    </div>
-  );
-}
-
-/* ================================================================== */
-/*  Season Room – a wing of the museum for one season                  */
-/* ================================================================== */
-function SeasonRoom({ season, editions, isOwned }) {
-  // Pair editions into rows of 2 (left + right wall)
-  const rows = [];
-  for (let i = 0; i < editions.length; i += 2) {
-    rows.push({ left: editions[i], right: editions[i + 1] || null });
+      </div>
+    );
   }
 
-  return (
-    <div className="season-room">
-      {/* Season archway */}
-      <div className="season-arch">
-        <div className="season-plaque">
-          <span className="season-year">{season}</span>
-          <span className="season-count">{editions.length} moment{editions.length !== 1 ? 's' : ''}</span>
-        </div>
-      </div>
+  /* ---------------------------------------------------------------- */
+  /*  3D Scene                                                         */
+  /* ---------------------------------------------------------------- */
+  const numCeilingLights = Math.ceil(layout.length / LIGHT_SPACING);
 
-      {/* TV rows */}
-      {rows.map((row, idx) => (
-        <div className="wall-row" key={idx}>
-          <TVMount edition={row.left} side="left" owned={isOwned(row.left)} />
-          <div className="wall-pillar" />
-          {row.right ? (
-            <TVMount edition={row.right} side="right" owned={isOwned(row.right)} />
+  return (
+    <div className="museum-root museum-3d-active">
+      <Canvas
+        camera={{ fov: 75, near: 0.1, far: 200, position: [0, EYE_Y, 2] }}
+        gl={{ antialias: true, toneMapping: THREE.ACESFilmicToneMapping, toneMappingExposure: 1.2 }}
+        style={{ background: '#060610' }}
+      >
+        <fog attach="fog" args={['#060610', 5, 55]} />
+        <ambientLight intensity={0.12} color="#8888aa" />
+
+        {/* Ceiling lights along corridor */}
+        {Array.from({ length: numCeilingLights }, (_, i) => (
+          <pointLight
+            key={`cl-${i}`}
+            position={[0, CH - 0.3, -i * LIGHT_SPACING - 8]}
+            intensity={0.6}
+            distance={14}
+            color="#ddccaa"
+            decay={2}
+          />
+        ))}
+
+        <Corridor length={layout.length} />
+        <Movement length={layout.length} />
+        <PointerLockControls />
+
+        {layout.items.map((item, i) =>
+          item.type === 'season' ? (
+            <SeasonBanner key={`s-${i}`} season={item.season} count={item.count} z={item.z} />
           ) : (
-            <div /> /* empty cell keeps grid aligned */
-          )}
-        </div>
-      ))}
+            <WallTV key={`tv-${i}`} edition={item.edition} pos={item.pos} rot={item.rot} owned={item.owned} />
+          )
+        )}
+      </Canvas>
+
+      {/* HUD overlay */}
+      <div className="hud">
+        {locked && <div className="crosshair" />}
+        {!locked && (
+          <div className="pause-overlay" onClick={resumePointerLock}>
+            <div className="pause-box">
+              <p className="pause-text">Click to look around</p>
+              <p className="pause-hint">WASD to move · Mouse to look · ESC to pause</p>
+              <button
+                className="exit-btn"
+                onClick={(e) => { e.stopPropagation(); exitMuseum(); }}
+              >
+                ← Exit Museum
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
 
 /* ================================================================== */
-/*  TV Mount – screen + plaque                                         */
+/*  Corridor – floor, walls, ceiling geometry                          */
 /* ================================================================== */
-function TVMount({ edition, side, owned }) {
-  const [hovering, setHovering] = useState(false);
-  const [imgError, setImgError] = useState(false);
+function Corridor({ length }) {
+  const floorTex = useMemo(() => {
+    const c = document.createElement('canvas');
+    c.width = 512; c.height = 512;
+    const ctx = c.getContext('2d');
+    ctx.fillStyle = '#12122a';
+    ctx.fillRect(0, 0, 512, 512);
+    ctx.strokeStyle = '#1a1a3a';
+    ctx.lineWidth = 1;
+    for (let i = 0; i <= 512; i += 64) {
+      ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, 512); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(0, i); ctx.lineTo(512, i); ctx.stroke();
+    }
+    // Center line
+    ctx.strokeStyle = '#FDB92718';
+    ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.moveTo(256, 0); ctx.lineTo(256, 512); ctx.stroke();
+    const t = new THREE.CanvasTexture(c);
+    t.wrapS = t.wrapT = THREE.RepeatWrapping;
+    t.repeat.set(CW / 4, length / 4);
+    return t;
+  }, [length]);
+
+  const midZ = -length / 2;
+
+  return (
+    <group>
+      {/* Floor */}
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0, midZ]}>
+        <planeGeometry args={[CW, length]} />
+        <meshStandardMaterial map={floorTex} roughness={0.5} metalness={0.35} />
+      </mesh>
+      {/* Ceiling */}
+      <mesh rotation={[Math.PI / 2, 0, 0]} position={[0, CH, midZ]}>
+        <planeGeometry args={[CW, length]} />
+        <meshStandardMaterial color="#080818" roughness={1} />
+      </mesh>
+      {/* Left wall */}
+      <mesh rotation={[0, Math.PI / 2, 0]} position={[-CW / 2, CH / 2, midZ]}>
+        <planeGeometry args={[length, CH]} />
+        <meshStandardMaterial color="#0c0c22" roughness={0.85} metalness={0.1} />
+      </mesh>
+      {/* Right wall */}
+      <mesh rotation={[0, -Math.PI / 2, 0]} position={[CW / 2, CH / 2, midZ]}>
+        <planeGeometry args={[length, CH]} />
+        <meshStandardMaterial color="#0c0c22" roughness={0.85} metalness={0.1} />
+      </mesh>
+      {/* Back wall */}
+      <mesh position={[0, CH / 2, -length]}>
+        <planeGeometry args={[CW, CH]} />
+        <meshStandardMaterial color="#0a0a1e" roughness={0.9} />
+      </mesh>
+      {/* Entrance wall */}
+      <mesh rotation={[0, Math.PI, 0]} position={[0, CH / 2, 5]}>
+        <planeGeometry args={[CW, CH]} />
+        <meshStandardMaterial color="#0a0a1e" roughness={0.9} />
+      </mesh>
+    </group>
+  );
+}
+
+/* ================================================================== */
+/*  WASD Movement                                                      */
+/* ================================================================== */
+function Movement({ length }) {
+  const { camera } = useThree();
+  const keys = useRef({});
+
+  useEffect(() => {
+    const dn = (e) => { keys.current[e.code] = true; };
+    const up = (e) => { keys.current[e.code] = false; };
+    window.addEventListener('keydown', dn);
+    window.addEventListener('keyup', up);
+    return () => { window.removeEventListener('keydown', dn); window.removeEventListener('keyup', up); };
+  }, []);
+
+  const dir = useMemo(() => new THREE.Vector3(), []);
+  const right = useMemo(() => new THREE.Vector3(), []);
+
+  useFrame((_, delta) => {
+    if (!document.pointerLockElement) return;
+    const spd = SPEED * Math.min(delta, 0.1);
+
+    camera.getWorldDirection(dir);
+    dir.y = 0; dir.normalize();
+    right.crossVectors(dir, camera.up).normalize();
+
+    if (keys.current.KeyW || keys.current.ArrowUp) camera.position.addScaledVector(dir, spd);
+    if (keys.current.KeyS || keys.current.ArrowDown) camera.position.addScaledVector(dir, -spd);
+    if (keys.current.KeyA || keys.current.ArrowLeft) camera.position.addScaledVector(right, -spd);
+    if (keys.current.KeyD || keys.current.ArrowRight) camera.position.addScaledVector(right, spd);
+
+    // Keep inside corridor
+    camera.position.x = THREE.MathUtils.clamp(camera.position.x, -CW / 2 + 0.6, CW / 2 - 0.6);
+    camera.position.z = THREE.MathUtils.clamp(camera.position.z, -length + 1, 4);
+    camera.position.y = EYE_Y;
+  });
+
+  return null;
+}
+
+/* ================================================================== */
+/*  Season Banner – arch between seasons                               */
+/* ================================================================== */
+function SeasonBanner({ season, count, z }) {
+  return (
+    <group position={[0, 0, z]}>
+      {/* Archway top beam */}
+      <mesh position={[0, CH - 0.3, 0]}>
+        <boxGeometry args={[CW - 0.5, 0.4, 0.3]} />
+        <meshStandardMaterial color="#0f1029" roughness={0.5} metalness={0.4} />
+      </mesh>
+      {/* Gold accent strip */}
+      <mesh position={[0, CH - 0.08, 0.16]}>
+        <boxGeometry args={[CW - 0.6, 0.08, 0.02]} />
+        <meshBasicMaterial color="#FDB927" />
+      </mesh>
+      {/* Season label */}
+      <Html
+        center
+        position={[0, CH - 0.3, 0.2]}
+        distanceFactor={8}
+        className="season-banner-html"
+      >
+        <div className="season-banner-inner">
+          <span className="sb-year">{season}</span>
+          <span className="sb-count">{count} moment{count !== 1 ? 's' : ''}</span>
+        </div>
+      </Html>
+      {/* Warm light at the arch */}
+      <pointLight position={[0, CH - 0.8, 0]} intensity={0.4} distance={8} color="#FDB927" decay={2} />
+    </group>
+  );
+}
+
+/* ================================================================== */
+/*  Wall TV – screen + plaque with proximity-based loading             */
+/* ================================================================== */
+const WallTV = React.memo(function WallTV({ edition, pos, rot, owned }) {
+  const { camera } = useThree();
+  const [imgTex, setImgTex] = useState(null);
+  const [vidTex, setVidTex] = useState(null);
   const videoRef = useRef(null);
+  const loadingImg = useRef(false);
+  const frameIdx = useRef(Math.floor(Math.random() * 15)); // stagger checks
+  const [showPlaque, setShowPlaque] = useState(false);
+
+  const posVec = useMemo(() => new THREE.Vector3(...pos), [pos]);
   const tierColor = TIER_COLORS[edition.tier] || '#adb5bd';
 
-  const handleEnter = useCallback(() => setHovering(true), []);
-  const handleLeave = useCallback(() => setHovering(false), []);
+  useFrame(() => {
+    frameIdx.current++;
+    if (frameIdx.current % 15 !== 0) return;
+
+    const dist = camera.position.distanceTo(posVec);
+
+    // Image texture
+    if (dist < TEX_RANGE && !imgTex && !loadingImg.current && edition.imageUrl) {
+      loadingImg.current = true;
+      new THREE.TextureLoader().load(
+        edition.imageUrl,
+        (t) => { t.colorSpace = THREE.SRGBColorSpace; setImgTex(t); },
+        undefined,
+        () => { loadingImg.current = false; }
+      );
+    }
+
+    // Video
+    if (dist < VID_RANGE && !videoRef.current && edition.videoUrl) {
+      const v = document.createElement('video');
+      v.crossOrigin = 'anonymous';
+      v.src = edition.videoUrl;
+      v.loop = true;
+      v.muted = true;
+      v.playsInline = true;
+      v.play().catch(() => {});
+      videoRef.current = v;
+      const vt = new THREE.VideoTexture(v);
+      vt.colorSpace = THREE.SRGBColorSpace;
+      setVidTex(vt);
+    } else if (dist >= VID_RANGE + 5 && videoRef.current) {
+      videoRef.current.pause();
+      videoRef.current.removeAttribute('src');
+      videoRef.current.load();
+      videoRef.current = null;
+      if (vidTex) vidTex.dispose();
+      setVidTex(null);
+    }
+
+    // Plaque
+    const near = dist < PLAQUE_RANGE;
+    if (near !== showPlaque) setShowPlaque(near);
+  });
+
+  // Cleanup
+  useEffect(() => () => {
+    if (videoRef.current) {
+      videoRef.current.pause();
+      videoRef.current.removeAttribute('src');
+      videoRef.current.load();
+    }
+  }, []);
+
+  const activeTex = vidTex || imgTex;
 
   const dateStr = edition.dateOfMoment
     ? new Date(edition.dateOfMoment).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
     : '';
-
   const stats = edition.gameStats || {};
   const hasStats = stats.points != null || stats.rebounds != null || stats.assists != null;
 
   return (
-    <div className={`tv-mount tv-mount-${side}`}>
-      <div
-        className="tv-wall-panel"
-        style={{ '--tier-color': tierColor }}
-        onMouseEnter={handleEnter}
-        onMouseLeave={handleLeave}
-      >
-        {/* Screen */}
-        <div className="tv-screen">
-          {edition.imageUrl && !imgError ? (
-            <img
-              src={edition.imageUrl}
-              alt={edition.setName}
-              className="tv-image"
-              style={{ opacity: hovering && edition.videoUrl ? 0 : 1 }}
-              onError={() => setImgError(true)}
-              loading="lazy"
-            />
-          ) : (
-            <div className="tv-placeholder">🏀</div>
-          )}
+    <group position={pos} rotation={rot}>
+      {/* TV outer frame */}
+      <mesh position={[0, 0, -0.04]}>
+        <boxGeometry args={[TV_SZ + 0.4, TV_SZ + 0.4, 0.06]} />
+        <meshStandardMaterial color="#111" roughness={0.3} metalness={0.9} />
+      </mesh>
 
-          {hovering && edition.videoUrl && (
-            <video
-              ref={videoRef}
-              src={edition.videoUrl}
-              className="tv-video"
-              autoPlay
-              loop
-              playsInline
-              muted
-            />
-          )}
+      {/* Tier-color bezel */}
+      <mesh position={[0, 0, -0.015]}>
+        <planeGeometry args={[TV_SZ + 0.15, TV_SZ + 0.15]} />
+        <meshBasicMaterial color={tierColor} />
+      </mesh>
 
-          {owned && <div className="tv-owned-indicator">✓ OWNED</div>}
-        </div>
+      {/* Screen */}
+      <mesh>
+        <planeGeometry args={[TV_SZ, TV_SZ]} />
+        {activeTex ? (
+          <meshBasicMaterial map={activeTex} toneMapped={false} />
+        ) : (
+          <meshBasicMaterial color="#0a0a18" />
+        )}
+      </mesh>
 
-        {/* Plaque */}
-        <div className="tv-plaque" style={{ '--tier-color': tierColor }}>
-          <div className="plaque-header">
-            <span className="plaque-tier">{edition.tier}</span>
-            {edition.playCategory && <span className="plaque-category">{edition.playCategory}</span>}
+      {/* Subtle glow light from TV */}
+      <pointLight
+        position={[0, 0, 0.8]}
+        intensity={activeTex ? 0.25 : 0.05}
+        distance={4}
+        color={tierColor}
+        decay={2}
+      />
+
+      {/* Owned badge */}
+      {owned && (
+        <Html
+          position={[TV_SZ / 2 - 0.35, TV_SZ / 2 - 0.25, 0.02]}
+          distanceFactor={4}
+          className="owned-badge-html"
+        >
+          <span className="owned-badge-inner">✓ OWNED</span>
+        </Html>
+      )}
+
+      {/* Plaque – only rendered when close */}
+      {showPlaque && (
+        <Html
+          position={[0, -(TV_SZ / 2 + 1.1), 0.05]}
+          center
+          distanceFactor={5}
+          className="plaque-html"
+        >
+          <div className="plaque-3d" style={{ '--tier-color': tierColor }}>
+            <div className="p3d-header">
+              <span className="p3d-tier" style={{ color: tierColor }}>{edition.tier}</span>
+              {edition.playCategory && <span className="p3d-cat">{edition.playCategory}</span>}
+            </div>
+            <div className="p3d-name">{edition.setName}</div>
+            {edition.shortDescription && <div className="p3d-desc">{edition.shortDescription}</div>}
+            {dateStr && <div className="p3d-date">{dateStr}</div>}
+            {hasStats && (
+              <div className="p3d-stats">
+                {stats.points != null && (
+                  <div className="p3d-stat"><span className="p3d-val">{stats.points}</span><span className="p3d-lbl">PTS</span></div>
+                )}
+                {stats.rebounds != null && (
+                  <div className="p3d-stat"><span className="p3d-val">{stats.rebounds}</span><span className="p3d-lbl">REB</span></div>
+                )}
+                {stats.assists != null && (
+                  <div className="p3d-stat"><span className="p3d-val">{stats.assists}</span><span className="p3d-lbl">AST</span></div>
+                )}
+              </div>
+            )}
+            {edition.parallels && (
+              <div className="p3d-parallels">
+                {edition.parallels.map((p, i) => (
+                  <span
+                    key={i}
+                    className={`p3d-badge ${p.owned ? 'p3d-badge-owned' : ''}`}
+                    style={{ borderColor: TIER_COLORS[p.tier] || '#adb5bd', color: TIER_COLORS[p.tier] || '#adb5bd' }}
+                  >
+                    {p.tier}{p.owned ? ' ✓' : ''}
+                  </span>
+                ))}
+              </div>
+            )}
           </div>
-
-          <div className="plaque-set-name">{edition.setName}</div>
-
-          {edition.shortDescription && (
-            <div className="plaque-description">{edition.shortDescription}</div>
-          )}
-
-          {dateStr && <div className="plaque-date">{dateStr}</div>}
-
-          {hasStats && (
-            <div className="plaque-stats">
-              {stats.points != null && (
-                <div className="plaque-stat">
-                  <span className="plaque-stat-value">{stats.points}</span>
-                  <span className="plaque-stat-label">PTS</span>
-                </div>
-              )}
-              {stats.rebounds != null && (
-                <div className="plaque-stat">
-                  <span className="plaque-stat-value">{stats.rebounds}</span>
-                  <span className="plaque-stat-label">REB</span>
-                </div>
-              )}
-              {stats.assists != null && (
-                <div className="plaque-stat">
-                  <span className="plaque-stat-value">{stats.assists}</span>
-                  <span className="plaque-stat-label">AST</span>
-                </div>
-              )}
-            </div>
-          )}
-
-          {edition.parallels && (
-            <div className="plaque-parallels">
-              {edition.parallels.map((p, i) => (
-                <span
-                  key={i}
-                  className={`parallel-badge ${p.owned ? 'parallel-badge-owned' : ''}`}
-                  style={{ borderColor: TIER_COLORS[p.tier] || '#adb5bd', color: TIER_COLORS[p.tier] || '#adb5bd' }}
-                >
-                  {p.tier}{p.owned ? ' ✓' : ''}
-                </span>
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
+        </Html>
+      )}
+    </group>
   );
-}
+});

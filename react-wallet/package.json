@@ -13,12 +13,15 @@
     "@onflow/fcl": "^1.19.0",
     "@onflow/fcl-wc": "^6.0.4",
     "@onflow/kit": "^0.8.0",
+    "@react-three/drei": "^10.7.7",
+    "@react-three/fiber": "^9.5.0",
     "bootstrap": "^5.3.7",
     "bootstrap-icons": "^1.13.1",
     "react": "^19.1.0",
     "react-bootstrap": "^2.10.10",
     "react-dom": "^19.1.0",
-    "react-router-dom": "^7.6.3"
+    "react-router-dom": "^7.6.3",
+    "three": "^0.183.1"
   },
   "devDependencies": {
     "@eslint/js": "^9.30.1",
