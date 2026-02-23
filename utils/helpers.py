@@ -1084,6 +1084,7 @@ def _parse_marketplace_edition(m: dict) -> dict:
         "nbaSeason": stats.get("nbaSeason", ""),
         "jerseyNumber": stats.get("jerseyNumber", ""),
         "shortDescription": play.get("shortDescription", ""),
+        "description": play.get("description", ""),
         "circulationCount": circulations.get("circulationCount") or m.get("circulationCount"),
         "forSaleCount": circulations.get("forSaleByCollectors", 0),
         "ownedByCollectors": circulations.get("ownedByCollectors", 0),

@@ -397,6 +397,72 @@
   background: rgba(255,255,255,0.1);
 }
 
+/* Ownership row */
+.p3d-ownership {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 8px;
+  padding-top: 6px;
+  border-top: 1px solid #1a1d35;
+  font-size: 11px;
+  font-family: system-ui, -apple-system, sans-serif;
+}
+
+.p3d-own-yes {
+  color: #4ade80;
+  font-weight: 700;
+}
+
+.p3d-own-no {
+  color: #6a6a7e;
+  font-weight: 500;
+}
+
+.p3d-circulation {
+  color: #555570;
+  font-size: 10px;
+}
+
+/* Description plaque (beside the TV) */
+.desc-plaque {
+  width: 220px;
+  background: linear-gradient(180deg, #181c36, #12152c);
+  border: 1px solid #252850;
+  border-radius: 6px;
+  padding: 12px 14px;
+  font-family: system-ui, -apple-system, sans-serif;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+}
+
+.dp-label {
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: #FDB927;
+  margin-bottom: 6px;
+}
+
+.dp-text {
+  font-size: 12px;
+  color: #b0b0c8;
+  line-height: 1.6;
+}
+
+.dp-retired {
+  display: inline-block;
+  margin-top: 8px;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 1px;
+  color: #ff6b6b;
+  background: rgba(255,107,107,0.1);
+  padding: 2px 8px;
+  border-radius: 3px;
+  border: 1px solid rgba(255,107,107,0.2);
+}
+
 /* ==========================================================
    Responsive: smaller entrance on mobile
    ========================================================== */

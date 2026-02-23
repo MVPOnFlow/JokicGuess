@@ -353,19 +353,19 @@ function Corridor({ length }) {
     const c = document.createElement('canvas');
     c.width = 512; c.height = 512;
     const ctx = c.getContext('2d');
-    // Warm dark brown base
-    ctx.fillStyle = '#2a2018';
+    // Lighter warm brown base
+    ctx.fillStyle = '#3d3228';
     ctx.fillRect(0, 0, 512, 512);
     // Tile grid
-    ctx.strokeStyle = '#3a3028';
+    ctx.strokeStyle = '#4d4238';
     ctx.lineWidth = 2;
     for (let i = 0; i <= 512; i += 64) {
       ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, 512); ctx.stroke();
       ctx.beginPath(); ctx.moveTo(0, i); ctx.lineTo(512, i); ctx.stroke();
     }
     // Gold center runner
-    ctx.fillStyle = '#FDB92718';
-    ctx.fillRect(232, 0, 48, 512);
+    ctx.fillStyle = '#FDB92720';
+    ctx.fillRect(224, 0, 64, 512);
     const t = new THREE.CanvasTexture(c);
     t.wrapS = t.wrapT = THREE.RepeatWrapping;
     t.repeat.set(CW / 4, length / 4);
@@ -377,28 +377,28 @@ function Corridor({ length }) {
     const c = document.createElement('canvas');
     c.width = 512; c.height = 512;
     const ctx = c.getContext('2d');
-    // Dark navy base
-    ctx.fillStyle = '#1a1e38';
+    // Lighter navy base
+    ctx.fillStyle = '#252a48';
     ctx.fillRect(0, 0, 512, 512);
-    // Upper portion slightly lighter (simulates overhead light)
+    // Upper portion lighter (simulates overhead light)
     const grad = ctx.createLinearGradient(0, 0, 0, 512);
-    grad.addColorStop(0, 'rgba(60,60,100,0.15)');
-    grad.addColorStop(0.4, 'rgba(30,30,60,0.05)');
-    grad.addColorStop(1, 'rgba(0,0,0,0.1)');
+    grad.addColorStop(0, 'rgba(80,80,130,0.2)');
+    grad.addColorStop(0.3, 'rgba(50,50,90,0.1)');
+    grad.addColorStop(1, 'rgba(10,10,30,0.15)');
     ctx.fillStyle = grad;
     ctx.fillRect(0, 0, 512, 512);
     // Vertical panel lines
-    ctx.strokeStyle = '#282c4a';
+    ctx.strokeStyle = '#353a5a';
     ctx.lineWidth = 1;
     for (let i = 0; i <= 512; i += 128) {
       ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, 512); ctx.stroke();
     }
     // Wainscoting line at lower third
-    ctx.strokeStyle = '#303460';
+    ctx.strokeStyle = '#404570';
     ctx.lineWidth = 3;
     ctx.beginPath(); ctx.moveTo(0, 340); ctx.lineTo(512, 340); ctx.stroke();
-    // Subtle highlight strip at top (crown molding glow)
-    ctx.fillStyle = 'rgba(80,80,130,0.12)';
+    // Crown molding glow
+    ctx.fillStyle = 'rgba(100,100,160,0.15)';
     ctx.fillRect(0, 0, 512, 8);
     const t = new THREE.CanvasTexture(c);
     t.wrapS = t.wrapT = THREE.RepeatWrapping;
@@ -411,9 +411,9 @@ function Corridor({ length }) {
     const c = document.createElement('canvas');
     c.width = 256; c.height = 256;
     const ctx = c.getContext('2d');
-    ctx.fillStyle = '#151528';
+    ctx.fillStyle = '#1a1a32';
     ctx.fillRect(0, 0, 256, 256);
-    ctx.strokeStyle = '#1c1c38';
+    ctx.strokeStyle = '#222244';
     ctx.lineWidth = 1;
     for (let i = 0; i <= 256; i += 64) {
       ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, 256); ctx.stroke();
@@ -423,6 +423,21 @@ function Corridor({ length }) {
     t.wrapS = t.wrapT = THREE.RepeatWrapping;
     t.repeat.set(CW / 4, length / 4);
     return t;
+  }, [length]);
+
+  /* Deterministic ornament positions – generated once */
+  const ornaments = useMemo(() => {
+    const items = [];
+    const seed = (n) => ((n * 9301 + 49297) % 233280) / 233280;
+    const numOrnaments = Math.floor(length / 6);
+    for (let i = 0; i < numOrnaments; i++) {
+      const z = -(seed(i * 7 + 1) * (length - 20) + 10);
+      const side = seed(i * 13 + 3) > 0.5 ? 1 : -1;
+      const type = seed(i * 17 + 5) > 0.5 ? 'frame' : 'sconce';
+      const y = type === 'sconce' ? 2.0 + seed(i * 23) * 0.8 : 2.6 + seed(i * 29) * 0.6;
+      items.push({ z, side, type, y, idx: i });
+    }
+    return items;
   }, [length]);
 
   const midZ = -length / 2;
@@ -455,34 +470,82 @@ function Corridor({ length }) {
       {/* Baseboard – left */}
       <mesh position={[-CW / 2 + 0.06, 0.12, midZ]} rotation={[0, Math.PI / 2, 0]}>
         <planeGeometry args={[length, 0.24]} />
-        <meshBasicMaterial color="#12122a" />
+        <meshBasicMaterial color="#1a1a35" />
       </mesh>
       {/* Baseboard – right */}
       <mesh position={[CW / 2 - 0.06, 0.12, midZ]} rotation={[0, -Math.PI / 2, 0]}>
         <planeGeometry args={[length, 0.24]} />
-        <meshBasicMaterial color="#12122a" />
+        <meshBasicMaterial color="#1a1a35" />
       </mesh>
 
       {/* Crown molding – left */}
       <mesh position={[-CW / 2 + 0.06, CH - 0.06, midZ]} rotation={[0, Math.PI / 2, 0]}>
         <planeGeometry args={[length, 0.12]} />
-        <meshBasicMaterial color="#282850" />
+        <meshBasicMaterial color="#333360" />
       </mesh>
       {/* Crown molding – right */}
       <mesh position={[CW / 2 - 0.06, CH - 0.06, midZ]} rotation={[0, -Math.PI / 2, 0]}>
         <planeGeometry args={[length, 0.12]} />
-        <meshBasicMaterial color="#282850" />
+        <meshBasicMaterial color="#333360" />
       </mesh>
 
       {/* Back wall */}
       <mesh position={[0, CH / 2, -length]}>
         <planeGeometry args={[CW, CH]} />
-        <meshBasicMaterial color="#0e1028" />
+        <meshBasicMaterial color="#141432" />
       </mesh>
       {/* Entrance wall */}
       <mesh rotation={[0, Math.PI, 0]} position={[0, CH / 2, 5]}>
         <planeGeometry args={[CW, CH]} />
-        <meshBasicMaterial color="#0e1028" />
+        <meshBasicMaterial color="#141432" />
+      </mesh>
+
+      {/* Wall ornaments */}
+      {ornaments.map(o => (
+        <WallOrnament key={`orn-${o.idx}`} z={o.z} side={o.side} y={o.y} type={o.type} />
+      ))}
+    </group>
+  );
+}
+
+/* ================================================================== */
+/*  WallOrnament – decorative frames and sconces on walls              */
+/* ================================================================== */
+function WallOrnament({ z, side, y, type }) {
+  const x = side * (CW / 2 - 0.02);
+  const rotY = side === -1 ? Math.PI / 2 : -Math.PI / 2;
+
+  if (type === 'sconce') {
+    return (
+      <group position={[x, y, z]} rotation={[0, rotY, 0]}>
+        {/* Sconce bracket */}
+        <mesh position={[0, 0, 0.04]}>
+          <boxGeometry args={[0.12, 0.25, 0.08]} />
+          <meshBasicMaterial color="#3a3a5a" />
+        </mesh>
+        {/* Sconce bulb glow */}
+        <mesh position={[0, 0.18, 0.08]}>
+          <sphereGeometry args={[0.06, 8, 8]} />
+          <meshBasicMaterial color="#FDB927" transparent opacity={0.6} />
+        </mesh>
+      </group>
+    );
+  }
+
+  // Decorative empty picture frame
+  const fw = 0.6 + ((z * 7 + side * 13) % 5) * 0.1;
+  const fh = 0.5 + ((z * 11 + side * 7) % 4) * 0.08;
+  return (
+    <group position={[x, y, z]} rotation={[0, rotY, 0]}>
+      {/* Frame border */}
+      <mesh position={[0, 0, 0.02]}>
+        <boxGeometry args={[fw + 0.08, fh + 0.08, 0.03]} />
+        <meshBasicMaterial color="#2a2845" />
+      </mesh>
+      {/* Frame inner (dark) */}
+      <mesh position={[0, 0, 0.04]}>
+        <planeGeometry args={[fw, fh]} />
+        <meshBasicMaterial color="#161630" />
       </mesh>
     </group>
   );
@@ -700,11 +763,11 @@ const WallTV = React.memo(function WallTV({ edition, pos, rot, owned }) {
         </Html>
       )}
 
-      {/* Plaque – only rendered when close, transform keeps it attached to wall */}
+      {/* Plaque below TV – title, stats, ownership */}
       {showPlaque && (
         <Html
           transform
-          position={[0, -(TV_SZ / 2 + 1.2), 0.06]}
+          position={[0, -(TV_SZ / 2 + 0.9), 0.06]}
           center
           distanceFactor={5}
           className="plaque-html"
@@ -715,8 +778,7 @@ const WallTV = React.memo(function WallTV({ edition, pos, rot, owned }) {
               {edition.playCategory && <span className="p3d-cat">{edition.playCategory}</span>}
             </div>
             <div className="p3d-name">{edition.setName}</div>
-            {edition.shortDescription && <div className="p3d-desc">{edition.shortDescription}</div>}
-            {dateStr && <div className="p3d-date">{dateStr}</div>}
+            {dateStr && <div className="p3d-date">{dateStr}{edition.teamAtMoment ? ` • ${edition.teamAtMoment}` : ''}</div>}
             {hasStats && (
               <div className="p3d-stats">
                 {stats.points != null && (
@@ -730,6 +792,17 @@ const WallTV = React.memo(function WallTV({ edition, pos, rot, owned }) {
                 )}
               </div>
             )}
+            {/* Ownership row */}
+            <div className="p3d-ownership">
+              {owned ? (
+                <span className="p3d-own-yes">✓ You own {edition.userOwnedCount || 1}</span>
+              ) : (
+                <span className="p3d-own-no">✗ Not in your collection</span>
+              )}
+              {edition.circulationCount && (
+                <span className="p3d-circulation">#{edition.circulationCount} minted</span>
+              )}
+            </div>
             {edition.parallels && (
               <div className="p3d-parallels">
                 {edition.parallels.map((p, i) => (
@@ -743,6 +816,23 @@ const WallTV = React.memo(function WallTV({ edition, pos, rot, owned }) {
                 ))}
               </div>
             )}
+          </div>
+        </Html>
+      )}
+
+      {/* Description plaque – beside the TV (offset to the right in local space) */}
+      {showPlaque && (edition.description || edition.shortDescription) && (
+        <Html
+          transform
+          position={[TV_SZ / 2 + 1.6, 0, 0.06]}
+          center
+          distanceFactor={5}
+          className="plaque-html"
+        >
+          <div className="desc-plaque">
+            <div className="dp-label">About this Moment</div>
+            <div className="dp-text">{edition.description || edition.shortDescription}</div>
+            {edition.retired && <div className="dp-retired">RETIRED</div>}
           </div>
         </Html>
       )}
