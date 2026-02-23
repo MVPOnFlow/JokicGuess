@@ -6,7 +6,7 @@ function TDWatch() {
   // Top 3 all-time triple-double leaders
   const tdLeaders = [
     { rank: 1, name: 'Russell Westbrook', count: 207, active: true },
-    { rank: 2, name: 'Nikola Jokić', count: 184, active: true, isJokic: true },
+    { rank: 2, name: 'Nikola Jokić', count: 185, active: true, isJokic: true },
     { rank: 3, name: 'Oscar Robertson', count: 181, active: false }
   ];
 
@@ -94,7 +94,7 @@ function TDWatch() {
     { timestamp: 1739419200, opponent: 'Grizzlies', isHome: true, played: true, tripleDouble: true, stats: { points: 26, rebounds: 15, assists: 11 } },
     { timestamp: 1740110400, opponent: 'Clippers', isHome: false, played: true, tripleDouble: false, stats: { points: 22, rebounds: 17, assists: 6 } },
     { timestamp: 1740196800, opponent: 'Trail Blazers', isHome: false, played: true, tripleDouble: false, stats: { points: 32, rebounds: 9, assists: 7 } },
-    { timestamp: 1740283200, opponent: 'Warriors', isHome: false, played: false, tripleDouble: false, stats: null },
+    { timestamp: 1740283200, opponent: 'Warriors', isHome: false, played: true, tripleDouble: true, stats: { points: 35, rebounds: 20, assists: 12 } },
     { timestamp: 1740628800, opponent: 'Celtics', isHome: true, played: false, tripleDouble: false, stats: null },
     { timestamp: 1740801600, opponent: 'Thunder', isHome: false, played: false, tripleDouble: false, stats: null },
     

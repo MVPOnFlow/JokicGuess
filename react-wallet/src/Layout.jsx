@@ -56,7 +56,6 @@ export default function Layout() {
               <Nav.Link as={NavLink} to="/">Home</Nav.Link>
               <Nav.Link as={NavLink} to="/swapfest">Swapfest</Nav.Link>
               <Nav.Link as={NavLink} to="/tdwatch">TD Watch</Nav.Link>
-              <Nav.Link as={NavLink} to="/blog">Blog</Nav.Link>
               <Nav.Link as={NavLink} to="/museum" className="d-flex align-items-center">
                 <span>Museum</span>
                 <span className="ms-2 badge bg-info text-dark" style={{ fontSize: '0.65rem' }}>NEW</span>
