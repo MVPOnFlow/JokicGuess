@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Canvas, useFrame, useThree } from '@react-three/fiber';
+import { Canvas, useFrame, useThree, useLoader } from '@react-three/fiber';
 import { PointerLockControls, Html } from '@react-three/drei';
 import * as THREE from 'three';
 import { Spinner } from 'react-bootstrap';
@@ -30,6 +30,8 @@ const VID_RANGE = 14;      // load video within this distance
 const TEX_RANGE = 35;      // load image texture within this distance
 const PLAQUE_RANGE = 10;   // show plaque within this distance
 const LIGHT_SPACING = 12;  // ceiling light spacing
+const CARPET_SPACING = 24; // floor carpet spacing
+const CARPET_RADIUS = 2.2; // carpet circle radius
 const MOUNT_RANGE = 50;    // only mount WallTV components within this distance
 const MAX_VIDEOS = 4;      // max simultaneous video elements
 
@@ -270,6 +272,7 @@ export default function Museum() {
         <CameraLights />
 
         <Corridor length={layout.length} />
+        <FloorCarpets length={layout.length} />
         <Movement length={layout.length} isMobile={isMobile} mobileControls={mobileControls} />
         {!isMobile && <PointerLockControls />}
         <RenderLoop />
@@ -519,6 +522,40 @@ function Corridor({ length }) {
         <planeGeometry args={[CW, CH]} />
         <meshBasicMaterial color="#5a6e6e" />
       </mesh>
+    </group>
+  );
+}
+
+/* ================================================================== */
+/*  FloorCarpets – circular logo carpets along the corridor centre     */
+/* ================================================================== */
+const _carpetGeo = new THREE.CircleGeometry(CARPET_RADIUS, 48);
+
+function FloorCarpets({ length }) {
+  const logoTex = useLoader(THREE.TextureLoader, '/images/Logo.jpg');
+
+  const count = Math.floor(length / CARPET_SPACING);
+
+  return (
+    <group>
+      {Array.from({ length: count }, (_, i) => {
+        const z = -(i * CARPET_SPACING + 14);   // offset so first carpet is past entrance
+        return (
+          <mesh
+            key={`carpet-${i}`}
+            geometry={_carpetGeo}
+            rotation={[-Math.PI / 2, 0, 0]}
+            position={[0, 0.005, z]}
+          >
+            <meshBasicMaterial
+              map={logoTex}
+              transparent
+              opacity={0.35}
+              depthWrite={false}
+            />
+          </mesh>
+        );
+      })}
     </group>
   );
 }
