@@ -202,10 +202,10 @@ export default function Museum() {
                 <p className="entrance-count">
                   {sorted.length} unique moments across {seasonGroups.length} seasons
                 </p>
-                {walletConnected && ownershipLoaded && (
+                {!showcaseId && walletConnected && ownershipLoaded && (
                   <p className="entrance-owned">🎟️ You own {ownedCount} moments</p>
                 )}
-                {walletConnected && !ownershipLoaded && (
+                {!showcaseId && walletConnected && !ownershipLoaded && (
                   <p className="entrance-owned">
                     <Spinner animation="border" size="sm" variant="warning" /> Checking collection…
                   </p>
