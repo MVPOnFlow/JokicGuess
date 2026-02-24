@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { Canvas, useFrame, useThree } from '@react-three/fiber';
+import { useSearchParams } from 'react-router-dom';
+import { Canvas, useFrame, useThree, useLoader } from '@react-three/fiber';
 import { PointerLockControls, Html } from '@react-three/drei';
 import * as THREE from 'three';
 import { Spinner } from 'react-bootstrap';
@@ -29,6 +30,8 @@ const VID_RANGE = 14;      // load video within this distance
 const TEX_RANGE = 35;      // load image texture within this distance
 const PLAQUE_RANGE = 10;   // show plaque within this distance
 const LIGHT_SPACING = 12;  // ceiling light spacing
+const CARPET_SPACING = 24; // floor carpet spacing
+const CARPET_RADIUS = 2.2; // carpet circle radius
 const MOUNT_RANGE = 50;    // only mount WallTV components within this distance
 const MAX_VIDEOS = 4;      // max simultaneous video elements
 
@@ -36,7 +39,10 @@ const MAX_VIDEOS = 4;      // max simultaneous video elements
 /*  Museum – top-level data + routing between entrance & 3D scene      */
 /* ================================================================== */
 export default function Museum() {
+  const [searchParams] = useSearchParams();
+  const showcaseId = searchParams.get('showcaseId') || '';
   const [editions, setEditions] = useState([]);
+  const [showcaseName, setShowcaseName] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [user, setUser] = useState({ loggedIn: null });
@@ -50,22 +56,27 @@ export default function Museum() {
 
   useEffect(() => { fcl.currentUser().subscribe(setUser); }, []);
 
-  /* Fetch editions */
+  /* Fetch editions – from showcase binder or default Jokic museum */
   useEffect(() => {
     (async () => {
       setLoading(true);
       try {
-        const r = await fetch('/api/museum');
+        const url = showcaseId
+          ? `/api/showcase/${encodeURIComponent(showcaseId)}`
+          : '/api/museum';
+        const r = await fetch(url);
         const j = await r.json();
         if (!r.ok) { setError(j.error || 'Load failed'); return; }
         setEditions(j.editions || []);
+        if (j.showcaseName) setShowcaseName(j.showcaseName);
       } catch (e) { setError(e.message); }
       finally { setLoading(false); }
     })();
-  }, []);
+  }, [showcaseId]);
 
-  /* Re-fetch with wallet for ownership */
+  /* Re-fetch with wallet for ownership (only for default Jokic museum) */
   useEffect(() => {
+    if (showcaseId) { setOwnershipLoaded(false); return; }
     if (!user?.addr) { setOwnershipLoaded(false); return; }
     let cancelled = false;
     (async () => {
@@ -76,7 +87,7 @@ export default function Museum() {
       } catch { /* ignore */ }
     })();
     return () => { cancelled = true; };
-  }, [user?.addr]);
+  }, [user?.addr, showcaseId]);
 
   /* Deduplicate by playId */
   const deduped = useMemo(() => {
@@ -173,8 +184,12 @@ export default function Museum() {
       <div className="museum-root">
         <div className="entrance-screen">
           <div className="entrance-content">
-            <h1 className="entrance-title">THE JOKIĆ MUSEUM</h1>
-            <p className="entrance-sub">A first-person walk through every Nikola Jokić NBA TopShot moment</p>
+            <h1 className="entrance-title">{showcaseId ? (showcaseName || 'SHOWCASE MUSEUM') : 'THE JOKIĆ MUSEUM'}</h1>
+            <p className="entrance-sub">
+              {showcaseId
+                ? 'A first-person walk through a curated NBA TopShot showcase'
+                : 'A first-person walk through every Nikola Jokić NBA TopShot moment'}
+            </p>
 
             {loading && (
               <div className="entrance-loading">
@@ -189,10 +204,10 @@ export default function Museum() {
                 <p className="entrance-count">
                   {sorted.length} unique moments across {seasonGroups.length} seasons
                 </p>
-                {walletConnected && ownershipLoaded && (
+                {!showcaseId && walletConnected && ownershipLoaded && (
                   <p className="entrance-owned">🎟️ You own {ownedCount} moments</p>
                 )}
-                {walletConnected && !ownershipLoaded && (
+                {!showcaseId && walletConnected && !ownershipLoaded && (
                   <p className="entrance-owned">
                     <Spinner animation="border" size="sm" variant="warning" /> Checking collection…
                   </p>
@@ -257,6 +272,7 @@ export default function Museum() {
         <CameraLights />
 
         <Corridor length={layout.length} />
+        <FloorCarpets length={layout.length} />
         <Movement length={layout.length} isMobile={isMobile} mobileControls={mobileControls} />
         {!isMobile && <PointerLockControls />}
         <RenderLoop />
@@ -496,6 +512,28 @@ function Corridor({ length }) {
         <meshBasicMaterial color="#d0d0d0" />
       </mesh>
 
+      {/* ── Wainscoting ── */}
+      {/* Chair rail – left */}
+      <mesh position={[-CW / 2 + 0.07, 1.1, midZ]} rotation={[0, Math.PI / 2, 0]}>
+        <planeGeometry args={[length, 0.08]} />
+        <meshBasicMaterial color="#b89860" />
+      </mesh>
+      {/* Chair rail – right */}
+      <mesh position={[CW / 2 - 0.07, 1.1, midZ]} rotation={[0, -Math.PI / 2, 0]}>
+        <planeGeometry args={[length, 0.08]} />
+        <meshBasicMaterial color="#b89860" />
+      </mesh>
+      {/* Darker lower wall panel – left */}
+      <mesh position={[-CW / 2 + 0.07, 0.65, midZ]} rotation={[0, Math.PI / 2, 0]}>
+        <planeGeometry args={[length, 0.82]} />
+        <meshBasicMaterial color="#4a5c5c" transparent opacity={0.45} depthWrite={false} />
+      </mesh>
+      {/* Darker lower wall panel – right */}
+      <mesh position={[CW / 2 - 0.07, 0.65, midZ]} rotation={[0, -Math.PI / 2, 0]}>
+        <planeGeometry args={[length, 0.82]} />
+        <meshBasicMaterial color="#4a5c5c" transparent opacity={0.45} depthWrite={false} />
+      </mesh>
+
       {/* Back wall */}
       <mesh position={[0, CH / 2, -length]}>
         <planeGeometry args={[CW, CH]} />
@@ -506,6 +544,62 @@ function Corridor({ length }) {
         <planeGeometry args={[CW, CH]} />
         <meshBasicMaterial color="#5a6e6e" />
       </mesh>
+
+      {/* ── Logo medallions on end walls ── */}
+      <EndWallMedallion z={-length + 0.01} flipY={false} />
+      <EndWallMedallion z={4.99} flipY={true} />
+    </group>
+  );
+}
+
+/* ================================================================== */
+/*  EndWallMedallion – logo emblem centred on an end wall               */
+/* ================================================================== */
+const _medallionGeo = new THREE.CircleGeometry(1.6, 64);
+
+function EndWallMedallion({ z, flipY }) {
+  const logoTex = useLoader(THREE.TextureLoader, '/images/Logo.jpg');
+  return (
+    <mesh
+      geometry={_medallionGeo}
+      position={[0, CH / 2, z]}
+      rotation={flipY ? [0, Math.PI, 0] : [0, 0, 0]}
+    >
+      <meshBasicMaterial map={logoTex} transparent opacity={0.6} depthWrite={false} />
+    </mesh>
+  );
+}
+
+/* ================================================================== */
+/*  FloorCarpets – circular logo carpets along the corridor centre     */
+/* ================================================================== */
+const _carpetGeo = new THREE.CircleGeometry(CARPET_RADIUS, 48);
+
+function FloorCarpets({ length }) {
+  const logoTex = useLoader(THREE.TextureLoader, '/images/Logo.jpg');
+
+  const count = Math.floor(length / CARPET_SPACING);
+
+  return (
+    <group>
+      {Array.from({ length: count }, (_, i) => {
+        const z = -(i * CARPET_SPACING + 14);   // offset so first carpet is past entrance
+        return (
+          <mesh
+            key={`carpet-${i}`}
+            geometry={_carpetGeo}
+            rotation={[-Math.PI / 2, 0, 0]}
+            position={[0, 0.005, z]}
+          >
+            <meshBasicMaterial
+              map={logoTex}
+              transparent
+              opacity={0.35}
+              depthWrite={false}
+            />
+          </mesh>
+        );
+      })}
     </group>
   );
 }
@@ -771,6 +865,22 @@ const WallTV = React.memo(function WallTV({ edition, pos, rot, owned }) {
 
   return (
     <group position={pos} rotation={rot}>
+      {/* ── Picture frame accent light ── */}
+      <mesh position={[0, TV_SZ / 2 + 0.38, -0.06]}>
+        <boxGeometry args={[1.8, 0.08, 0.12]} />
+        <meshBasicMaterial color="#222" />
+      </mesh>
+      {/* Warm glow strip below the fixture */}
+      <mesh position={[0, TV_SZ / 2 + 0.30, 0.01]}>
+        <planeGeometry args={[1.6, 0.06]} />
+        <meshBasicMaterial color="#ffe8b0" transparent opacity={0.5} />
+      </mesh>
+      {/* Glow cone – soft warm triangle of light on the frame */}
+      <mesh position={[0, TV_SZ / 2 + 0.15, 0.005]}>
+        <planeGeometry args={[TV_SZ + 0.2, 0.35]} />
+        <meshBasicMaterial color="#fff5e0" transparent opacity={0.06} depthWrite={false} />
+      </mesh>
+
       {/* TV outer frame */}
       <mesh position={[0, 0, -0.04]}>
         <boxGeometry args={[TV_SZ + 0.4, TV_SZ + 0.4, 0.06]} />
@@ -854,6 +964,12 @@ const WallTV = React.memo(function WallTV({ edition, pos, rot, owned }) {
                 {stats.assists != null && (
                   <div className="p3d-stat"><span className="p3d-val">{stats.assists}</span><span className="p3d-lbl">AST</span></div>
                 )}
+                {stats.steals != null && stats.steals > 0 && (
+                  <div className="p3d-stat"><span className="p3d-val">{stats.steals}</span><span className="p3d-lbl">STL</span></div>
+                )}
+                {stats.blocks != null && stats.blocks > 0 && (
+                  <div className="p3d-stat"><span className="p3d-val">{stats.blocks}</span><span className="p3d-lbl">BLK</span></div>
+                )}
               </div>
             )}
             {/* Ownership row – only show when user has wallet connected and owns something */}
@@ -868,6 +984,14 @@ const WallTV = React.memo(function WallTV({ edition, pos, rot, owned }) {
             {!owned && edition.circulationCount && (
               <div className="p3d-ownership">
                 <span className="p3d-circulation">#{edition.circulationCount} minted</span>
+              </div>
+            )}
+            {edition.flowSerialNumber && (
+              <div className="p3d-serial">
+                Serial #{edition.flowSerialNumber}
+                {edition.lowAsk != null && edition.lowAsk > 0 && (
+                  <span className="p3d-lowask"> • Low Ask ${edition.lowAsk}</span>
+                )}
               </div>
             )}
             {edition.parallels && (
