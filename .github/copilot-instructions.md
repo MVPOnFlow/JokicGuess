@@ -77,9 +77,46 @@
 - React assets must be built into `react-build/` for production.
 - Environment variables control DB, Discord bot, and Flow credentials (see `config.py`).
 
+## Museum (3D Gallery – `Museum.jsx`)
+- **Stack**: React Three Fiber (`@react-three/fiber`), drei (`@react-three/drei`), raw THREE.js, nipplejs (mobile joystick).
+- **Scene constants** (top of file): `CW` (corridor width 14), `CH` (corridor height 5.5), `TV_SZ`, `TV_Y`, `TV_GAP`, `EYE_Y`, `SPEED`, `LIGHT_SPACING`, `CARPET_SPACING`, `CARPET_RADIUS`, `MOUNT_RANGE`, `MAX_VIDEOS`.
+- **Component hierarchy**: `Museum` (data + entrance screen) → Canvas containing `Corridor`, `FloorCarpets`, `CameraLights`, `Movement`, `NearbyItems` → `WallTV` / `SeasonBanner`.
+- **Performance rules** (important — do NOT break these):
+  - Environment meshes (`Corridor`, `FloorCarpets`, decorative elements) **must** use `meshBasicMaterial` — no per-pixel lighting cost.
+  - Share geometry instances (e.g. `_carpetGeo`, `_medallionGeo`) created once at module scope.
+  - `NearbyItems` culls `WallTV`/`SeasonBanner` by camera distance (`MOUNT_RANGE = 50`). Only nearby items are mounted.
+  - Video textures are capped at `MAX_VIDEOS = 4` simultaneous elements; loaded/disposed by distance.
+  - Canvas uses `frameloop="demand"` with a `RenderLoop` component calling `invalidate()`.
+- **Textures**: Floor, wall, and ceiling textures are procedurally generated via `<canvas>` + `CanvasTexture` inside `useMemo` — no image files needed for the base surfaces.
+- **Showcase museum**: Navigate via `/museum?showcaseId=<uuid>`. Fetches from `/api/showcase/<binder_id>` instead of `/api/museum`. Skips wallet/ownership UI.
+
+## NBA TopShot Data Scraping
+- **Primary method**: Scrape `__NEXT_DATA__` JSON from TopShot HTML pages (server-rendered Next.js).
+  - Showcase page: `https://nbatopshot.com/showcases/<binder_id>` → binder moments list.
+  - Moment page: `https://nbatopshot.com/moment/<moment_id>` → full moment detail (gameStats, seasonAverages, marketplace).
+- **GraphQL is blocked**: TopShot's `https://public-api.nbatopshot.com/graphql` returns 403 (Cloudflare bot protection). Do NOT attempt GraphQL calls.
+- **Parallel fetching**: Use `concurrent.futures.ThreadPoolExecutor` (max 10 workers) to enrich moments in parallel.
+- **Headers**: Always send a browser-like `User-Agent` header (see `_TS_HEADERS` in `routes/api.py`).
+- **Fallback**: If individual moment page scraping fails, fall back to lighter edition data from the binder/showcase `__NEXT_DATA__`.
+
+## Asset Pipeline
+- **Dual locations**: Images used by both Flask (production) and Vite (dev) must exist in:
+  - `static/images/` — served by Flask in production.
+  - `react-wallet/public/images/` — served by Vite dev server; copied to `react-build/` on build.
+- When adding a new image asset, copy it to **both** locations.
+- React code references images as `/images/filename.ext` (root-relative).
+
+## Testing
+- **Framework**: pytest with fixtures in `tests/conftest.py`.
+- **pyproject.toml quirk**: `addopts` includes coverage flags requiring `pytest-cov`. To run tests without coverage: `pytest -o "addopts=" tests/`.
+- **Test files**: `tests/test_*.py` — one per module. Test fixtures use factory functions (e.g. `_make_binder_moment()`, `_make_rich_moment()`).
+- **Mocking HTTP**: Use `unittest.mock.patch('requests.get')` for TopShot scraping tests; return mock responses with `__NEXT_DATA__` JSON embedded in HTML.
+
 ## References
 - Backend: `jokicguess.py`, `routes/api.py`, `swapfest.py`, `db/init.py`, `db/connection.py`, `utils/helpers.py`, `bot/*.py`
 - Frontend: `react-wallet/src/pages/`, `react-wallet/src/App.jsx`, `react-build/`
+- Museum: `react-wallet/src/pages/Museum.jsx`, `react-wallet/src/pages/Museum.css`
+- Tests: `tests/test_museum.py`, `tests/test_routes.py`, `tests/conftest.py`
 
 ---
 _If any section is unclear or missing, please provide feedback to improve these instructions._
