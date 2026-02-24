@@ -867,6 +867,12 @@ const WallTV = React.memo(function WallTV({ edition, pos, rot, owned }) {
                 {stats.assists != null && (
                   <div className="p3d-stat"><span className="p3d-val">{stats.assists}</span><span className="p3d-lbl">AST</span></div>
                 )}
+                {stats.steals != null && stats.steals > 0 && (
+                  <div className="p3d-stat"><span className="p3d-val">{stats.steals}</span><span className="p3d-lbl">STL</span></div>
+                )}
+                {stats.blocks != null && stats.blocks > 0 && (
+                  <div className="p3d-stat"><span className="p3d-val">{stats.blocks}</span><span className="p3d-lbl">BLK</span></div>
+                )}
               </div>
             )}
             {/* Ownership row – only show when user has wallet connected and owns something */}
@@ -881,6 +887,14 @@ const WallTV = React.memo(function WallTV({ edition, pos, rot, owned }) {
             {!owned && edition.circulationCount && (
               <div className="p3d-ownership">
                 <span className="p3d-circulation">#{edition.circulationCount} minted</span>
+              </div>
+            )}
+            {edition.flowSerialNumber && (
+              <div className="p3d-serial">
+                Serial #{edition.flowSerialNumber}
+                {edition.lowAsk != null && edition.lowAsk > 0 && (
+                  <span className="p3d-lowask"> • Low Ask ${edition.lowAsk}</span>
+                )}
               </div>
             )}
             {edition.parallels && (

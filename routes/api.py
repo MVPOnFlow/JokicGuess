@@ -549,30 +549,184 @@ def register_routes(app):
         except Exception as e:
             return jsonify({"error": str(e)}), 500
 
+    # ── Showcase helpers ────────────────────────────────────────────
+    _TS_HEADERS = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                      "AppleWebKit/537.36 (KHTML, like Gecko) "
+                      "Chrome/131.0.0.0 Safari/537.36",
+    }
+
+    def _fetch_minted_moment(moment_id):
+        """Scrape a moment page's __NEXT_DATA__ for full moment detail; return dict or None."""
+        import json as _json
+        try:
+            r = http_requests.get(
+                f"https://nbatopshot.com/moment/{moment_id}",
+                headers=_TS_HEADERS,
+                timeout=20,
+            )
+            r.raise_for_status()
+            marker = '__NEXT_DATA__" type="application/json"'
+            idx = r.text.find(marker)
+            if idx < 0:
+                return None
+            json_start = r.text.find('>', idx + len(marker)) + 1
+            json_end = r.text.find('</script>', json_start)
+            nd = _json.loads(r.text[json_start:json_end])
+            return nd.get("props", {}).get("pageProps", {}).get("moment")
+        except Exception:
+            return None
+
+    def _moment_to_edition(m):
+        """Transform a GetMintedMoment data dict into the Museum edition shape."""
+        play = m.get("play") or {}
+        stats = play.get("stats") or {}
+        game = play.get("statsPlayerGameScores") or {}
+        season_avg = play.get("statsPlayerSeasonAverageScores") or {}
+        set_info = m.get("set") or {}
+        set_play = m.get("setPlay") or {}
+        circulations = (set_play.get("circulations")
+                        or (m.get("parallelSetPlay") or {}).get("circulations")
+                        or {})
+
+        raw_tier = m.get("tier") or "MOMENT_TIER_COMMON"
+        tier = raw_tier.replace("MOMENT_TIER_", "")
+
+        asset_prefix = m.get("assetPathPrefix") or ""
+        image_url = f"{asset_prefix}Hero_2880_2880_Black.jpg" if asset_prefix else ""
+        video_url = f"{asset_prefix}Animated_1080_1080_Black.mp4" if asset_prefix else ""
+
+        mkt = (m.get("edition") or {}).get("marketplaceInfo") or {}
+        ts_score = m.get("topshotScore") or {}
+        owner = m.get("owner") or {}
+
+        return {
+            "id": m.get("id"),
+            "playId": play.get("id", ""),
+            "tier": tier,
+            "setName": set_info.get("flowName", "Unknown Set"),
+            "setVisualId": set_info.get("setVisualId", ""),
+            "seriesNumber": set_info.get("flowSeriesNumber"),
+            "playCategory": stats.get("playCategory", ""),
+            "playerName": stats.get("playerName", ""),
+            "dateOfMoment": stats.get("dateOfMoment", ""),
+            "teamAtMoment": stats.get("teamAtMoment", ""),
+            "nbaSeason": stats.get("nbaSeason", ""),
+            "jerseyNumber": stats.get("jerseyNumber", ""),
+            "shortDescription": play.get("shortDescription", ""),
+            "description": play.get("description", ""),
+            "circulationCount": circulations.get("circulationCount"),
+            "forSaleCount": circulations.get("forSaleByCollectors", 0),
+            "burned": circulations.get("burned", 0),
+            "locked": circulations.get("locked", 0),
+            "retired": set_play.get("flowRetired", False),
+            "imageUrl": image_url,
+            "videoUrl": video_url,
+            "gameStats": {
+                "points": game.get("points"),
+                "rebounds": game.get("rebounds"),
+                "assists": game.get("assists"),
+                "steals": game.get("steals"),
+                "blocks": game.get("blocks"),
+                "minutes": game.get("minutes"),
+                "fieldGoalsMade": game.get("fieldGoalsMade"),
+                "fieldGoalsAttempted": game.get("fieldGoalsAttempted"),
+                "threePointsMade": game.get("threePointsMade"),
+                "threePointsAttempted": game.get("threePointsAttempted"),
+                "freeThrowsMade": game.get("freeThrowsMade"),
+                "freeThrowsAttempted": game.get("freeThrowsAttempted"),
+            } if game else None,
+            "seasonAverages": {
+                "points": season_avg.get("points"),
+                "rebounds": season_avg.get("rebounds"),
+                "assists": season_avg.get("assists"),
+                "steals": season_avg.get("steals"),
+                "blocks": season_avg.get("blocks"),
+            } if season_avg else None,
+            "keyStats": play.get("keyStats"),
+            "flowSerialNumber": m.get("flowSerialNumber"),
+            "parallelID": m.get("parallelID", 0),
+            "price": m.get("price"),
+            "lowAsk": m.get("lowAsk"),
+            "highestOffer": m.get("highestOffer"),
+            "lastPurchasePrice": m.get("lastPurchasePrice"),
+            "topshotScore": ts_score.get("score"),
+            "averageSalePrice": ts_score.get("averageSalePrice"),
+            "floorPrice": (mkt.get("priceRange") or {}).get("min"),
+            "ownerUsername": owner.get("username"),
+            "forSale": m.get("forSale", False),
+            "userOwnedCount": 0,
+            # Game context
+            "homeTeamName": stats.get("homeTeamName", ""),
+            "homeTeamScore": stats.get("homeTeamScore"),
+            "awayTeamName": stats.get("awayTeamName", ""),
+            "awayTeamScore": stats.get("awayTeamScore"),
+        }
+
+    def _moment_to_edition_light(m):
+        """Fallback: build edition from __NEXT_DATA__ moment (no game stats)."""
+        play = m.get("play") or {}
+        stats = play.get("stats") or {}
+        set_info = m.get("set") or {}
+        set_play = m.get("setPlay") or {}
+        circulations = (set_play.get("circulations")
+                        or (m.get("parallelSetPlay") or {}).get("circulations")
+                        or {})
+        raw_tier = m.get("tier") or "MOMENT_TIER_COMMON"
+        tier = raw_tier.replace("MOMENT_TIER_", "")
+        asset_prefix = m.get("assetPathPrefix") or ""
+        image_url = f"{asset_prefix}Hero_2880_2880_Black.jpg" if asset_prefix else ""
+        video_url = f"{asset_prefix}Animated_1080_1080_Black.mp4" if asset_prefix else ""
+
+        return {
+            "id": m.get("id"),
+            "playId": play.get("id", ""),
+            "tier": tier,
+            "setName": set_info.get("flowName", "Unknown Set"),
+            "setVisualId": set_info.get("setVisualId", ""),
+            "seriesNumber": set_info.get("flowSeriesNumber"),
+            "playCategory": stats.get("playCategory", ""),
+            "playerName": stats.get("playerName", ""),
+            "dateOfMoment": stats.get("dateOfMoment", ""),
+            "teamAtMoment": stats.get("teamAtMoment", ""),
+            "nbaSeason": stats.get("nbaSeason", ""),
+            "jerseyNumber": stats.get("jerseyNumber", ""),
+            "shortDescription": play.get("shortDescription", ""),
+            "description": play.get("description", ""),
+            "circulationCount": circulations.get("circulationCount"),
+            "forSaleCount": circulations.get("forSaleByCollectors", 0),
+            "burned": circulations.get("burned", 0),
+            "locked": circulations.get("locked", 0),
+            "retired": set_play.get("flowRetired", False),
+            "imageUrl": image_url,
+            "videoUrl": video_url,
+            "gameStats": None,
+            "flowSerialNumber": m.get("flowSerialNumber"),
+            "parallelID": m.get("parallelID", 0),
+            "userOwnedCount": 0,
+        }
+
     @app.route("/api/showcase/<binder_id>")
     def museum_showcase(binder_id):
-        """Fetch a TopShot showcase by scraping the public page's __NEXT_DATA__."""
+        """Fetch a TopShot showcase and enrich each moment via GetMintedMoment."""
         import re, json as json_mod
         if not re.match(r'^[0-9a-f\-]{36}$', binder_id):
             return jsonify({"error": "Invalid showcase ID"}), 400
 
         try:
+            # Step 1: Scrape __NEXT_DATA__ for moment IDs + showcase name
             resp = http_requests.get(
                 f"https://nbatopshot.com/showcase/{binder_id}",
-                headers={
-                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
-                },
+                headers=_TS_HEADERS,
                 timeout=30,
             )
             resp.raise_for_status()
 
-            # Extract __NEXT_DATA__ JSON from the HTML
             marker = '__NEXT_DATA__" type="application/json"'
             idx = resp.text.find(marker)
             if idx < 0:
                 return jsonify({"error": "Could not parse showcase page"}), 502
 
-            # Find the JSON blob between > and </script>
             json_start = resp.text.find('>', idx + len(marker)) + 1
             json_end = resp.text.find('</script>', json_start)
             next_data = json_mod.loads(resp.text[json_start:json_end])
@@ -581,51 +735,37 @@ def register_routes(app):
             if not binder:
                 return jsonify({"error": "Showcase not found"}), 404
 
-            editions = []
+            # Collect all moments from binder pages (preserving order)
+            binder_moments = []
             for page in binder.get("pages") or []:
                 for m in page.get("moments") or []:
-                    play = m.get("play") or {}
-                    stats = play.get("stats") or {}
-                    set_info = m.get("set") or {}
-                    set_play = m.get("setPlay") or {}
-                    circulations = (set_play.get("circulations")
-                                    or (m.get("parallelSetPlay") or {}).get("circulations")
-                                    or {})
+                    binder_moments.append(m)
 
-                    raw_tier = m.get("tier") or "MOMENT_TIER_COMMON"
-                    tier = raw_tier.replace("MOMENT_TIER_", "")
+            if not binder_moments:
+                return jsonify({"editions": [], "showcaseName": binder.get("name", "Showcase")})
 
-                    asset_prefix = m.get("assetPathPrefix") or ""
-                    image_url = f"{asset_prefix}Hero_2880_2880_Black.jpg" if asset_prefix else ""
-                    video_url = f"{asset_prefix}Animated_1080_1080_Black.mp4" if asset_prefix else ""
+            # Step 2: Enrich each moment via GetMintedMoment (parallel)
+            enriched = {}
+            with ThreadPoolExecutor(max_workers=min(len(binder_moments), 10)) as pool:
+                future_to_id = {
+                    pool.submit(_fetch_minted_moment, m["id"]): m["id"]
+                    for m in binder_moments if m.get("id")
+                }
+                for future in as_completed(future_to_id):
+                    mid = future_to_id[future]
+                    result = future.result()
+                    if result:
+                        enriched[mid] = result
 
-                    editions.append({
-                        "id": m.get("id"),
-                        "playId": play.get("id", ""),
-                        "tier": tier,
-                        "setName": set_info.get("flowName", "Unknown Set"),
-                        "setVisualId": set_info.get("setVisualId", ""),
-                        "seriesNumber": set_info.get("flowSeriesNumber"),
-                        "playCategory": stats.get("playCategory", ""),
-                        "playerName": stats.get("playerName", ""),
-                        "dateOfMoment": stats.get("dateOfMoment", ""),
-                        "teamAtMoment": stats.get("teamAtMoment", ""),
-                        "nbaSeason": stats.get("nbaSeason", ""),
-                        "jerseyNumber": stats.get("jerseyNumber", ""),
-                        "shortDescription": play.get("shortDescription", ""),
-                        "description": play.get("description", ""),
-                        "circulationCount": circulations.get("circulationCount"),
-                        "forSaleCount": circulations.get("forSaleByCollectors", 0),
-                        "burned": circulations.get("burned", 0),
-                        "locked": circulations.get("locked", 0),
-                        "retired": set_play.get("flowRetired", False),
-                        "imageUrl": image_url,
-                        "videoUrl": video_url,
-                        "gameStats": None,
-                        "flowSerialNumber": m.get("flowSerialNumber"),
-                        "parallelID": m.get("parallelID", 0),
-                        "userOwnedCount": 0,
-                    })
+            # Step 3: Build editions – use enriched data where available, fall back to __NEXT_DATA__
+            editions = []
+            for m in binder_moments:
+                mid = m.get("id")
+                rich = enriched.get(mid)
+                if rich:
+                    editions.append(_moment_to_edition(rich))
+                else:
+                    editions.append(_moment_to_edition_light(m))
 
             return jsonify({
                 "editions": editions,
