@@ -512,6 +512,28 @@ function Corridor({ length }) {
         <meshBasicMaterial color="#d0d0d0" />
       </mesh>
 
+      {/* ── Wainscoting ── */}
+      {/* Chair rail – left */}
+      <mesh position={[-CW / 2 + 0.07, 1.1, midZ]} rotation={[0, Math.PI / 2, 0]}>
+        <planeGeometry args={[length, 0.08]} />
+        <meshBasicMaterial color="#b89860" />
+      </mesh>
+      {/* Chair rail – right */}
+      <mesh position={[CW / 2 - 0.07, 1.1, midZ]} rotation={[0, -Math.PI / 2, 0]}>
+        <planeGeometry args={[length, 0.08]} />
+        <meshBasicMaterial color="#b89860" />
+      </mesh>
+      {/* Darker lower wall panel – left */}
+      <mesh position={[-CW / 2 + 0.07, 0.65, midZ]} rotation={[0, Math.PI / 2, 0]}>
+        <planeGeometry args={[length, 0.82]} />
+        <meshBasicMaterial color="#4a5c5c" transparent opacity={0.45} depthWrite={false} />
+      </mesh>
+      {/* Darker lower wall panel – right */}
+      <mesh position={[CW / 2 - 0.07, 0.65, midZ]} rotation={[0, -Math.PI / 2, 0]}>
+        <planeGeometry args={[length, 0.82]} />
+        <meshBasicMaterial color="#4a5c5c" transparent opacity={0.45} depthWrite={false} />
+      </mesh>
+
       {/* Back wall */}
       <mesh position={[0, CH / 2, -length]}>
         <planeGeometry args={[CW, CH]} />
@@ -522,7 +544,29 @@ function Corridor({ length }) {
         <planeGeometry args={[CW, CH]} />
         <meshBasicMaterial color="#5a6e6e" />
       </mesh>
+
+      {/* ── Logo medallions on end walls ── */}
+      <EndWallMedallion z={-length + 0.01} flipY={false} />
+      <EndWallMedallion z={4.99} flipY={true} />
     </group>
+  );
+}
+
+/* ================================================================== */
+/*  EndWallMedallion – logo emblem centred on an end wall               */
+/* ================================================================== */
+const _medallionGeo = new THREE.CircleGeometry(1.6, 64);
+
+function EndWallMedallion({ z, flipY }) {
+  const logoTex = useLoader(THREE.TextureLoader, '/images/Logo.jpg');
+  return (
+    <mesh
+      geometry={_medallionGeo}
+      position={[0, CH / 2, z]}
+      rotation={flipY ? [0, Math.PI, 0] : [0, 0, 0]}
+    >
+      <meshBasicMaterial map={logoTex} transparent opacity={0.6} depthWrite={false} />
+    </mesh>
   );
 }
 
@@ -821,6 +865,22 @@ const WallTV = React.memo(function WallTV({ edition, pos, rot, owned }) {
 
   return (
     <group position={pos} rotation={rot}>
+      {/* ── Picture frame accent light ── */}
+      <mesh position={[0, TV_SZ / 2 + 0.38, -0.06]}>
+        <boxGeometry args={[1.8, 0.08, 0.12]} />
+        <meshBasicMaterial color="#222" />
+      </mesh>
+      {/* Warm glow strip below the fixture */}
+      <mesh position={[0, TV_SZ / 2 + 0.30, 0.01]}>
+        <planeGeometry args={[1.6, 0.06]} />
+        <meshBasicMaterial color="#ffe8b0" transparent opacity={0.5} />
+      </mesh>
+      {/* Glow cone – soft warm triangle of light on the frame */}
+      <mesh position={[0, TV_SZ / 2 + 0.15, 0.005]}>
+        <planeGeometry args={[TV_SZ + 0.2, 0.35]} />
+        <meshBasicMaterial color="#fff5e0" transparent opacity={0.06} depthWrite={false} />
+      </mesh>
+
       {/* TV outer frame */}
       <mesh position={[0, 0, -0.04]}>
         <boxGeometry args={[TV_SZ + 0.4, TV_SZ + 0.4, 0.06]} />
