@@ -404,6 +404,57 @@
   font-weight: 800;
 }
 
+/* Special serial flavors */
+.serial-icon {
+  margin-right: 4px;
+  font-size: 14px;
+}
+
+.serial-tag {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  vertical-align: middle;
+}
+
+/* #1 – gold crown */
+.serial-first {
+  background: linear-gradient(135deg, rgba(253,185,39,0.18) 0%, rgba(255,215,0,0.10) 100%);
+  border-color: rgba(253,185,39,0.5);
+}
+.serial-first .p3d-serial-num strong { color: #ffd700; }
+.serial-first .serial-tag {
+  background: linear-gradient(135deg, #ffd700, #FDB927);
+  color: #1a1a2e;
+}
+
+/* Jersey match – teal accent */
+.serial-jersey {
+  background: linear-gradient(135deg, rgba(0,200,180,0.12) 0%, rgba(0,180,160,0.06) 100%);
+  border-color: rgba(0,200,180,0.35);
+}
+.serial-jersey .p3d-serial-num strong { color: #2dd4bf; }
+.serial-jersey .serial-tag {
+  background: linear-gradient(135deg, #14b8a6, #0d9488);
+  color: #fff;
+}
+
+/* Perfect serial (last) – bullseye red */
+.serial-perfect {
+  background: linear-gradient(135deg, rgba(239,68,68,0.14) 0%, rgba(220,38,38,0.06) 100%);
+  border-color: rgba(239,68,68,0.4);
+}
+.serial-perfect .p3d-serial-num strong { color: #f87171; }
+.serial-perfect .serial-tag {
+  background: linear-gradient(135deg, #ef4444, #dc2626);
+  color: #fff;
+}
+
 .p3d-lowask {
   font-size: 12px;
   color: #4ade80;

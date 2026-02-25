@@ -1024,16 +1024,33 @@ const WallTV = React.memo(function WallTV({ edition, pos, rot, owned }) {
               </div>
             )}
             {/* Serial + Low Ask – prominent row */}
-            {(edition.flowSerialNumber || (edition.lowAsk != null && edition.lowAsk > 0)) && (
-              <div className="p3d-serial-row">
-                {edition.flowSerialNumber && (
-                  <span className="p3d-serial-num">Serial <strong>#{edition.flowSerialNumber}</strong></span>
-                )}
-                {edition.lowAsk != null && edition.lowAsk > 0 && (
-                  <span className="p3d-lowask">Low Ask <strong>${edition.lowAsk}</strong></span>
-                )}
-              </div>
-            )}
+            {(edition.flowSerialNumber || (edition.lowAsk != null && edition.lowAsk > 0)) && (() => {
+              const sn = parseInt(edition.flowSerialNumber, 10);
+              const jn = parseInt(edition.jerseyNumber, 10);
+              const cc = edition.circulationCount;
+              const isFirst = sn === 1;
+              const isJersey = !isFirst && jn > 0 && sn === jn;
+              const isPerfect = !isFirst && cc > 0 && sn === cc;
+              const specialClass = isFirst ? 'serial-first' : isJersey ? 'serial-jersey' : isPerfect ? 'serial-perfect' : '';
+              return (
+                <div className={`p3d-serial-row ${specialClass}`}>
+                  {edition.flowSerialNumber && (
+                    <span className="p3d-serial-num">
+                      {isFirst && <span className="serial-icon" title="First Serial">👑</span>}
+                      {isJersey && <span className="serial-icon" title="Jersey Serial">🎽</span>}
+                      {isPerfect && <span className="serial-icon" title="Perfect Serial">🎯</span>}
+                      Serial <strong>#{edition.flowSerialNumber}</strong>
+                      {isFirst && <span className="serial-tag">FIRST</span>}
+                      {isJersey && <span className="serial-tag">JERSEY</span>}
+                      {isPerfect && <span className="serial-tag">PERFECT</span>}
+                    </span>
+                  )}
+                  {edition.lowAsk != null && edition.lowAsk > 0 && (
+                    <span className="p3d-lowask">Low Ask <strong>${edition.lowAsk}</strong></span>
+                  )}
+                </div>
+              );
+            })()}
             {/* Mint / Ownership */}
             {(owned || edition.circulationCount) && (
               <div className="p3d-ownership">
