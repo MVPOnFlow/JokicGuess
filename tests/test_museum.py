@@ -31,8 +31,35 @@ def _make_binder_moment(moment_id="aaa-111", player="Nikola Jokić",
                         date="2025-02-01T00:00:00Z", team="Denver Nuggets",
                         season="2024-25", jersey="15",
                         short_desc="Jokic sees all.", description="A long desc.",
-                        circ_count=50, for_sale=4, burned=1, locked=28):
+                        circ_count=50, for_sale=4, burned=1, locked=28,
+                        play_tags=None, set_play_tags=None):
     """Build a moment dict as it appears in __NEXT_DATA__ binder pages."""
+    set_play = {
+        "flowRetired": True,
+        "circulations": {
+            "circulationCount": circ_count,
+            "forSaleByCollectors": for_sale,
+            "burned": burned,
+            "locked": locked,
+        },
+    }
+    if set_play_tags is not None:
+        set_play["tags"] = set_play_tags
+    play = {
+        "id": play_id,
+        "shortDescription": short_desc,
+        "description": description,
+        "stats": {
+            "playerName": player,
+            "playCategory": play_category,
+            "dateOfMoment": date,
+            "teamAtMoment": team,
+            "nbaSeason": season,
+            "jerseyNumber": jersey,
+        },
+    }
+    if play_tags is not None:
+        play["tags"] = play_tags
     return {
         "id": moment_id,
         "tier": tier,
@@ -40,29 +67,9 @@ def _make_binder_moment(moment_id="aaa-111", player="Nikola Jokić",
         "flowSerialNumber": serial,
         "parallelID": 0,
         "set": {"flowName": set_name, "flowSeriesNumber": 7, "setVisualId": "SET_VISUAL_LEGENDARY"},
-        "setPlay": {
-            "flowRetired": True,
-            "circulations": {
-                "circulationCount": circ_count,
-                "forSaleByCollectors": for_sale,
-                "burned": burned,
-                "locked": locked,
-            },
-        },
+        "setPlay": set_play,
         "parallelSetPlay": None,
-        "play": {
-            "id": play_id,
-            "shortDescription": short_desc,
-            "description": description,
-            "stats": {
-                "playerName": player,
-                "playCategory": play_category,
-                "dateOfMoment": date,
-                "teamAtMoment": team,
-                "nbaSeason": season,
-                "jerseyNumber": jersey,
-            },
-        },
+        "play": play,
     }
 
 
@@ -71,8 +78,61 @@ def _make_rich_moment(moment_id="aaa-111", player="Nikola Jokić",
                       points=28, rebounds=9, assists=13, steals=2, blocks=0,
                       low_ask=454, highest_offer=261, serial="22",
                       description="A long description of the moment.",
-                      short_desc="Jokic sees all."):
+                      short_desc="Jokic sees all.",
+                      play_tags=None, set_play_tags=None):
     """Build a moment dict as it appears in a moment page's __NEXT_DATA__."""
+    set_play = {
+        "flowRetired": True,
+        "circulations": {
+            "circulationCount": 50,
+            "forSaleByCollectors": 4,
+            "burned": 1,
+            "locked": 28,
+        },
+    }
+    if set_play_tags is not None:
+        set_play["tags"] = set_play_tags
+    play = {
+        "id": "play-1",
+        "shortDescription": short_desc,
+        "description": description,
+        "keyStats": ["PTS", "REB", "AST"],
+        "stats": {
+            "playerName": player,
+            "playCategory": "Assist",
+            "dateOfMoment": "2025-02-01T00:00:00Z",
+            "teamAtMoment": "Denver Nuggets",
+            "nbaSeason": "2024-25",
+            "jerseyNumber": "15",
+            "homeTeamName": "Philadelphia 76ers",
+            "homeTeamScore": 134,
+            "awayTeamName": "Denver Nuggets",
+            "awayTeamScore": 137,
+        },
+        "statsPlayerGameScores": {
+            "points": points,
+            "rebounds": rebounds,
+            "assists": assists,
+            "steals": steals,
+            "blocks": blocks,
+            "minutes": "37:28",
+            "fieldGoalsMade": 11,
+            "fieldGoalsAttempted": 16,
+            "threePointsMade": 2,
+            "threePointsAttempted": 3,
+            "freeThrowsMade": 4,
+            "freeThrowsAttempted": 5,
+        },
+        "statsPlayerSeasonAverageScores": {
+            "points": 29.8,
+            "rebounds": 12.5,
+            "assists": 10.2,
+            "steals": 1.8,
+            "blocks": 0.7,
+        },
+    }
+    if play_tags is not None:
+        play["tags"] = play_tags
     return {
         "id": moment_id,
         "tier": tier,
@@ -85,55 +145,9 @@ def _make_rich_moment(moment_id="aaa-111", player="Nikola Jokić",
         "highestOffer": highest_offer,
         "lastPurchasePrice": "626.00000000",
         "set": {"flowName": set_name, "flowSeriesNumber": 7, "setVisualId": "SET_VISUAL_LEGENDARY"},
-        "setPlay": {
-            "flowRetired": True,
-            "circulations": {
-                "circulationCount": 50,
-                "forSaleByCollectors": 4,
-                "burned": 1,
-                "locked": 28,
-            },
-        },
+        "setPlay": set_play,
         "parallelSetPlay": None,
-        "play": {
-            "id": "play-1",
-            "shortDescription": short_desc,
-            "description": description,
-            "keyStats": ["PTS", "REB", "AST"],
-            "stats": {
-                "playerName": player,
-                "playCategory": "Assist",
-                "dateOfMoment": "2025-02-01T00:00:00Z",
-                "teamAtMoment": "Denver Nuggets",
-                "nbaSeason": "2024-25",
-                "jerseyNumber": "15",
-                "homeTeamName": "Philadelphia 76ers",
-                "homeTeamScore": 134,
-                "awayTeamName": "Denver Nuggets",
-                "awayTeamScore": 137,
-            },
-            "statsPlayerGameScores": {
-                "points": points,
-                "rebounds": rebounds,
-                "assists": assists,
-                "steals": steals,
-                "blocks": blocks,
-                "minutes": "37:28",
-                "fieldGoalsMade": 11,
-                "fieldGoalsAttempted": 16,
-                "threePointsMade": 2,
-                "threePointsAttempted": 3,
-                "freeThrowsMade": 4,
-                "freeThrowsAttempted": 5,
-            },
-            "statsPlayerSeasonAverageScores": {
-                "points": 29.8,
-                "rebounds": 12.5,
-                "assists": 10.2,
-                "steals": 1.8,
-                "blocks": 0.7,
-            },
-        },
+        "play": play,
         "topshotScore": {"score": 6260, "averageSalePrice": "584.10000000"},
         "owner": {"username": "bobobobo", "flowAddress": "334a20bbaa7f2801"},
         "edition": {
@@ -161,14 +175,25 @@ def _make_showcase_html(binder_name="Jokic fav", moments=None):
     )
 
 
-def _make_moment_page_html(moment_dict):
-    """Build fake moment page HTML with __NEXT_DATA__."""
-    next_data = json.dumps({"props": {"pageProps": {"moment": moment_dict}}})
-    return (
-        '<html><head></head><body>'
-        f'<script id="__NEXT_DATA__" type="application/json">{next_data}</script>'
-        '</body></html>'
-    )
+def _make_graphql_response(moment_dict):
+    """Build a fake getMintedMoment GraphQL JSON response."""
+    return {"data": {"getMintedMoment": {"data": moment_dict}}}
+
+
+def _mock_post_graphql(moment_map):
+    """Return a side_effect for http_requests.post that serves GraphQL responses.
+
+    moment_map: dict of moment_id → moment_dict (from _make_rich_moment).
+    Moments not in the map get None → light fallback.
+    """
+    def side_effect(url, json=None, **kwargs):
+        resp = Mock()
+        resp.status_code = 200
+        resp.raise_for_status = Mock()
+        mid = (json or {}).get("variables", {}).get("momentId", "")
+        resp.json = Mock(return_value=_make_graphql_response(moment_map.get(mid)))
+        return resp
+    return side_effect
 
 
 # ═══════════════════════════════════════════════════════════════════════
@@ -307,32 +332,27 @@ class TestShowcaseMuseumScraping:
 class TestShowcaseMuseumSuccess:
     """Happy-path tests for showcase enrichment flow."""
 
-    def _mock_get_side_effect(self, showcase_html, moment_pages):
-        """Build a side_effect for http_requests.get that serves showcase + moment pages."""
+    @staticmethod
+    def _mock_showcase_get(showcase_html):
+        """Build a side_effect for http_requests.get that serves showcase pages."""
         def side_effect(url, **kwargs):
             resp = Mock()
             resp.status_code = 200
             resp.raise_for_status = Mock()
-            if "/showcase/" in url:
-                resp.text = showcase_html
-            elif "/moment/" in url:
-                # Extract moment ID from URL
-                mid = url.rstrip("/").split("/")[-1]
-                resp.text = moment_pages.get(mid, "<html></html>")
-            else:
-                resp.text = "<html></html>"
+            resp.text = showcase_html
             return resp
         return side_effect
 
+    @patch("routes.api.http_requests.post")
     @patch("routes.api.http_requests.get")
-    def test_single_moment_enriched(self, mock_get, client):
+    def test_single_moment_enriched(self, mock_get, mock_post, client):
         """One moment in showcase – enriched with game stats."""
         moment_id = "aaa-111"
         showcase_html = _make_showcase_html("Test Showcase", [_make_binder_moment(moment_id=moment_id)])
         rich = _make_rich_moment(moment_id=moment_id, points=28, rebounds=9, assists=13)
-        moment_pages = {moment_id: _make_moment_page_html(rich)}
 
-        mock_get.side_effect = self._mock_get_side_effect(showcase_html, moment_pages)
+        mock_get.side_effect = self._mock_showcase_get(showcase_html)
+        mock_post.side_effect = _mock_post_graphql({moment_id: rich})
 
         resp = client.get("/api/showcase/d9d1bbca-a418-483e-aaae-61d78fe1156a")
         assert resp.status_code == 200
@@ -351,19 +371,20 @@ class TestShowcaseMuseumSuccess:
         assert ed["lowAsk"] == 454
         assert ed["ownerUsername"] == "bobobobo"
 
+    @patch("routes.api.http_requests.post")
     @patch("routes.api.http_requests.get")
-    def test_multiple_moments(self, mock_get, client):
+    def test_multiple_moments(self, mock_get, mock_post, client):
         """Multiple moments in showcase – all enriched."""
         moments = [
-            _make_binder_moment(moment_id="m1", player="Nikola Jokić", set_name="Holo Icon"),
-            _make_binder_moment(moment_id="m2", player="Nikola Jokić", set_name="2023 NBA Finals"),
+            _make_binder_moment(moment_id="m1", player="Nikola Joki\u0107", set_name="Holo Icon"),
+            _make_binder_moment(moment_id="m2", player="Nikola Joki\u0107", set_name="2023 NBA Finals"),
         ]
         showcase_html = _make_showcase_html("Multi Showcase", moments)
-        moment_pages = {
-            "m1": _make_moment_page_html(_make_rich_moment(moment_id="m1", points=28)),
-            "m2": _make_moment_page_html(_make_rich_moment(moment_id="m2", points=53, rebounds=4, assists=11)),
-        }
-        mock_get.side_effect = self._mock_get_side_effect(showcase_html, moment_pages)
+        mock_get.side_effect = self._mock_showcase_get(showcase_html)
+        mock_post.side_effect = _mock_post_graphql({
+            "m1": _make_rich_moment(moment_id="m1", points=28),
+            "m2": _make_rich_moment(moment_id="m2", points=53, rebounds=4, assists=11),
+        })
 
         resp = client.get("/api/showcase/d9d1bbca-a418-483e-aaae-61d78fe1156a")
         data = resp.get_json()
@@ -371,15 +392,14 @@ class TestShowcaseMuseumSuccess:
         assert data["editions"][0]["gameStats"]["points"] == 28
         assert data["editions"][1]["gameStats"]["points"] == 53
 
+    @patch("routes.api.http_requests.post", side_effect=Exception("no graphql"))
     @patch("routes.api.http_requests.get")
-    def test_fallback_when_moment_page_fails(self, mock_get, client):
-        """When moment page scraping fails, fall back to light edition (no gameStats)."""
+    def test_fallback_when_moment_page_fails(self, mock_get, mock_post, client):
+        """When GraphQL enrichment fails, fall back to light edition (no gameStats)."""
         moment_id = "aaa-111"
         showcase_html = _make_showcase_html("Fallback Test", [_make_binder_moment(moment_id=moment_id)])
 
-        # Moment page returns garbage (no __NEXT_DATA__)
-        moment_pages = {moment_id: "<html><body>Error</body></html>"}
-        mock_get.side_effect = self._mock_get_side_effect(showcase_html, moment_pages)
+        mock_get.side_effect = self._mock_showcase_get(showcase_html)
 
         resp = client.get("/api/showcase/d9d1bbca-a418-483e-aaae-61d78fe1156a")
         data = resp.get_json()
@@ -407,17 +427,16 @@ class TestShowcaseMuseumSuccess:
         assert data["editions"] == []
         assert data["showcaseName"] == "Empty"
 
+    @patch("routes.api.http_requests.post", side_effect=Exception("no graphql"))
     @patch("routes.api.http_requests.get")
-    def test_showcase_preserves_order(self, mock_get, client):
+    def test_showcase_preserves_order(self, mock_get, mock_post, client):
         """Editions are returned in the same order as the showcase pages."""
         moments = [
             _make_binder_moment(moment_id=f"m{i}", set_name=f"Set {i}")
             for i in range(5)
         ]
         showcase_html = _make_showcase_html("Ordered", moments)
-        # All moment pages fail → light fallback, but order is preserved
-        moment_pages = {}
-        mock_get.side_effect = self._mock_get_side_effect(showcase_html, moment_pages)
+        mock_get.side_effect = self._mock_showcase_get(showcase_html)
 
         resp = client.get("/api/showcase/d9d1bbca-a418-483e-aaae-61d78fe1156a")
         data = resp.get_json()
@@ -439,8 +458,9 @@ class TestMomentToEdition:
         # test edge cases on the transform logic via the showcase route.
         pass
 
+    @patch("routes.api.http_requests.post", side_effect=Exception("no graphql"))
     @patch("routes.api.http_requests.get")
-    def test_tier_prefix_stripped(self, mock_get, client):
+    def test_tier_prefix_stripped(self, mock_get, mock_post, client):
         """MOMENT_TIER_LEGENDARY → LEGENDARY, etc."""
         for raw, expected in [
             ("MOMENT_TIER_LEGENDARY", "LEGENDARY"),
@@ -459,8 +479,9 @@ class TestMomentToEdition:
             resp = client.get("/api/showcase/d9d1bbca-a418-483e-aaae-61d78fe1156a")
             assert resp.get_json()["editions"][0]["tier"] == expected
 
+    @patch("routes.api.http_requests.post", side_effect=Exception("no graphql"))
     @patch("routes.api.http_requests.get")
-    def test_asset_urls_constructed(self, mock_get, client):
+    def test_asset_urls_constructed(self, mock_get, mock_post, client):
         """Image and video URLs are built from assetPathPrefix."""
         prefix = "https://assets.nbatopshot.com/editions/test/"
         m = _make_binder_moment(moment_id="t1", asset_prefix=prefix)
@@ -476,8 +497,9 @@ class TestMomentToEdition:
         assert ed["imageUrl"] == f"{prefix}Hero_2880_2880_Black.jpg"
         assert ed["videoUrl"] == f"{prefix}Animated_1080_1080_Black.mp4"
 
+    @patch("routes.api.http_requests.post", side_effect=Exception("no graphql"))
     @patch("routes.api.http_requests.get")
-    def test_empty_asset_prefix(self, mock_get, client):
+    def test_empty_asset_prefix(self, mock_get, mock_post, client):
         """No assetPathPrefix → empty image/video URLs."""
         m = _make_binder_moment(moment_id="t1", asset_prefix="")
         showcase_html = _make_showcase_html("No Asset", [m])
@@ -492,8 +514,9 @@ class TestMomentToEdition:
         assert ed["imageUrl"] == ""
         assert ed["videoUrl"] == ""
 
+    @patch("routes.api.http_requests.post", side_effect=Exception("no graphql"))
     @patch("routes.api.http_requests.get")
-    def test_circulations_from_parallelSetPlay_fallback(self, mock_get, client):
+    def test_circulations_from_parallelSetPlay_fallback(self, mock_get, mock_post, client):
         """Uses parallelSetPlay circulations when setPlay.circulations is missing."""
         m = _make_binder_moment(moment_id="t1")
         m["setPlay"]["circulations"] = None
@@ -517,26 +540,16 @@ class TestMomentToEdition:
         assert ed["circulationCount"] == 99
         assert ed["burned"] == 5
 
+    @patch("routes.api.http_requests.post")
     @patch("routes.api.http_requests.get")
-    def test_rich_edition_game_stats_fields(self, mock_get, client):
+    def test_rich_edition_game_stats_fields(self, mock_get, mock_post, client):
         """Enriched edition includes full game stats with shooting splits."""
         moment_id = "gs-1"
         rich = _make_rich_moment(moment_id=moment_id, points=28, rebounds=9, assists=13, steals=2, blocks=0)
         showcase_html = _make_showcase_html("Stats", [_make_binder_moment(moment_id=moment_id)])
-        moment_pages = {moment_id: _make_moment_page_html(rich)}
 
-        def side_effect(url, **kwargs):
-            resp = Mock()
-            resp.status_code = 200
-            resp.raise_for_status = Mock()
-            if "/showcase/" in url:
-                resp.text = showcase_html
-            elif "/moment/" in url:
-                mid = url.rstrip("/").split("/")[-1]
-                resp.text = moment_pages.get(mid, "<html></html>")
-            return resp
-
-        mock_get.side_effect = side_effect
+        mock_get.side_effect = TestShowcaseMuseumSuccess._mock_showcase_get(showcase_html)
+        mock_post.side_effect = _mock_post_graphql({moment_id: rich})
 
         resp = client.get("/api/showcase/d9d1bbca-a418-483e-aaae-61d78fe1156a")
         gs = resp.get_json()["editions"][0]["gameStats"]
@@ -551,22 +564,16 @@ class TestMomentToEdition:
         assert gs["threePointsMade"] == 2
         assert gs["freeThrowsMade"] == 4
 
+    @patch("routes.api.http_requests.post")
     @patch("routes.api.http_requests.get")
-    def test_rich_edition_season_averages(self, mock_get, client):
+    def test_rich_edition_season_averages(self, mock_get, mock_post, client):
         """Enriched edition includes season averages."""
         moment_id = "sa-1"
         rich = _make_rich_moment(moment_id=moment_id)
         showcase_html = _make_showcase_html("SeasonAvg", [_make_binder_moment(moment_id=moment_id)])
-        moment_pages = {moment_id: _make_moment_page_html(rich)}
 
-        def side_effect(url, **kwargs):
-            resp = Mock()
-            resp.status_code = 200
-            resp.raise_for_status = Mock()
-            resp.text = showcase_html if "/showcase/" in url else moment_pages.get(url.rstrip("/").split("/")[-1], "<html></html>")
-            return resp
-
-        mock_get.side_effect = side_effect
+        mock_get.side_effect = TestShowcaseMuseumSuccess._mock_showcase_get(showcase_html)
+        mock_post.side_effect = _mock_post_graphql({moment_id: rich})
 
         resp = client.get("/api/showcase/d9d1bbca-a418-483e-aaae-61d78fe1156a")
         sa = resp.get_json()["editions"][0]["seasonAverages"]
@@ -575,22 +582,16 @@ class TestMomentToEdition:
         assert sa["rebounds"] == 12.5
         assert sa["assists"] == 10.2
 
+    @patch("routes.api.http_requests.post")
     @patch("routes.api.http_requests.get")
-    def test_rich_edition_marketplace_fields(self, mock_get, client):
+    def test_rich_edition_marketplace_fields(self, mock_get, mock_post, client):
         """Enriched edition includes lowAsk, topshotScore, floorPrice, etc."""
         moment_id = "mkt-1"
         rich = _make_rich_moment(moment_id=moment_id, low_ask=454, highest_offer=261)
         showcase_html = _make_showcase_html("Market", [_make_binder_moment(moment_id=moment_id)])
-        moment_pages = {moment_id: _make_moment_page_html(rich)}
 
-        def side_effect(url, **kwargs):
-            resp = Mock()
-            resp.status_code = 200
-            resp.raise_for_status = Mock()
-            resp.text = showcase_html if "/showcase/" in url else moment_pages.get(url.rstrip("/").split("/")[-1], "<html></html>")
-            return resp
-
-        mock_get.side_effect = side_effect
+        mock_get.side_effect = TestShowcaseMuseumSuccess._mock_showcase_get(showcase_html)
+        mock_post.side_effect = _mock_post_graphql({moment_id: rich})
 
         resp = client.get("/api/showcase/d9d1bbca-a418-483e-aaae-61d78fe1156a")
         ed = resp.get_json()["editions"][0]
@@ -600,22 +601,16 @@ class TestMomentToEdition:
         assert ed["floorPrice"] == "454.00000000"
         assert ed["flowSerialNumber"] == "22"
 
+    @patch("routes.api.http_requests.post")
     @patch("routes.api.http_requests.get")
-    def test_rich_edition_game_context(self, mock_get, client):
+    def test_rich_edition_game_context(self, mock_get, mock_post, client):
         """Enriched edition includes home/away team names and scores."""
         moment_id = "ctx-1"
         rich = _make_rich_moment(moment_id=moment_id)
         showcase_html = _make_showcase_html("Context", [_make_binder_moment(moment_id=moment_id)])
-        moment_pages = {moment_id: _make_moment_page_html(rich)}
 
-        def side_effect(url, **kwargs):
-            resp = Mock()
-            resp.status_code = 200
-            resp.raise_for_status = Mock()
-            resp.text = showcase_html if "/showcase/" in url else moment_pages.get(url.rstrip("/").split("/")[-1], "<html></html>")
-            return resp
-
-        mock_get.side_effect = side_effect
+        mock_get.side_effect = TestShowcaseMuseumSuccess._mock_showcase_get(showcase_html)
+        mock_post.side_effect = _mock_post_graphql({moment_id: rich})
 
         resp = client.get("/api/showcase/d9d1bbca-a418-483e-aaae-61d78fe1156a")
         ed = resp.get_json()["editions"][0]
@@ -657,8 +652,9 @@ class TestShowcaseMultiplePages:
 class TestMixedEnrichment:
     """Test partial enrichment – some moments enrich, others fall back."""
 
+    @patch("routes.api.http_requests.post")
     @patch("routes.api.http_requests.get")
-    def test_partial_enrichment(self, mock_get, client):
+    def test_partial_enrichment(self, mock_get, mock_post, client):
         """When some moment pages work and others don't, mix rich + light editions."""
         moments = [
             _make_binder_moment(moment_id="ok-1"),
@@ -666,23 +662,10 @@ class TestMixedEnrichment:
         ]
         showcase_html = _make_showcase_html("Mixed", moments)
         rich = _make_rich_moment(moment_id="ok-1", points=32, rebounds=21, assists=10)
-        moment_pages = {
-            "ok-1": _make_moment_page_html(rich),
-            "fail-1": "<html><body>Error</body></html>",
-        }
 
-        def side_effect(url, **kwargs):
-            resp = Mock()
-            resp.status_code = 200
-            resp.raise_for_status = Mock()
-            if "/showcase/" in url:
-                resp.text = showcase_html
-            elif "/moment/" in url:
-                mid = url.rstrip("/").split("/")[-1]
-                resp.text = moment_pages.get(mid, "<html></html>")
-            return resp
-
-        mock_get.side_effect = side_effect
+        mock_get.side_effect = TestShowcaseMuseumSuccess._mock_showcase_get(showcase_html)
+        # Only "ok-1" in map → "fail-1" gets None → light fallback
+        mock_post.side_effect = _mock_post_graphql({"ok-1": rich})
 
         resp = client.get("/api/showcase/d9d1bbca-a418-483e-aaae-61d78fe1156a")
         data = resp.get_json()
@@ -697,3 +680,88 @@ class TestMixedEnrichment:
         # But still has basic info
         assert data["editions"][1]["playerName"] == "Nikola Jokić"
         assert data["editions"][1]["tier"] == "LEGENDARY"
+
+
+class TestBadgeTags:
+    """Verify badge tag extraction from play.tags and setPlay.tags."""
+
+    def _tag(self, title, visible=True, level="PLAY"):
+        return {"id": "uuid-" + title, "title": title, "visible": visible,
+                "level": level, "__typename": "Tag"}
+
+    @patch("routes.api.http_requests.post")
+    @patch("routes.api.http_requests.get")
+    def test_mvp_and_championship_from_play_tags(self, mock_get, mock_post, client):
+        """Tags on play level are extracted as camelCase slugs."""
+        moment_id = "badge-1"
+        play_tags = [self._tag("MVP Year"), self._tag("Championship Year")]
+        rich = _make_rich_moment(moment_id=moment_id, play_tags=play_tags)
+        showcase_html = _make_showcase_html("Badge Test",
+                                            [_make_binder_moment(moment_id=moment_id, play_tags=play_tags)])
+
+        mock_get.side_effect = TestShowcaseMuseumSuccess._mock_showcase_get(showcase_html)
+        mock_post.side_effect = _mock_post_graphql({moment_id: rich})
+        data = client.get("/api/showcase/d9d1bbca-a418-483e-aaae-61d78fe1156a").get_json()
+        assert "mvpYear" in data["editions"][0]["tags"]
+        assert "championshipYear" in data["editions"][0]["tags"]
+
+    @patch("routes.api.http_requests.post")
+    @patch("routes.api.http_requests.get")
+    def test_rookie_mint_from_setplay_tags(self, mock_get, mock_post, client):
+        """Tags on setPlay level are also captured."""
+        moment_id = "badge-2"
+        sp_tags = [self._tag("Rookie Mint", level="SETPLAY")]
+        rich = _make_rich_moment(moment_id=moment_id, set_play_tags=sp_tags)
+        showcase_html = _make_showcase_html("SP Badge",
+                                            [_make_binder_moment(moment_id=moment_id, set_play_tags=sp_tags)])
+
+        mock_get.side_effect = TestShowcaseMuseumSuccess._mock_showcase_get(showcase_html)
+        mock_post.side_effect = _mock_post_graphql({moment_id: rich})
+        data = client.get("/api/showcase/d9d1bbca-a418-483e-aaae-61d78fe1156a").get_json()
+        assert "rookieMint" in data["editions"][0]["tags"]
+
+    @patch("routes.api.http_requests.post")
+    @patch("routes.api.http_requests.get")
+    def test_invisible_tags_excluded(self, mock_get, mock_post, client):
+        """Tags with visible=false should not appear."""
+        moment_id = "badge-3"
+        play_tags = [self._tag("MVP Year"), self._tag("NBA Finals", visible=False)]
+        rich = _make_rich_moment(moment_id=moment_id, play_tags=play_tags)
+        showcase_html = _make_showcase_html("Vis",
+                                            [_make_binder_moment(moment_id=moment_id, play_tags=play_tags)])
+
+        mock_get.side_effect = TestShowcaseMuseumSuccess._mock_showcase_get(showcase_html)
+        mock_post.side_effect = _mock_post_graphql({moment_id: rich})
+        data = client.get("/api/showcase/d9d1bbca-a418-483e-aaae-61d78fe1156a").get_json()
+        assert "mvpYear" in data["editions"][0]["tags"]
+        # NBA Finals has no camelCase mapping and is invisible -> not in output
+        assert len(data["editions"][0]["tags"]) == 1
+
+    @patch("routes.api.http_requests.post")
+    @patch("routes.api.http_requests.get")
+    def test_no_tags_returns_empty_list(self, mock_get, mock_post, client):
+        """Moments without tags get empty list."""
+        moment_id = "badge-4"
+        rich = _make_rich_moment(moment_id=moment_id)
+        showcase_html = _make_showcase_html("No Tags", [_make_binder_moment(moment_id=moment_id)])
+
+        mock_get.side_effect = TestShowcaseMuseumSuccess._mock_showcase_get(showcase_html)
+        mock_post.side_effect = _mock_post_graphql({moment_id: rich})
+        data = client.get("/api/showcase/d9d1bbca-a418-483e-aaae-61d78fe1156a").get_json()
+        assert data["editions"][0]["tags"] == []
+
+    @patch("routes.api.http_requests.post")
+    @patch("routes.api.http_requests.get")
+    def test_dedup_same_tag_both_levels(self, mock_get, mock_post, client):
+        """Same tag on play and setPlay is deduplicated."""
+        moment_id = "badge-5"
+        tag = self._tag("Rookie Year")
+        rich = _make_rich_moment(moment_id=moment_id, play_tags=[tag],
+                                 set_play_tags=[self._tag("Rookie Year", level="SETPLAY")])
+        showcase_html = _make_showcase_html("Dup",
+                                            [_make_binder_moment(moment_id=moment_id, play_tags=[tag])])
+
+        mock_get.side_effect = TestShowcaseMuseumSuccess._mock_showcase_get(showcase_html)
+        mock_post.side_effect = _mock_post_graphql({moment_id: rich})
+        data = client.get("/api/showcase/d9d1bbca-a418-483e-aaae-61d78fe1156a").get_json()
+        assert data["editions"][0]["tags"].count("rookieYear") == 1

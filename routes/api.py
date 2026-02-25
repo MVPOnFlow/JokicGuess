@@ -557,25 +557,103 @@ def register_routes(app):
     }
 
     def _fetch_minted_moment(moment_id):
-        """Scrape a moment page's __NEXT_DATA__ for full moment detail; return dict or None."""
-        import json as _json
+        """Fetch moment detail via TopShot GraphQL API; return dict or None."""
         try:
-            r = http_requests.get(
-                f"https://nbatopshot.com/moment/{moment_id}",
-                headers=_TS_HEADERS,
+            gql_query = """query GetMintedMoment($momentId: ID!) {
+  getMintedMoment(momentId: $momentId) {
+    data {
+      id version tier tags { id title visible level }
+      set { id flowName flowSeriesNumber setVisualId }
+      setPlay {
+        ID flowRetired
+        tags { id title visible level }
+        circulations {
+          circulationCount forSaleByCollectors burned locked
+          hiddenInPacks ownedByCollectors
+        }
+      }
+      parallelSetPlay {
+        circulations {
+          circulationCount forSaleByCollectors burned locked
+          hiddenInPacks ownedByCollectors
+        }
+      }
+      assetPathPrefix
+      play {
+        id description shortDescription keyStats
+        tags { id title visible level }
+        stats {
+          playerName playCategory dateOfMoment teamAtMoment
+          nbaSeason jerseyNumber
+          homeTeamName homeTeamScore awayTeamName awayTeamScore
+        }
+        statsPlayerGameScores {
+          points rebounds assists steals blocks minutes
+          fieldGoalsMade fieldGoalsAttempted
+          threePointsMade threePointsAttempted
+          freeThrowsMade freeThrowsAttempted
+        }
+        statsPlayerSeasonAverageScores {
+          points rebounds assists steals blocks
+        }
+      }
+      flowSerialNumber forSale price lowAsk highestOffer
+      lastPurchasePrice
+      owner { username flowAddress }
+      edition {
+        marketplaceInfo {
+          priceRange { min }
+          averageSaleData { averagePrice }
+        }
+      }
+      topshotScore { score averageSalePrice }
+      parallelID
+    }
+  }
+}"""
+            resp = http_requests.post(
+                "https://public-api.nbatopshot.com/graphql",
+                json={
+                    "operationName": "GetMintedMoment",
+                    "query": gql_query,
+                    "variables": {"momentId": moment_id},
+                },
+                headers={**_TS_HEADERS, "Content-Type": "application/json"},
                 timeout=20,
             )
-            r.raise_for_status()
-            marker = '__NEXT_DATA__" type="application/json"'
-            idx = r.text.find(marker)
-            if idx < 0:
-                return None
-            json_start = r.text.find('>', idx + len(marker)) + 1
-            json_end = r.text.find('</script>', json_start)
-            nd = _json.loads(r.text[json_start:json_end])
-            return nd.get("props", {}).get("pageProps", {}).get("moment")
+            resp.raise_for_status()
+            data = resp.json()
+            return (data.get("data") or {}).get("getMintedMoment", {}).get("data")
         except Exception:
             return None
+
+    # Badge title → camelCase slug for GIF filenames
+    _BADGE_TITLE_MAP = {
+        "Top Shot Debut": "topShotDebut",
+        "Rookie Year": "rookieYear",
+        "Rookie Mint": "rookieMint",
+        "Rookie Premiere": "rookiePremiere",
+        "MVP Year": "mvpYear",
+        "Championship Year": "championshipYear",
+    }
+
+    def _extract_badge_tags(play, set_play):
+        """Collect visible badge tags from play.tags + setPlay.tags; return list of camelCase slugs."""
+        raw = []
+        for src in (play, set_play):
+            for t in (src.get("tags") or []):
+                if isinstance(t, dict) and t.get("visible"):
+                    slug = _BADGE_TITLE_MAP.get(t.get("title", ""))
+                    if slug:
+                        raw.append(slug)
+        # deduplicate while preserving order
+        seen = set()
+        result = []
+        for s in raw:
+            if s not in seen:
+                seen.add(s)
+                result.append(s)
+        return result
 
     def _moment_to_edition(m):
         """Transform a GetMintedMoment data dict into the Museum edition shape."""
@@ -600,10 +678,14 @@ def register_routes(app):
         ts_score = m.get("topshotScore") or {}
         owner = m.get("owner") or {}
 
+        # Collect badge tags from play.tags + setPlay.tags; map title→slug
+        tags = _extract_badge_tags(play, set_play)
+
         return {
             "id": m.get("id"),
             "playId": play.get("id", ""),
             "tier": tier,
+            "tags": tags,
             "setName": set_info.get("flowName", "Unknown Set"),
             "setVisualId": set_info.get("setVisualId", ""),
             "seriesNumber": set_info.get("flowSeriesNumber"),
@@ -678,10 +760,14 @@ def register_routes(app):
         image_url = f"{asset_prefix}Hero_2880_2880_Black.jpg" if asset_prefix else ""
         video_url = f"{asset_prefix}Animated_1080_1080_Black.mp4" if asset_prefix else ""
 
+        # Collect badge tags from play.tags + setPlay.tags
+        tags_l = _extract_badge_tags(play, set_play)
+
         return {
             "id": m.get("id"),
             "playId": play.get("id", ""),
             "tier": tier,
+            "tags": tags_l,
             "setName": set_info.get("flowName", "Unknown Set"),
             "setVisualId": set_info.get("setVisualId", ""),
             "seriesNumber": set_info.get("flowSeriesNumber"),

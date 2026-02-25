@@ -18,6 +18,31 @@ const TIER_COLORS = {
 };
 const TIER_RANK = { ULTIMATE: 5, LEGENDARY: 4, RARE: 3, FANDOM: 2, COMMON: 1 };
 
+/* ---- Moment badge tag → animated GIF URL ---- */
+const _TS_CDN = 'https://www.nbatopshot.com/cdn-cgi/image/width=75,height=75,quality=80,format=webp/';
+const BADGE_INFO = {
+  topShotDebut:     { url: `${_TS_CDN}/img/momentTags/animated/topShotDebut.gif`,     label: 'Top Shot Debut' },
+  rookieYear:       { url: `${_TS_CDN}/img/momentTags/animated/rookieYear.gif`,       label: 'Rookie Year' },
+  rookieMint:       { url: `${_TS_CDN}/img/momentTags/animated/rookieMint.gif`,       label: 'Rookie Mint' },
+  rookiePremiere:   { url: `${_TS_CDN}/img/momentTags/animated/rookiePremiere.gif`,   label: 'Rookie Premiere' },
+  mvpYear:          { url: `${_TS_CDN}/img/momentTags/animated/mvpYear.gif`,          label: 'MVP Year' },
+  championshipYear: { url: `${_TS_CDN}/img/momentTags/animated/championshipYear.gif`, label: 'Championship Year' },
+  threeStars:       { url: `${_TS_CDN}/img/momentTags/animated/threeStars.gif`,       label: '3 Stars' },
+};
+const THREE_STARS_COMPONENTS = new Set(['rookieYear', 'rookiePremiere', 'topShotDebut']);
+
+/** Given an edition's raw tags array, pick the badge GIFs to show. */
+function resolveBadges(tags) {
+  if (!tags || !tags.length) return [];
+  const ids = new Set(tags);
+  // If all three rookie badges present → show threeStars instead
+  if ([...THREE_STARS_COMPONENTS].every(t => ids.has(t))) {
+    ids.delete('rookieMint'); ids.delete('rookiePremiere'); ids.delete('rookieYear');
+    ids.add('threeStars');
+  }
+  return [...ids].filter(id => BADGE_INFO[id]).map(id => BADGE_INFO[id]);
+}
+
 /* ---- Scene constants ---- */
 const CW = 14;            // corridor width
 const CH = 5.5;           // corridor height
@@ -104,6 +129,7 @@ export default function Museum() {
     return [...map.values()].map(({ primary, all }) => ({
       ...primary,
       userOwnedCount: all.reduce((s, p) => s + (p.userOwnedCount || 0), 0),
+      tags: [...new Set(all.flatMap(p => p.tags || []))],
       parallels: all.length > 1
         ? all.map(p => ({ tier: p.tier, setName: p.setName, owned: (p.userOwnedCount || 0) > 0 }))
         : null,
@@ -243,14 +269,14 @@ export default function Museum() {
     <div className="museum-root museum-3d-active">
       <Canvas
         camera={{ fov: 75, near: 0.1, far: 200, position: [0, EYE_Y, 2] }}
-        gl={{ antialias: true, toneMapping: THREE.LinearToneMapping, toneMappingExposure: 1.0 }}
-        style={{ background: '#080812' }}
+        gl={{ antialias: false, toneMapping: THREE.ACESFilmicToneMapping, toneMappingExposure: 1.1 }}
+        style={{ background: '#060610' }}
         frameloop="demand"
         onCreated={({ camera }) => camera.lookAt(0, EYE_Y, -10)}
       >
-        <fog attach="fog" args={['#080812', 12, 65]} />
-        <ambientLight intensity={0.7} color="#d4d4d4" />
-        <directionalLight position={[2, CH, 5]} intensity={0.3} color="#ccbbaa" />
+        <fog attach="fog" args={['#060610', 30, 100]} />
+        <ambientLight intensity={0.35} color="#c8c0d8" />
+        <directionalLight position={[2, CH, 5]} intensity={0.15} color="#ccbbaa" />
 
         {/* Ceiling light fixtures (visual only – no pointLights here, corridor uses baked/basic materials) */}
         {Array.from({ length: numCeilingLights }, (_, i) => (
@@ -283,6 +309,12 @@ export default function Museum() {
       {/* HUD overlay */}
       <div className="hud">
         {!isMobile && locked && <div className="crosshair" />}
+
+        {/* Showcase name banner */}
+        {showcaseId && showcaseName && (
+          <div className="showcase-name-hud">{showcaseName}</div>
+        )}
+
         {!isMobile && !locked && (
           <div className="pause-overlay" onClick={resumePointerLock}>
             <div className="pause-box">
@@ -467,10 +499,10 @@ function Corridor({ length }) {
 
   return (
     <group>
-      {/* Floor – light maple wood */}
+      {/* Floor – polished hardwood */}
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0, midZ]}>
         <planeGeometry args={[CW, length]} />
-        <meshStandardMaterial map={floorTex} roughness={0.5} metalness={0.15} />
+        <meshStandardMaterial map={floorTex} roughness={0.35} metalness={0.15} color="#c8a870" />
       </mesh>
 
       {/* Ceiling */}
@@ -862,9 +894,28 @@ const WallTV = React.memo(function WallTV({ edition, pos, rot, owned }) {
     : '';
   const stats = edition.gameStats || {};
   const hasStats = stats.points != null || stats.rebounds != null || stats.assists != null;
+  const badges = useMemo(() => resolveBadges(edition.tags), [edition.tags]);
 
   return (
     <group position={pos} rotation={rot}>
+      {/* ── Moment badge GIFs above the TV ── */}
+      {badges.length > 0 && showPlaque && (
+        <Html
+          transform
+          position={[0, TV_SZ / 2 + 0.75, 0.02]}
+          center
+          distanceFactor={5}
+          className="badge-row-html"
+          zIndexRange={[100, 0]}
+        >
+          <div className="badge-row">
+            {badges.map((b, i) => (
+              <img key={i} src={b.url} alt={b.label} title={b.label} className="badge-gif" />
+            ))}
+          </div>
+        </Html>
+      )}
+
       {/* ── Picture frame accent light ── */}
       <mesh position={[0, TV_SZ / 2 + 0.38, -0.06]}>
         <boxGeometry args={[1.8, 0.08, 0.12]} />
@@ -972,25 +1023,23 @@ const WallTV = React.memo(function WallTV({ edition, pos, rot, owned }) {
                 )}
               </div>
             )}
-            {/* Ownership row – only show when user has wallet connected and owns something */}
-            {owned && (
-              <div className="p3d-ownership">
-                <span className="p3d-own-yes">✓ You own {edition.userOwnedCount || 1}</span>
-                {edition.circulationCount && (
-                  <span className="p3d-circulation">#{edition.circulationCount} minted</span>
+            {/* Serial + Low Ask – prominent row */}
+            {(edition.flowSerialNumber || (edition.lowAsk != null && edition.lowAsk > 0)) && (
+              <div className="p3d-serial-row">
+                {edition.flowSerialNumber && (
+                  <span className="p3d-serial-num">Serial <strong>#{edition.flowSerialNumber}</strong></span>
+                )}
+                {edition.lowAsk != null && edition.lowAsk > 0 && (
+                  <span className="p3d-lowask">Low Ask <strong>${edition.lowAsk}</strong></span>
                 )}
               </div>
             )}
-            {!owned && edition.circulationCount && (
+            {/* Mint / Ownership */}
+            {(owned || edition.circulationCount) && (
               <div className="p3d-ownership">
-                <span className="p3d-circulation">#{edition.circulationCount} minted</span>
-              </div>
-            )}
-            {edition.flowSerialNumber && (
-              <div className="p3d-serial">
-                Serial #{edition.flowSerialNumber}
-                {edition.lowAsk != null && edition.lowAsk > 0 && (
-                  <span className="p3d-lowask"> • Low Ask ${edition.lowAsk}</span>
+                {owned && <span className="p3d-own-yes">✓ You own {edition.userOwnedCount || 1}</span>}
+                {edition.circulationCount && (
+                  <span className="p3d-circulation">/{edition.circulationCount} minted</span>
                 )}
               </div>
             )}
