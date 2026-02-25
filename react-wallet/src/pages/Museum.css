@@ -261,6 +261,273 @@
   font-family: system-ui, -apple-system, sans-serif;
 }
 
+/* ==========================================================
+   Season Info Panels (wall-mounted, default museum only)
+   ========================================================== */
+.season-info-html {
+  pointer-events: none;
+}
+
+.season-info-panel {
+  width: 340px;
+  max-height: 520px;
+  overflow-y: auto;
+  background: linear-gradient(170deg, rgba(15,17,42,0.97), rgba(8,10,30,0.98));
+  border: 1px solid rgba(253,185,39,0.15);
+  border-radius: 14px;
+  padding: 18px 20px 14px;
+  font-family: system-ui, -apple-system, sans-serif;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.7), inset 0 1px 0 rgba(253,185,39,0.06);
+  color: #e0e0e8;
+}
+
+.season-info-panel::-webkit-scrollbar { width: 4px; }
+.season-info-panel::-webkit-scrollbar-track { background: transparent; }
+.season-info-panel::-webkit-scrollbar-thumb { background: rgba(253,185,39,0.25); border-radius: 2px; }
+
+.sip-header {
+  text-align: center;
+  margin-bottom: 12px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid rgba(253,185,39,0.15);
+}
+
+.sip-season {
+  font-size: 22px;
+  font-weight: 900;
+  color: #FDB927;
+  letter-spacing: 2px;
+  text-shadow: 0 0 10px rgba(253,185,39,0.4);
+}
+
+.sip-season-sm {
+  font-size: 18px;
+  font-weight: 900;
+  color: #FDB927;
+  letter-spacing: 3px;
+  text-shadow: 0 0 10px rgba(253,185,39,0.4);
+}
+
+.sip-awards {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  justify-content: center;
+  margin-top: 8px;
+}
+
+.sip-award {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.8px;
+  padding: 3px 10px;
+  border-radius: 4px;
+  white-space: nowrap;
+}
+
+.sip-award-mvp {
+  background: rgba(255,215,0,0.15);
+  color: #ffd700;
+  border: 1px solid rgba(255,215,0,0.3);
+}
+
+.sip-award-champ {
+  background: rgba(253,185,39,0.2);
+  color: #FDB927;
+  border: 1px solid rgba(253,185,39,0.4);
+}
+
+.sip-award-fmvp {
+  background: rgba(253,185,39,0.15);
+  color: #ffc942;
+  border: 1px solid rgba(253,185,39,0.3);
+}
+
+.sip-section {
+  margin-bottom: 12px;
+}
+
+.sip-section-title {
+  font-size: 9px;
+  font-weight: 700;
+  color: #6a6a7e;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  margin-bottom: 6px;
+}
+
+.sip-record {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+
+.sip-record-val {
+  font-size: 22px;
+  font-weight: 900;
+  color: #f4f4f8;
+}
+
+.sip-seed {
+  font-size: 12px;
+  color: #8a8a9e;
+  font-weight: 600;
+}
+
+.sip-avg-grid {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.sip-avg {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 48px;
+}
+
+.sip-avg-val {
+  font-size: 18px;
+  font-weight: 800;
+  color: #f4f4f8;
+}
+
+.sip-avg-lbl {
+  font-size: 9px;
+  color: #6a6a7e;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+}
+
+.sip-pct-row {
+  display: flex;
+  gap: 14px;
+  margin-top: 6px;
+  font-size: 11px;
+  color: #8a8a9e;
+}
+
+/* ── Playoff grid layout ── */
+.sip-playoffs-grid-wrap {
+  font-family: system-ui, -apple-system, sans-serif;
+  color: #e0e0e8;
+}
+
+.sip-playoffs-title {
+  text-align: center;
+  font-size: 16px;
+  font-weight: 900;
+  color: #FDB927;
+  letter-spacing: 3px;
+  margin-bottom: 10px;
+  text-shadow: 0 0 10px rgba(253,185,39,0.4);
+}
+
+.sip-playoffs-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.sip-playoffs-grid.sip-grid-single {
+  grid-template-columns: 1fr;
+  max-width: 310px;
+}
+
+.sip-series-card {
+  width: 280px;
+  padding: 10px 11px 8px;
+  border-radius: 10px;
+  background: linear-gradient(170deg, rgba(15,17,42,0.97), rgba(8,10,30,0.98));
+  border: 1px solid rgba(255,255,255,0.06);
+  box-shadow: 0 4px 18px rgba(0,0,0,0.5);
+}
+
+.sip-series-card.sip-series-win {
+  border-left: 3px solid rgba(74,222,128,0.5);
+}
+
+.sip-series-card.sip-series-loss {
+  border-left: 3px solid rgba(248,113,113,0.5);
+}
+
+.sip-series-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 3px;
+}
+
+.sip-round {
+  font-size: 10px;
+  font-weight: 700;
+  color: #9a9ab0;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+}
+
+.sip-series-result {
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: 0.5px;
+}
+
+.sip-win { color: #4ade80; }
+.sip-loss { color: #f87171; }
+
+.sip-opponent {
+  font-size: 12px;
+  font-weight: 700;
+  color: #d0d0e0;
+  margin-bottom: 2px;
+}
+
+.sip-series-note {
+  font-size: 9px;
+  color: #FDB927;
+  font-weight: 600;
+  font-style: italic;
+  margin-bottom: 4px;
+}
+
+/* ── Game log table ── */
+.sip-game-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 9px;
+  font-family: 'SF Mono', 'Consolas', monospace;
+}
+
+.sip-game-table th {
+  padding: 2px 3px;
+  text-align: center;
+  color: #6a6a7e;
+  font-weight: 700;
+  font-size: 8px;
+  letter-spacing: 0.5px;
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+}
+
+.sip-game-table td {
+  padding: 2px 3px;
+  text-align: center;
+  color: #b0b0c0;
+  font-size: 9px;
+}
+
+.sip-game-table tr.sip-game-w {
+  background: rgba(74,222,128,0.03);
+}
+
+.sip-game-table tr.sip-game-l {
+  background: rgba(248,113,113,0.03);
+}
+
+.sip-game-table .sip-gw { color: #4ade80; font-weight: 700; }
+.sip-game-table .sip-gl { color: #f87171; font-weight: 700; }
+.sip-game-table .sip-pts { color: #f4f4f8; font-weight: 800; }
+
 /* Owned Badge */
 .owned-badge-html {
   pointer-events: none;

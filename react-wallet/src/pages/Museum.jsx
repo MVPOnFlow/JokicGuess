@@ -6,6 +6,7 @@ import * as THREE from 'three';
 import { Spinner } from 'react-bootstrap';
 import * as fcl from '@onflow/fcl';
 import nipplejs from 'nipplejs';
+import JOKIC_SEASON_DATA from './jokicSeasonData';
 import './Museum.css';
 
 /* ---- Tier look-up tables ---- */
@@ -160,12 +161,20 @@ export default function Museum() {
   const walletConnected = !!user?.addr;
   const ownedCount = ownershipLoaded ? sorted.filter(isOwned).length : 0;
 
-  /* Compute 3D layout: positions for every TV and season banner */
+  /* Compute 3D layout: positions for every TV, season banner, and season info panel */
   const layout = useMemo(() => {
     const items = [];
     let z = -10;
     for (const group of seasonGroups) {
       items.push({ type: 'season', season: group.season, count: group.editions.length, z });
+      z -= 3;
+      /* Season info panel – only for the default Jokic museum */
+      if (!showcaseId) {
+        const sData = JOKIC_SEASON_DATA[group.season];
+        if (sData) {
+          items.push({ type: 'seasonInfo', season: group.season, data: sData, z });
+        }
+      }
       z -= 5;
       for (let i = 0; i < group.editions.length; i += 2) {
         items.push({
@@ -183,7 +192,7 @@ export default function Museum() {
       z -= 4;
     }
     return { items, length: Math.abs(z) + 10 };
-  }, [seasonGroups, isOwned]);
+  }, [seasonGroups, isOwned, showcaseId]);
 
   /* Pointer lock tracking */
   useEffect(() => {
@@ -389,7 +398,7 @@ function NearbyItems({ items }) {
     const next = [];
     for (let i = 0; i < items.length; i++) {
       const item = items[i];
-      const itemZ = item.type === 'season' ? item.z : item.pos[2];
+      const itemZ = item.z != null ? item.z : item.pos[2];
       if (Math.abs(camZ - itemZ) < MOUNT_RANGE) next.push(i);
     }
     setVisible(prev => {
@@ -402,9 +411,11 @@ function NearbyItems({ items }) {
     <>
       {visible.map(i => {
         const item = items[i];
-        return item.type === 'season'
-          ? <SeasonBanner key={`s-${i}`} season={item.season} count={item.count} z={item.z} />
-          : <WallTV key={`tv-${i}`} edition={item.edition} pos={item.pos} rot={item.rot} owned={item.owned} />;
+        if (item.type === 'season')
+          return <SeasonBanner key={`s-${i}`} season={item.season} count={item.count} z={item.z} />;
+        if (item.type === 'seasonInfo')
+          return <SeasonInfoPanel key={`si-${i}`} season={item.season} data={item.data} z={item.z} />;
+        return <WallTV key={`tv-${i}`} edition={item.edition} pos={item.pos} rot={item.rot} owned={item.owned} />;
       })}
     </>
   );
@@ -809,6 +820,125 @@ function SeasonBanner({ season, count, z }) {
       </Html>
       {/* Warm light at the arch */}
       <pointLight position={[0, CH - 0.8, 0]} intensity={0.4} distance={8} color="#FDB927" decay={2} />
+    </group>
+  );
+}
+
+/* ================================================================== */
+/*  SeasonInfoPanel – centered walk-through panel showing Jokić        */
+/*  season & playoff data (only in default museum, always visible)     */
+/* ================================================================== */
+const ROUND_LABELS = { R1: 'First Round', R2: 'Second Round', WCF: 'West Finals', ECF: 'East Finals', Finals: 'NBA Finals' };
+
+function SeasonInfoPanel({ season, data, z }) {
+  const { seasonAvg, teamRecord, seed, conference, awards, playoffs } = data;
+  const hasPlayoffs = playoffs && playoffs.length > 0;
+
+  return (
+    <group position={[0, 0, z]}>
+      {/* Left-of-centre panel – Season Overview */}
+      <Html
+        transform
+        center
+        position={[hasPlayoffs ? -3 : 0, CH / 2 - 0.4, 0]}
+        distanceFactor={6}
+        className="season-info-html"
+        zIndexRange={[100, 0]}
+      >
+        <div className="season-info-panel">
+          <div className="sip-header">
+            <span className="sip-season">{season}</span>
+            {awards.length > 0 && (
+              <div className="sip-awards">
+                {awards.map((a, i) => (
+                  <span key={i} className={`sip-award ${a === 'NBA Champion' ? 'sip-award-champ' : a === 'Finals MVP' ? 'sip-award-fmvp' : 'sip-award-mvp'}`}>
+                    {a === 'NBA Champion' ? '🏆 ' : a === 'Finals MVP' ? '🏆 ' : '⭐ '}{a}
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div className="sip-section">
+            <div className="sip-section-title">Nuggets Record</div>
+            <div className="sip-record">
+              <span className="sip-record-val">{teamRecord.wins}-{teamRecord.losses}</span>
+              <span className="sip-seed">#{seed} Seed ({conference})</span>
+            </div>
+          </div>
+
+          <div className="sip-section">
+            <div className="sip-section-title">Jokić Season Averages</div>
+            <div className="sip-avg-grid">
+              <div className="sip-avg"><span className="sip-avg-val">{seasonAvg.ppg}</span><span className="sip-avg-lbl">PPG</span></div>
+              <div className="sip-avg"><span className="sip-avg-val">{seasonAvg.rpg}</span><span className="sip-avg-lbl">RPG</span></div>
+              <div className="sip-avg"><span className="sip-avg-val">{seasonAvg.apg}</span><span className="sip-avg-lbl">APG</span></div>
+              <div className="sip-avg"><span className="sip-avg-val">{seasonAvg.spg}</span><span className="sip-avg-lbl">SPG</span></div>
+              <div className="sip-avg"><span className="sip-avg-val">{seasonAvg.bpg}</span><span className="sip-avg-lbl">BPG</span></div>
+            </div>
+            <div className="sip-pct-row">
+              <span>{seasonAvg.fgPct}% FG</span>
+              <span>{seasonAvg.threePct}% 3P</span>
+              <span>{seasonAvg.ftPct}% FT</span>
+            </div>
+          </div>
+        </div>
+      </Html>
+
+      {/* Right-of-centre panel – Playoff Results (grid layout) */}
+      {hasPlayoffs && (
+        <Html
+          transform
+          center
+          position={[3.2, CH / 2 - 0.4, 0]}
+          distanceFactor={6}
+          className="season-info-html"
+          zIndexRange={[100, 0]}
+        >
+          <div className="sip-playoffs-grid-wrap">
+            <div className="sip-playoffs-title">PLAYOFFS</div>
+            <div className={`sip-playoffs-grid ${playoffs.length <= 2 ? 'sip-grid-single' : ''}`}>
+              {playoffs.map((series, si) => {
+                const isWin = series.result === 'W';
+                return (
+                  <div key={si} className={`sip-series-card ${isWin ? 'sip-series-win' : 'sip-series-loss'}`}>
+                    <div className="sip-series-header">
+                      <span className="sip-round">{ROUND_LABELS[series.round] || series.round}</span>
+                      <span className={`sip-series-result ${isWin ? 'sip-win' : 'sip-loss'}`}>
+                        {isWin ? 'W' : 'L'} {series.seriesScore}
+                      </span>
+                    </div>
+                    <div className="sip-opponent">
+                      vs ({series.opponentSeed}) {series.opponent}
+                    </div>
+                    {series.note && <div className="sip-series-note">{series.note}</div>}
+
+                    <table className="sip-game-table">
+                      <thead>
+                        <tr>
+                          <th>G</th><th></th><th>Score</th><th>PTS</th><th>REB</th><th>AST</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {series.games.map((g, gi) => (
+                          <tr key={gi} className={g.result === 'W' ? 'sip-game-w' : 'sip-game-l'}>
+                            <td>{g.game}</td>
+                            <td className={g.result === 'W' ? 'sip-gw' : 'sip-gl'}>{g.result}</td>
+                            <td>{g.denScore}-{g.oppScore}{g.ot === true ? ' OT' : g.ot ? ` ${g.ot}` : ''}</td>
+                            <td className="sip-pts">{g.pts}</td>
+                            <td>{g.reb}</td>
+                            <td>{g.ast}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </Html>
+      )}
     </group>
   );
 }
