@@ -62,8 +62,9 @@
 - **Flow blockchain**: Interactions use `flow_py_sdk` and helpers in `utils/helpers.py` and `swapfest.py`.
 - **React asset serving**: All unknown routes fallback to `react-build/index.html` for SPA routing.
 - **Tokenomics and event images**: Use `/images/Tokenomics.svg` and `/images/25-8-15-9-25.png` for visual explanations.
-- **TD Watch – schedule**: Jokic Nuggets schedule and triple-double tracking live in both the DB (`nuggets_schedule`) and front-end (`TDWatch.jsx`) as hardcoded schedules that should be synced from Nikola Jokić's Basketball Reference game log: https://www.basketball-reference.com/players/j/jokicni01/gamelog/2026.
-- **TD Watch – triple-double leaders**: When updating all-time triple-double leaders (names or totals) in `TDWatch.jsx` or related UI, always pull the latest numbers from Basketball Reference: https://www.basketball-reference.com/leaders/trp_dbl_career.html rather than relying on model memory.
+- **TD Watch – schedule**: Jokic Nuggets schedule and triple-double tracking live in both the DB (`nuggets_schedule`) and front-end (`TDWatch.jsx`) as hardcoded schedules that should be synced from NBA.com or ESPN. Preferred sources for game logs and stats (in order): `https://www.nba.com/player/203999/nikola-jokic/`, `https://www.espn.com/nba/player/gamelog/_/id/3112335/nikola-jokic`, or the `nba_api` Python package (`from nba_api.stats.endpoints import PlayerGameLog`). Do NOT use Basketball Reference (they prohibit AI scraping).
+- **TD Watch – triple-double leaders**: When updating all-time triple-double leaders (names or totals) in `TDWatch.jsx` or related UI, pull the latest numbers from NBA.com or ESPN rather than relying on model memory. Do NOT use Basketball Reference.
+- **NBA stats verification**: For any Jokić stats (season averages, playoff game logs, records), fetch from NBA.com, ESPN, or use the `nba_api` Python package. Basketball Reference explicitly bans AI usage and must not be scraped or referenced as a live data source.
 
 ## Integration Points
 - **Discord**: Bot logic and user mapping in database.
