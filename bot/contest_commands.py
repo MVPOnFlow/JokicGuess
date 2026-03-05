@@ -11,6 +11,7 @@ from utils.helpers import (
     get_user_predictions_for_contest, get_predictions_for_contest,
     create_predictions_csv, count_total_predictions
 )
+from db.init import get_bot_db
 
 
 def register_contest_commands(bot, conn, cursor, db_type):
@@ -19,6 +20,7 @@ def register_contest_commands(bot, conn, cursor, db_type):
     @bot.tree.command(name='start', description='Start a contest (Admin only)')
     @commands.has_permissions(administrator=True)
     async def start(interaction: discord.Interaction, name: str, start_time: int):
+        conn, cursor = get_bot_db(bot)
         channel = interaction.channel
         user = interaction.user
 
@@ -43,6 +45,7 @@ def register_contest_commands(bot, conn, cursor, db_type):
         outcome="Player's team wins or loses the game?",
     )
     async def predict(interaction: discord.Interaction, stats: str, outcome: Literal['Win', 'Loss']):
+        conn, cursor = get_bot_db(bot)
         user = interaction.user
         channel = interaction.channel
 
@@ -75,6 +78,7 @@ def register_contest_commands(bot, conn, cursor, db_type):
 
     @bot.tree.command(name='remove_prediction', description='Remove a prediction')
     async def remove_prediction(interaction: discord.Interaction, stats: str, outcome: str):
+        conn, cursor = get_bot_db(bot)
         user = interaction.user
         channel = interaction.channel
 
@@ -106,6 +110,7 @@ def register_contest_commands(bot, conn, cursor, db_type):
 
     @bot.tree.command(name='predictions', description="List all predictions")
     async def predictions(interaction: discord.Interaction):
+        conn, cursor = get_bot_db(bot)
         user = interaction.user
         channel = interaction.channel
 
@@ -192,6 +197,7 @@ def register_contest_commands(bot, conn, cursor, db_type):
 
     @bot.tree.command(name='winner', description='Declare winner (Admin only)')
     async def winner(interaction: discord.Interaction, stats: int, outcome: str):
+        conn, cursor = get_bot_db(bot)
         channel = interaction.channel
         user = interaction.user
 

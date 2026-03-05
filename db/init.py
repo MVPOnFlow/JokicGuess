@@ -20,6 +20,27 @@ def get_db_connection():
     return conn, db_type
 
 
+def get_bot_db(bot):
+    """Get a working (conn, cursor) pair for bot commands.
+
+    Creates a fresh cursor from the current connection.
+    If the connection is dead, reconnects automatically.
+    """
+    try:
+        cursor = bot.db_conn.cursor()
+        cursor.execute("SELECT 1")
+        cursor.fetchone()
+        return bot.db_conn, cursor
+    except Exception:
+        try:
+            bot.db_conn.close()
+        except Exception:
+            pass
+        bot.db_conn, bot.db_type = get_db_connection()
+        cursor = bot.db_conn.cursor()
+        return bot.db_conn, cursor
+
+
 def initialize_database(conn, db_type):
     """Initialize all database tables and views."""
     cursor = conn.cursor()

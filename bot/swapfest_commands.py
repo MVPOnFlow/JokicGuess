@@ -8,6 +8,7 @@ import csv
 from datetime import datetime
 
 from utils.helpers import prepare_query, is_admin, map_wallet_to_username, get_last_processed_block, save_gift
+from db.init import get_bot_db
 from config import SWAPFEST_START_TIME, SWAPFEST_END_TIME, SWAPFEST_BOOST1_CUTOFF, SWAPFEST_BOOST2_CUTOFF
 
 
@@ -19,6 +20,7 @@ def register_swapfest_commands(bot, conn, cursor, db_type):
         description="Show Swapfest leaderboard by total gifted points in event period"
     )
     async def gift_leaderboard(interaction: discord.Interaction):
+        conn, cursor = get_bot_db(bot)
         # Define the event window in UTC
         start_time = SWAPFEST_START_TIME
         end_time   = SWAPFEST_END_TIME
@@ -142,6 +144,7 @@ def register_swapfest_commands(bot, conn, cursor, db_type):
         interaction: discord.Interaction,
         from_address: str | None = None
     ):
+        conn, cursor = get_bot_db(bot)
         # ✅ Check admin
         if not is_admin(interaction):
             await interaction.response.send_message(
@@ -197,6 +200,7 @@ def register_swapfest_commands(bot, conn, cursor, db_type):
     )
     @commands.has_permissions(administrator=True)
     async def swapfest_refresh_points(interaction: discord.Interaction):
+        conn, cursor = get_bot_db(bot)
         # Admin check
         if not is_admin(interaction):
             await interaction.response.send_message(

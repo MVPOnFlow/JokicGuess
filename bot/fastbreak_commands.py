@@ -10,6 +10,7 @@ from utils.helpers import (
     prepare_query, is_admin, extract_fastbreak_runs,
     pull_rankings_for_fb
 )
+from db.init import get_bot_db
 
 
 def register_fastbreak_commands(bot, conn, cursor, db_type):
@@ -55,6 +56,7 @@ def register_fastbreak_commands(bot, conn, cursor, db_type):
         buy_in_currency: str = 'MVP',
         buy_in_amount: float = 5.0
     ):
+        conn, cursor = get_bot_db(bot)
         if not is_admin(interaction):
             await interaction.response.send_message(
                 "You need admin permissions to run this command.",
@@ -101,6 +103,7 @@ def register_fastbreak_commands(bot, conn, cursor, db_type):
             interaction: discord.Interaction,
             contest_id: int
     ):
+        conn, cursor = get_bot_db(bot)
         if not is_admin(interaction):
             await interaction.response.send_message(
                 "You need admin permissions to run this command.",
@@ -131,6 +134,7 @@ def register_fastbreak_commands(bot, conn, cursor, db_type):
     @app_commands.checks.has_permissions(administrator=True)
     async def pull_fastbreak_horse_stats(interaction: discord.Interaction, fb_id: str):
         await interaction.response.defer(ephemeral=True)
+        conn, cursor = get_bot_db(bot)
 
         if not is_admin(interaction):
             await interaction.followup.send("You need admin permissions to run this command.", ephemeral=True)

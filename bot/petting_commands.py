@@ -8,6 +8,7 @@ import random
 from utils.helpers import (
     prepare_query, is_admin, custom_reward, get_basic_pet_response
 )
+from db.init import get_bot_db
 from config import PETTING_ALLOWED_CHANNEL_ID, DEFAULT_FREE_DAILY_PETS
 
 
@@ -16,6 +17,7 @@ def register_petting_commands(bot, conn, cursor, db_type):
 
     @bot.tree.command(name="pet", description="Perform a daily pet and earn random $MVP rewards!")
     async def pet(interaction: discord.Interaction):
+        conn, cursor = get_bot_db(bot)
         if interaction.channel_id != PETTING_ALLOWED_CHANNEL_ID:
             return await interaction.response.send_message(
                 "You can only pet your horse in the petting zoo.", ephemeral=True
@@ -97,6 +99,7 @@ def register_petting_commands(bot, conn, cursor, db_type):
 
     @bot.tree.command(name="pet_all", description="Use all available pets at once and earn rewards!")
     async def pet_all(interaction: discord.Interaction):
+        conn, cursor = get_bot_db(bot)
         if interaction.channel_id != PETTING_ALLOWED_CHANNEL_ID:
             return await interaction.response.send_message(
                 "You can only pet your horse in the petting zoo.", ephemeral=True
@@ -190,6 +193,7 @@ def register_petting_commands(bot, conn, cursor, db_type):
 
     @bot.tree.command(name="my_rewards", description="View your unclaimed $MVP rewards.")
     async def my_rewards(interaction: discord.Interaction):
+        conn, cursor = get_bot_db(bot)
         if interaction.channel_id != PETTING_ALLOWED_CHANNEL_ID:
             return await interaction.response.send_message(
                 "You can check your rewards in the petting zoo.", ephemeral=True
@@ -211,6 +215,7 @@ def register_petting_commands(bot, conn, cursor, db_type):
 
     @bot.tree.command(name="claim", description="Claim your accumulated $MVP rewards.")
     async def claim(interaction: discord.Interaction):
+        conn, cursor = get_bot_db(bot)
         if interaction.channel_id != PETTING_ALLOWED_CHANNEL_ID:
             return await interaction.response.send_message(
                 "You can claim your rewards in the petting zoo in the petting zoo.", ephemeral=True
@@ -238,6 +243,7 @@ def register_petting_commands(bot, conn, cursor, db_type):
     @bot.tree.command(name="add_pets", description="Admin command to grant extra pets to a user.")
     @commands.has_permissions(administrator=True)
     async def add_pets(interaction: discord.Interaction, user: discord.Member, pets: int):
+        conn, cursor = get_bot_db(bot)
         if not is_admin(interaction):
             await interaction.response.send_message("You need admin permissions to run this command.", ephemeral=True)
             return
@@ -273,6 +279,7 @@ def register_petting_commands(bot, conn, cursor, db_type):
     @bot.tree.command(name="petting_stats", description="View petting statistics (Admin only)")
     @commands.has_permissions(administrator=True)
     async def petting_stats(interaction: discord.Interaction):
+        conn, cursor = get_bot_db(bot)
         if not is_admin(interaction):
             await interaction.response.send_message("You need admin permissions to run this command.", ephemeral=True)
             return
@@ -308,6 +315,7 @@ def register_petting_commands(bot, conn, cursor, db_type):
     @bot.tree.command(name="add_petting_reward", description="(Admin) Add a special petting reward.")
     @commands.has_permissions(administrator=True)
     async def add_petting_reward(interaction: discord.Interaction, name: str, probability: float, amount: int):
+        conn, cursor = get_bot_db(bot)
         if not is_admin(interaction):
             await interaction.response.send_message("You need admin permissions to run this command.", ephemeral=True)
             return
@@ -331,6 +339,7 @@ def register_petting_commands(bot, conn, cursor, db_type):
     @bot.tree.command(name="list_petting_rewards", description="(Admin) List all active special petting rewards.")
     @commands.has_permissions(administrator=True)
     async def list_petting_rewards(interaction: discord.Interaction):
+        conn, cursor = get_bot_db(bot)
         if not is_admin(interaction):
             await interaction.response.send_message("You need admin permissions to run this command.", ephemeral=True)
             return

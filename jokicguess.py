@@ -38,6 +38,10 @@ intents.message_content = True
 bot = commands.Bot(command_prefix='/', intents=intents)
 
 
+# Store DB connection on bot for per-command cursor creation
+bot.db_conn = conn
+bot.db_type = db_type
+
 # Register Discord bot commands
 register_commands(bot, conn, cursor, db_type)
 
