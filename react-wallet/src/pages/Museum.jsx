@@ -96,6 +96,8 @@ export default function Museum() {
   const [ownershipLoaded, setOwnershipLoaded] = useState(false);
   const [entered, setEntered] = useState(false);
   const [locked, setLocked] = useState(false);
+  const [muted, setMuted] = useState(false);
+  const audioRef = useRef(null);
   const isMobile = useMemo(() =>
     ('ontouchstart' in window || navigator.maxTouchPoints > 0) && window.innerWidth < 1024
   , []);
@@ -222,6 +224,48 @@ export default function Museum() {
     return () => document.removeEventListener('pointerlockchange', h);
   }, []);
 
+  /* ---- Ambient music (royalty-free piano loop) ---- */
+  useEffect(() => {
+    if (!entered) {
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current.currentTime = 0;
+      }
+      return;
+    }
+
+    let audio = audioRef.current;
+    if (!audio) {
+      audio = new Audio('/audio/museum-ambient.mp3');
+      audio.loop = true;
+      audio.volume = 0.25;
+      audioRef.current = audio;
+    }
+
+    audio.muted = muted;
+    audio.play().catch(() => {});
+
+    return () => {
+      audio.pause();
+      audio.currentTime = 0;
+    };
+  }, [entered]);
+
+  // Sync muted state
+  useEffect(() => {
+    if (audioRef.current) audioRef.current.muted = muted;
+  }, [muted]);
+
+  // M key handler
+  useEffect(() => {
+    if (!entered) return;
+    const handler = (e) => {
+      if (e.code === 'KeyM' && !e.repeat) setMuted(prev => !prev);
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [entered]);
+
   const exitMuseum = useCallback(() => {
     if (document.pointerLockElement) document.exitPointerLock();
     setEntered(false);
@@ -278,6 +322,7 @@ export default function Museum() {
                     <>
                       <span><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> Move</span>
                       <span><kbd>Mouse</kbd> Look Around</span>
+                      <span><kbd>M</kbd> Toggle Music</span>
                       <span><kbd>ESC</kbd> Pause</span>
                     </>
                   )}
@@ -349,7 +394,7 @@ export default function Museum() {
           <div className="pause-overlay" onClick={resumePointerLock}>
             <div className="pause-box">
               <p className="pause-text">Click to look around</p>
-              <p className="pause-hint">WASD to move · Mouse to look · ESC to pause</p>
+              <p className="pause-hint">WASD to move · Mouse to look · M toggle music · ESC to pause</p>
               <button
                 className="exit-btn"
                 onClick={(e) => { e.stopPropagation(); exitMuseum(); }}
@@ -359,6 +404,15 @@ export default function Museum() {
             </div>
           </div>
         )}
+        {/* Music toggle button */}
+        <button
+          className="music-toggle-btn"
+          onClick={() => setMuted(prev => !prev)}
+          title={muted ? 'Unmute music (M)' : 'Mute music (M)'}
+        >
+          {muted ? '🔇' : '🔊'}
+        </button>
+
         {isMobile && (
           <>
             <button className="mobile-exit-btn" onClick={exitMuseum}>✕</button>

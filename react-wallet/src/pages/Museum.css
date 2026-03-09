@@ -227,6 +227,40 @@
   color: #FDB927;
 }
 
+/* ---- Music Toggle Button ---- */
+.music-toggle-btn {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: rgba(6, 6, 16, 0.6);
+  backdrop-filter: blur(6px);
+  color: #fff;
+  font-size: 1.1rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  pointer-events: auto;
+  transition: border-color 0.25s, background 0.25s, transform 0.15s;
+  z-index: 1010;
+  line-height: 1;
+  padding: 0;
+}
+
+.music-toggle-btn:hover {
+  border-color: #FDB927;
+  background: rgba(253, 185, 39, 0.12);
+  transform: scale(1.1);
+}
+
+.music-toggle-btn:active {
+  transform: scale(0.95);
+}
+
 /* ==========================================================
    3D HTML Elements (rendered inside Canvas via drei Html)
    ========================================================== */
