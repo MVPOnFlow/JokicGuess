@@ -54,7 +54,6 @@ export default function Layout() {
           <Navbar.Collapse id="navbarNav">
             <Nav className="me-auto mb-2 mb-lg-0">
               <Nav.Link as={NavLink} to="/">Home</Nav.Link>
-              <Nav.Link as={NavLink} to="/swapfest">Swapfest</Nav.Link>
               <Nav.Link as={NavLink} to="/tdwatch">TD Watch</Nav.Link>
               <Nav.Link as={NavLink} to="/museum" className="d-flex align-items-center">
                 <span>Museum</span>
