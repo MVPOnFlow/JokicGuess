@@ -219,22 +219,12 @@ function TDWatch() {
     <Container className="td-watch-container py-4">
       {/* Hero Section */}
       <div className="td-hero text-center mb-3">
-        <h1 className="display-4 fw-bold mb-2">
+        <h1 className="display-4 fw-bold mb-2" style={{color: '#FDB927'}}>
           🏀 Triple-Double Watch 🏀
         </h1>
         <p className="lead mb-3">
           Following Nikola Jokić's Historic Chase to #1 All-Time
         </p>
-        <div className="raffle-info-hero mt-3 pt-3 border-top border-light">
-          <h6 className="mb-2">🎁 Triple-Double Raffle</h6>
-          <p className="mb-2 small">
-            After every Jokić triple-double, we raffle <strong>TWO prizes</strong>:
-          </p>
-          <div className="d-flex justify-content-center gap-3 flex-wrap small">
-            <div><strong>Prize #1:</strong> <Link to="/swapfest" className="text-decoration-none" style={{color: '#FDB927'}}>Swapfest leaderboard</Link> (weighted)</div>
-            <div><strong>Prize #2:</strong> Random <Link to="/fastbreak" className="text-decoration-none" style={{color: '#FDB927'}}>FastBreak</Link> entry</div>
-          </div>
-        </div>
       </div>
 
       {/* All-Time Leaders Section */}

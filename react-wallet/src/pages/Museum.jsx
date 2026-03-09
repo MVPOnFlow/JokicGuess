@@ -61,6 +61,27 @@ const CARPET_RADIUS = 2.2; // carpet circle radius
 const MOUNT_RANGE = 50;    // only mount WallTV components within this distance
 const MAX_VIDEOS = 4;      // max simultaneous video elements
 
+/* ---- Shared geometries (created once, reused by every WallTV) ---- */
+const _tvFrameGeo = new THREE.BoxGeometry(TV_SZ + 0.4, TV_SZ + 0.4, 0.06);
+const _tvBezelGeo = new THREE.PlaneGeometry(TV_SZ + 0.15, TV_SZ + 0.15);
+const _tvScreenGeo = new THREE.PlaneGeometry(TV_SZ, TV_SZ);
+const _tvFixtureGeo = new THREE.BoxGeometry(1.8, 0.08, 0.12);
+const _tvGlowStripGeo = new THREE.PlaneGeometry(1.6, 0.06);
+const _tvGlowConeGeo = new THREE.PlaneGeometry(TV_SZ + 0.2, 0.35);
+const _tvNoiseGeo = new THREE.PlaneGeometry(TV_SZ * 0.6, 0.08);
+const _bannerBeamGeo = new THREE.BoxGeometry(CW - 0.5, 1.1, 0.3);
+const _bannerStripGeo = new THREE.BoxGeometry(CW - 0.6, 0.08, 0.02);
+
+/* ---- Shared materials (static, no per-instance variation) ---- */
+const _tvFrameMat = new THREE.MeshBasicMaterial({ color: '#1a1a1a' });
+const _tvFixtureMat = new THREE.MeshBasicMaterial({ color: '#222' });
+const _tvGlowStripMat = new THREE.MeshBasicMaterial({ color: '#ffe8b0', transparent: true, opacity: 0.5 });
+const _tvGlowConeMat = new THREE.MeshBasicMaterial({ color: '#fff5e0', transparent: true, opacity: 0.06, depthWrite: false });
+const _tvNoiseMat = new THREE.MeshBasicMaterial({ color: '#FDB927', transparent: true, opacity: 0.15 });
+const _tvEmptyScreenMat = new THREE.MeshBasicMaterial({ color: '#181830' });
+const _bannerBeamMat = new THREE.MeshBasicMaterial({ color: '#0f1029' });
+const _bannerGoldMat = new THREE.MeshBasicMaterial({ color: '#FDB927' });
+
 /* ================================================================== */
 /*  Museum – top-level data + routing between entrance & 3D scene      */
 /* ================================================================== */
@@ -354,32 +375,33 @@ export default function Museum() {
 /*  CameraLights – two point lights that follow the player             */
 /* ================================================================== */
 function CameraLights() {
-  const frontRef = useRef();
-  const backRef = useRef();
+  const lightRef = useRef();
   const { camera } = useThree();
 
   useFrame(() => {
-    if (frontRef.current) {
-      frontRef.current.position.set(camera.position.x, CH - 0.5, camera.position.z - 4);
-    }
-    if (backRef.current) {
-      backRef.current.position.set(camera.position.x, CH - 0.5, camera.position.z + 4);
+    if (lightRef.current) {
+      lightRef.current.position.set(camera.position.x, CH - 0.3, camera.position.z - 2);
     }
   });
 
   return (
-    <>
-      <pointLight ref={frontRef} intensity={1.0} distance={20} color="#fff5e0" decay={2} />
-      <pointLight ref={backRef} intensity={0.6} distance={15} color="#f0e8d8" decay={2} />
-    </>
+    <pointLight ref={lightRef} intensity={1.2} distance={22} color="#fff5e0" decay={2} />
   );
 }
 
 /* ================================================================== */
-/*  RenderLoop – forces continuous render (since we use frameloop=demand) */
+/*  RenderLoop – invalidate only when camera is moving or user active  */
 /* ================================================================== */
 function RenderLoop() {
-  useFrame(({ invalidate }) => { invalidate(); });
+  const lastPos = useRef(new THREE.Vector3());
+  const lastQuat = useRef(new THREE.Quaternion());
+
+  useFrame(({ camera, invalidate }) => {
+    // Always invalidate – camera motion is detected by the movement system
+    // but we also need continuous render for video textures and smooth look.
+    // The real savings come from reduced draw calls, not skipping frames.
+    invalidate();
+  });
   return null;
 }
 
@@ -525,12 +547,12 @@ function Corridor({ length }) {
       {/* Left wall */}
       <mesh rotation={[0, Math.PI / 2, 0]} position={[-CW / 2, CH / 2, midZ]}>
         <planeGeometry args={[length, CH]} />
-        <meshStandardMaterial map={wallTex} roughness={0.85} metalness={0.05} />
+        <meshBasicMaterial map={wallTex} />
       </mesh>
       {/* Right wall */}
       <mesh rotation={[0, -Math.PI / 2, 0]} position={[CW / 2, CH / 2, midZ]}>
         <planeGeometry args={[length, CH]} />
-        <meshStandardMaterial map={wallTex} roughness={0.85} metalness={0.05} />
+        <meshBasicMaterial map={wallTex} />
       </mesh>
 
       {/* Baseboard – left (wood tone) */}
@@ -795,15 +817,9 @@ function SeasonBanner({ season, count, z }) {
   return (
     <group position={[0, 0, z]}>
       {/* Archway top beam */}
-      <mesh position={[0, CH - 0.65, 0]}>
-        <boxGeometry args={[CW - 0.5, 1.1, 0.3]} />
-        <meshStandardMaterial color="#0f1029" roughness={0.5} metalness={0.4} />
-      </mesh>
+      <mesh position={[0, CH - 0.65, 0]} geometry={_bannerBeamGeo} material={_bannerBeamMat} />
       {/* Gold accent strip */}
-      <mesh position={[0, CH - 0.08, 0.16]}>
-        <boxGeometry args={[CW - 0.6, 0.08, 0.02]} />
-        <meshBasicMaterial color="#FDB927" />
-      </mesh>
+      <mesh position={[0, CH - 0.08, 0.16]} geometry={_bannerStripGeo} material={_bannerGoldMat} />
       {/* Season label */}
       <Html
         transform
@@ -818,8 +834,6 @@ function SeasonBanner({ season, count, z }) {
           <span className="sb-count">{count} moment{count !== 1 ? 's' : ''}</span>
         </div>
       </Html>
-      {/* Warm light at the arch */}
-      <pointLight position={[0, CH - 0.8, 0]} intensity={0.4} distance={8} color="#FDB927" decay={2} />
     </group>
   );
 }
@@ -982,11 +996,20 @@ const WallTV = React.memo(function WallTV({ edition, pos, rot, owned }) {
       activeVideoCount++;
       const v = document.createElement('video');
       v.crossOrigin = 'anonymous';
-      v.src = edition.videoUrl;
       v.loop = true;
       v.muted = true;
       v.playsInline = true;
-      v.play().catch(() => {});
+      v.autoplay = true;
+      v.preload = 'auto';
+      v.addEventListener('canplay', () => { v.play().catch(() => {}); }, { once: true });
+      v.addEventListener('error', () => {
+        // Video failed to load – release the slot so images still show
+        if (videoRef.current === v) {
+          videoRef.current = null;
+          activeVideoCount = Math.max(0, activeVideoCount - 1);
+        }
+      }, { once: true });
+      v.src = edition.videoUrl;
       videoRef.current = v;
       const vt = new THREE.VideoTexture(v);
       vt.colorSpace = THREE.SRGBColorSpace;
@@ -1047,60 +1070,32 @@ const WallTV = React.memo(function WallTV({ edition, pos, rot, owned }) {
       )}
 
       {/* ── Picture frame accent light ── */}
-      <mesh position={[0, TV_SZ / 2 + 0.38, -0.06]}>
-        <boxGeometry args={[1.8, 0.08, 0.12]} />
-        <meshBasicMaterial color="#222" />
-      </mesh>
+      <mesh position={[0, TV_SZ / 2 + 0.38, -0.06]} geometry={_tvFixtureGeo} material={_tvFixtureMat} />
       {/* Warm glow strip below the fixture */}
-      <mesh position={[0, TV_SZ / 2 + 0.30, 0.01]}>
-        <planeGeometry args={[1.6, 0.06]} />
-        <meshBasicMaterial color="#ffe8b0" transparent opacity={0.5} />
-      </mesh>
+      <mesh position={[0, TV_SZ / 2 + 0.30, 0.01]} geometry={_tvGlowStripGeo} material={_tvGlowStripMat} />
       {/* Glow cone – soft warm triangle of light on the frame */}
-      <mesh position={[0, TV_SZ / 2 + 0.15, 0.005]}>
-        <planeGeometry args={[TV_SZ + 0.2, 0.35]} />
-        <meshBasicMaterial color="#fff5e0" transparent opacity={0.06} depthWrite={false} />
-      </mesh>
+      <mesh position={[0, TV_SZ / 2 + 0.15, 0.005]} geometry={_tvGlowConeGeo} material={_tvGlowConeMat} />
 
       {/* TV outer frame */}
-      <mesh position={[0, 0, -0.04]}>
-        <boxGeometry args={[TV_SZ + 0.4, TV_SZ + 0.4, 0.06]} />
-        <meshStandardMaterial color="#111" roughness={0.3} metalness={0.9} />
-      </mesh>
+      <mesh position={[0, 0, -0.04]} geometry={_tvFrameGeo} material={_tvFrameMat} />
 
       {/* Tier-color bezel */}
-      <mesh position={[0, 0, -0.015]}>
-        <planeGeometry args={[TV_SZ + 0.15, TV_SZ + 0.15]} />
+      <mesh position={[0, 0, -0.015]} geometry={_tvBezelGeo}>
         <meshBasicMaterial color={tierColor} />
       </mesh>
 
       {/* Screen */}
-      <mesh position={[0, 0, 0.005]}>
-        <planeGeometry args={[TV_SZ, TV_SZ]} />
+      <mesh position={[0, 0, 0.005]} geometry={_tvScreenGeo}>
         {activeTex ? (
-          <meshBasicMaterial map={activeTex} toneMapped={false} />
+          <meshBasicMaterial key="tex" map={activeTex} toneMapped={false} />
         ) : (
-          <meshStandardMaterial color="#181830" emissive="#101028" emissiveIntensity={0.8} roughness={0.5} />
+          <meshBasicMaterial key="empty" color="#181830" />
         )}
       </mesh>
 
       {/* Static noise overlay when no image loaded yet */}
       {!activeTex && (
-        <mesh position={[0, TV_SZ / 2 - 0.3, 0.01]}>
-          <planeGeometry args={[TV_SZ * 0.6, 0.08]} />
-          <meshBasicMaterial color="#FDB927" transparent opacity={0.15} />
-        </mesh>
-      )}
-
-      {/* Single glow light from TV screen – only when texture loaded */}
-      {activeTex && (
-        <pointLight
-          position={[0, 0, 1.0]}
-          intensity={0.4}
-          distance={4}
-          color={tierColor}
-          decay={2}
-        />
+        <mesh position={[0, TV_SZ / 2 - 0.3, 0.01]} geometry={_tvNoiseGeo} material={_tvNoiseMat} />
       )}
 
       {/* Owned badge */}

@@ -11,7 +11,7 @@ export default function Home() {
   return (
     <>
       <div className="hero">
-        <h1>🏀 MVP on Flow - Pet Jokic's Horses 🐎</h1>
+        <h1 style={{ color: '#FDB927' }}>🏀 MVP on Flow - Pet Jokic's Horses 🐎</h1>
         <p>
           MVP on Flow, also known as <strong>Pet Jokic's horses</strong>, is a <strong>fan-powered project</strong> celebrating Nikola Jokic and his NBA TopShot moments on the Flow blockchain.
         </p>
@@ -31,18 +31,99 @@ export default function Home() {
         </a>
       </div>
 
+      {/* ── Tokenomics ── */}
       <div className="card shadow mb-4">
         <div className="card-body">
-          <h2 className="card-title text-center mb-3">💰 $MVP Tokenomics, Exchange and Rewards</h2>
-          <p className="card-text text-center">
-            Learn how $MVP works: buy, sell or swap Jokic moments using $MVP
+          <h2 className="card-title text-center mb-3">💰 $MVP Tokenomics</h2>
+          <p className="card-text text-center mb-4">
+            Earn, trade and redeem <strong>$MVP</strong> tokens in the Jokic fan economy
           </p>
-          <div className="text-center mt-3">
-            <img
-              src="/images/Tokenomics.svg"
-              alt="MVP Tokenomics"
-              className="img-fluid rounded shadow"
-            />
+
+          {/* Exchange rates */}
+          <h5 className="text-center mb-3" style={{ color: '#FDB927' }}>
+            $MVP → Moment (Redeem)
+          </h5>
+          <div className="row g-3 mb-3">
+            {[
+              { tier: 'Common',   emoji: '🟢', rate: 2,    color: '#4ade80' },
+              { tier: 'Rare',     emoji: '🔵', rate: 100,  color: '#60a5fa' },
+              { tier: 'TSD',      emoji: '🟣', rate: 500,  color: '#c084fc' },
+              { tier: 'Legendary',emoji: '🟡', rate: 2000, color: '#fbbf24' },
+            ].map(t => (
+              <div className="col-6 col-md-3" key={t.tier}>
+                <div className="text-center p-3 rounded" style={{
+                  background: 'rgba(255,255,255,0.04)',
+                  border: `1px solid ${t.color}40`,
+                }}>
+                  <div style={{ fontSize: '1.8rem' }}>{t.emoji}</div>
+                  <div className="fw-bold mt-1" style={{ color: t.color }}>{t.tier}</div>
+                  <div className="mt-1" style={{ fontSize: '1.4rem', fontWeight: 700, color: '#FDB927' }}>
+                    {t.rate.toLocaleString()} $MVP
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <h5 className="text-center mb-3" style={{ color: '#4ade80' }}>
+            Moment → $MVP (Sell to Treasury – 75%)
+          </h5>
+          <div className="row g-3 mb-4">
+            {[
+              { tier: 'Common',   emoji: '🟢', rate: 1.5,  color: '#4ade80' },
+              { tier: 'Rare',     emoji: '🔵', rate: 75,   color: '#60a5fa' },
+              { tier: 'TSD',      emoji: '🟣', rate: 375,  color: '#c084fc' },
+              { tier: 'Legendary',emoji: '🟡', rate: 1500, color: '#fbbf24' },
+            ].map(t => (
+              <div className="col-6 col-md-3" key={t.tier}>
+                <div className="text-center p-3 rounded" style={{
+                  background: 'rgba(255,255,255,0.04)',
+                  border: `1px solid ${t.color}40`,
+                }}>
+                  <div style={{ fontSize: '1.8rem' }}>{t.emoji}</div>
+                  <div className="fw-bold mt-1" style={{ color: t.color }}>{t.tier}</div>
+                  <div className="mt-1" style={{ fontSize: '1.4rem', fontWeight: 700, color: '#4ade80' }}>
+                    {t.rate.toLocaleString()} $MVP
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Earn & Spend */}
+          <div className="row g-3">
+            <div className="col-md-6">
+              <div className="p-3 rounded h-100" style={{
+                background: 'rgba(74,222,128,0.06)',
+                border: '1px solid rgba(74,222,128,0.25)',
+              }}>
+                <h6 className="fw-bold mb-2" style={{ color: '#4ade80' }}>
+                  📥 Earn $MVP
+                </h6>
+                <ul className="mb-0 ps-3" style={{ color: '#CBD5E1', lineHeight: 1.8 }}>
+                  <li>Pet Jokic's horses 🐎</li>
+                  <li>Prediction contests &amp; raffles</li>
+                  <li>Swap Jokic moments to treasury</li>
+                  <li>Community giveaways</li>
+                </ul>
+              </div>
+            </div>
+            <div className="col-md-6">
+              <div className="p-3 rounded h-100" style={{
+                background: 'rgba(251,191,36,0.06)',
+                border: '1px solid rgba(251,191,36,0.25)',
+              }}>
+                <h6 className="fw-bold mb-2" style={{ color: '#fbbf24' }}>
+                  📤 Use $MVP
+                </h6>
+                <ul className="mb-0 ps-3" style={{ color: '#CBD5E1', lineHeight: 1.8 }}>
+                  <li>Redeem for Jokic TopShot moments</li>
+                  <li>Trade on Flow DEXs (KittyPunch)</li>
+                  <li>Enter exclusive contests</li>
+                  <li>Stake for community rewards</li>
+                </ul>
+              </div>
+            </div>
           </div>
         </div>
       </div>
