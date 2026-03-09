@@ -6,7 +6,7 @@ function TDWatch() {
   // Top 3 all-time triple-double leaders
   const tdLeaders = [
     { rank: 1, name: 'Russell Westbrook', count: 207, active: true },
-    { rank: 2, name: 'Nikola Jokić', count: 185, active: true, isJokic: true },
+    { rank: 2, name: 'Nikola Jokić', count: 187, active: true, isJokic: true },
     { rank: 3, name: 'Oscar Robertson', count: 181, active: false }
   ];
 
@@ -236,35 +236,6 @@ function TDWatch() {
           </div>
         </div>
       </div>
-
-      {/* Reward Pool */}
-      <Row className="mb-4">
-        <Col lg={10} className="mx-auto">
-          <Card className="shadow border-0">
-            <Card.Header className="py-2" style={{backgroundColor: '#418FDE'}}>
-              <h6 className="mb-0 text-white">Available Rewards</h6>
-            </Card.Header>
-            <Card.Body className="p-0">
-              <Table striped hover size="sm" className="mb-0 td-leaders-table">
-                <thead>
-                  <tr>
-                    <th className="ps-3">Reward Name</th>
-                    <th className="text-center">Amount</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {rewardPool.map((reward, idx) => (
-                    <tr key={idx}>
-                      <td className="small ps-3">{reward.name}</td>
-                      <td className="text-center fw-semibold">{reward.amount}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </Table>
-            </Card.Body>
-          </Card>
-        </Col>
-      </Row>
 
       {/* All-Time Leaders Section */}
       <Row className="mb-4">
