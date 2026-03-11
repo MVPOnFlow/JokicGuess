@@ -23,6 +23,56 @@
   font-size: 0.95rem;
 }
 
+/* ── Mode toggle ── */
+.swap-mode-toggle {
+  display: flex;
+  gap: 0.5rem;
+  justify-content: center;
+  margin-top: 0.75rem;
+}
+
+.swap-mode-btn {
+  padding: 0.5rem 1.5rem;
+  border-radius: 999px;
+  border: 1px solid #273549;
+  background: transparent;
+  color: #9CA3AF;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.swap-mode-btn:hover {
+  border-color: #FDB927;
+  color: #E5E7EB;
+}
+
+.swap-mode-btn.active {
+  background: rgba(253, 185, 39, 0.15);
+  border-color: #FDB927;
+  color: #FDB927;
+}
+
+.swap-mode-btn.active-get {
+  background: rgba(74, 222, 128, 0.15);
+  border-color: #4ade80;
+  color: #4ade80;
+}
+
+.swap-mode-btn.active-get:hover {
+  border-color: #4ade80;
+}
+
+/* ── Buy action button ── */
+.swap-buy-btn {
+  background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%) !important;
+}
+
+.swap-buy-btn:hover:not(:disabled) {
+  background: linear-gradient(135deg, #4ade80 0%, #22c55e 100%) !important;
+}
+
 /* ── Swap card (main containers) ── */
 .swap-card {
   background: #1C2A3A;
@@ -62,37 +112,43 @@
   margin-bottom: 0.6rem;
 }
 
-/* ── Tier filter buttons ── */
-.swap-tier-btn {
-  padding: 0.35rem 0.6rem;
+/* ── Filter dropdowns ── */
+.swap-filter-row {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.swap-filter-select {
+  flex: 1 1 0;
+  min-width: 110px;
+  padding: 0.4rem 0.55rem;
   border-radius: 8px;
   border: 1px solid #273549;
-  background: transparent;
-  color: #9CA3AF;
-  font-size: 0.75rem;
+  background: #141e2e;
+  color: #E5E7EB;
+  font-size: 0.78rem;
   font-weight: 600;
   cursor: pointer;
-  transition: all 0.2s;
+  outline: none;
+  transition: border-color 0.2s;
+  -webkit-appearance: none;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%239CA3AF'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.55rem center;
+  padding-right: 1.6rem;
 }
 
-.swap-tier-btn:hover {
+.swap-filter-select:hover,
+.swap-filter-select:focus {
   border-color: #FDB92780;
+}
+
+.swap-filter-select option {
+  background: #141e2e;
   color: #E5E7EB;
-}
-
-.swap-tier-btn.active {
-  border-color: #FDB927;
-  background: #FDB92718;
-  color: #FDB927;
-}
-
-.swap-tier-btn .tier-dot {
-  display: inline-block;
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  margin-right: 4px;
-  vertical-align: middle;
 }
 
 /* ── Max / select buttons ── */

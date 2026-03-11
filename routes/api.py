@@ -1053,12 +1053,20 @@ def register_routes(app):
     #  Swap endpoint: moments → $MVP
     # ──────────────────────────────────────────────────────────
 
-    # Tier → $MVP mapping (75% of the "sending in" rates)
+    # Tier → $MVP mapping for selling moments to treasury
     _SWAP_MVP_RATES = {
         'COMMON': 1.5,
         'FANDOM': 1.5,
         'RARE': 75,
         'LEGENDARY': 1500,
+    }
+
+    # Tier → $MVP mapping for buying moments from treasury (higher price)
+    _BUY_MVP_RATES = {
+        'COMMON': 2,
+        'FANDOM': 2,
+        'RARE': 100,
+        'LEGENDARY': 2000,
     }
 
     @app.route('/api/swap/complete', methods=['POST'])
@@ -1117,6 +1125,21 @@ def register_routes(app):
             return jsonify({'error': f'Transaction not sealed (status: {tx_status})'}), 400
         if tx_result.get('error_message'):
             return jsonify({'error': f'Transaction failed on-chain: {tx_result["error_message"]}'}), 400
+
+        # Verify the transaction was proposed by the claiming user
+        try:
+            tx_body_resp = http_requests.get(
+                f'https://rest-mainnet.onflow.org/v1/transactions/{tx_id}',
+                timeout=10,
+            )
+            if tx_body_resp.status_code == 200:
+                tx_body = tx_body_resp.json()
+                proposer = tx_body.get('proposer', '').removeprefix('0x').lower()
+                claimed = user_addr.removeprefix('0x').lower()
+                if proposer and proposer != claimed:
+                    return jsonify({'error': 'Transaction proposer does not match your wallet'}), 403
+        except Exception:
+            pass  # non-fatal — event verification is the primary guard
 
         # Parse TopShot.Deposit events to verify moments arrived at treasury
         deposited_ids = set()
@@ -1243,6 +1266,7 @@ def register_routes(app):
             SELECT user_addr, SUM(mvp_amount) as total_mvp, COUNT(*) as swap_count
             FROM completed_swaps
             WHERE completed_at >= ? AND completed_at < ?
+              AND mvp_amount > 0
             GROUP BY user_addr
             ORDER BY total_mvp DESC
         '''), (start_ts, end_ts))
@@ -1415,6 +1439,338 @@ access(all) fun main(dapperChildren: [Address]): [[String]] {
         except Exception as exc:
             return jsonify({"error": str(exc)}), 500
 
+    # ──────────────────────────────────────────────────────────
+    #  Treasury moments listing (for "buy" direction)
+    # ──────────────────────────────────────────────────────────
+
+    _treasury_moments_cache = {"data": None, "ts": 0}
+
+    @app.route('/api/treasury/moments')
+    def api_treasury_moments():
+        """List Jokic moments in the treasury Dapper wallet.
+
+        Queries on-chain via Flow REST API Cadence script execution,
+        enriches via local DB, caches for 60 seconds.
+        Returns JSON: { moments: [...] }
+        """
+        import json as _json
+        import base64 as _b64
+
+        now = time.time()
+        if _treasury_moments_cache["data"] and now - _treasury_moments_cache["ts"] < 60:
+            return jsonify(_treasury_moments_cache["data"])
+
+        # Execute Cadence script via Flow REST API
+        treasury_addr = FLOW_ACCOUNT  # 0xf853bd09d46e7db6
+        cadence_script = """
+import TopShot from 0x0b2a3299cc857e29
+import TopShotLocking from 0x0b2a3299cc857e29
+
+access(all) fun main(account: Address): [[String]] {
+  let acct = getAccount(account)
+  let ref = acct.capabilities
+    .borrow<&TopShot.Collection>(/public/MomentCollection)!
+  let ids = ref.getIDs()
+  var setNames: {UInt32: String} = {}
+  var result: [[String]] = []
+  for id in ids {
+    let nft = ref.borrowMoment(id: id)!
+    let sid = nft.data.setID
+    if setNames[sid] == nil {
+      setNames[sid] = TopShot.getSetName(setID: sid) ?? ""
+    }
+    let locked = TopShotLocking.isLocked(nftRef: nft)
+    let subedition = TopShot.getMomentsSubedition(nftID: id) ?? 0
+    result.append([
+      id.toString(),
+      nft.data.playID.toString(),
+      setNames[sid]!,
+      nft.data.serialNumber.toString(),
+      locked ? "1" : "0",
+      subedition.toString()
+    ])
+  }
+  return result
+}
+"""
+        try:
+            import base64 as _b64
+            cadence_b64 = _b64.b64encode(cadence_script.encode()).decode()
+            addr_no_prefix = treasury_addr.removeprefix('0x')
+            # Encode Address argument in JSON-CDC format
+            arg_json = _json.dumps({"type": "Address", "value": "0x" + addr_no_prefix})
+            arg_b64 = _b64.b64encode(arg_json.encode()).decode()
+
+            resp = http_requests.post(
+                'https://rest-mainnet.onflow.org/v1/scripts',
+                json={
+                    'script': cadence_b64,
+                    'arguments': [arg_b64],
+                },
+                timeout=30,
+            )
+            if resp.status_code != 200:
+                return jsonify({'error': f'Flow script failed (HTTP {resp.status_code})'}), 502
+
+            # Response is base64-encoded JSON-CDC
+            result_b64 = resp.text.strip().strip('"')
+            result_json = _json.loads(_b64.b64decode(result_b64).decode())
+
+            # Parse JSON-CDC array of arrays of strings
+            raw_moments = []
+            for item in result_json.get('value', []):
+                arr = [f['value'] for f in item.get('value', [])]
+                if len(arr) >= 6:
+                    raw_moments.append({
+                        'id': int(arr[0]),
+                        'playID': int(arr[1]),
+                        'setName': arr[2],
+                        'serial': int(arr[3]),
+                        'isLocked': arr[4] == '1',
+                        'subedition': int(arr[5]),
+                    })
+        except Exception as e:
+            return jsonify({'error': f'Failed to query treasury moments: {str(e)}'}), 502
+
+        # Filter out locked moments
+        unlocked = [m for m in raw_moments if not m.get('isLocked')]
+
+        # Enrich via DB lookup (same as moment-lookup endpoint)
+        db = get_db()
+        cur = db.cursor()
+        enriched = []
+        for m in unlocked:
+            play_id = m['playID']
+            set_name = m.get('setName', '')
+            subedition = m.get('subedition', 0)
+            edition_suffix = '+' + str(subedition)
+
+            cur.execute(
+                prepare_query(
+                    "SELECT edition_id, tier, set_name, series_number, "
+                    "play_headline, play_category, team, date_of_moment, "
+                    "nba_season, jersey_number, image_url, video_url, "
+                    "circulation_count, low_ask "
+                    "FROM jokic_editions WHERE play_flow_id = ? AND set_name = ? "
+                    "ORDER BY CASE WHEN edition_id LIKE ? THEN 0 ELSE 1 END "
+                    "LIMIT 1"
+                ),
+                (int(play_id), set_name, '%' + edition_suffix),
+            )
+            row = cur.fetchone()
+
+            # Fallback: match by play_flow_id only
+            if not row:
+                cur.execute(
+                    prepare_query(
+                        "SELECT edition_id, tier, set_name, series_number, "
+                        "play_headline, play_category, team, date_of_moment, "
+                        "nba_season, jersey_number, image_url, video_url, "
+                        "circulation_count, low_ask "
+                        "FROM jokic_editions WHERE play_flow_id = ? "
+                        "ORDER BY CASE WHEN edition_id LIKE ? THEN 0 ELSE 1 END "
+                        "LIMIT 1"
+                    ),
+                    (int(play_id), '%' + edition_suffix),
+                )
+                row = cur.fetchone()
+
+            if not row:
+                continue
+
+            tier = row[1] or 'COMMON'
+            mvp_cost = _BUY_MVP_RATES.get(tier, 0)
+            enriched.append({
+                'id': m['id'],
+                'serial': m['serial'],
+                'editionId': row[0],
+                'tier': tier,
+                'setName': row[2] or '',
+                'seriesNumber': row[3],
+                'headline': row[4] or '',
+                'player': 'Nikola Jokić',
+                'team': row[6] or '',
+                'imageUrl': row[10] or None,
+                'mvpCost': mvp_cost,
+                'subedition': m.get('subedition', 0),
+            })
+
+        result_data = {'moments': enriched}
+        _treasury_moments_cache["data"] = result_data
+        _treasury_moments_cache["ts"] = now
+        return jsonify(result_data)
+
+    # ──────────────────────────────────────────────────────────
+    #  Swap buy endpoint: $MVP → moments
+    # ──────────────────────────────────────────────────────────
+
+    @app.route('/api/swap/buy', methods=['POST'])
+    def api_swap_buy():
+        """Verify $MVP transfer tx on-chain and send moments from treasury.
+
+        Expects JSON: { txId, userAddr, userDapperAddr, momentIds }
+        Returns JSON: { momentsTxId }
+
+        Security:
+        1. Replay protection – rejects txId already in completed_swaps.
+        2. On-chain verification – confirms PetJokicsHorses Deposit events
+           prove the claimed $MVP arrived at the treasury address.
+        3. Verifies the $MVP amount matches the cost of requested moments.
+        4. Only then sends moments from treasury Dapper child to user.
+        """
+        import asyncio
+        import json as _json
+        import base64 as _b64
+
+        data = request.get_json(force=True) or {}
+        tx_id = data.get('txId', '').strip()
+        user_addr = data.get('userAddr', '').strip()
+        user_dapper = data.get('userDapperAddr', '').strip()
+        moment_ids = data.get('momentIds', [])
+
+        if not tx_id or not user_addr or not user_dapper or not moment_ids:
+            return jsonify({'error': 'Missing txId, userAddr, userDapperAddr, or momentIds'}), 400
+
+        # --- 0. Replay protection ---
+        db = get_db()
+        cur = db.cursor()
+        cur.execute(
+            prepare_query("SELECT tx_id FROM completed_swaps WHERE tx_id = ?"),
+            (tx_id,),
+        )
+        if cur.fetchone():
+            return jsonify({'error': 'This transaction has already been processed'}), 409
+
+        # --- 1. Calculate expected $MVP cost for requested moments ---
+        total_cost = 0
+        tier_counts = {}
+        for mid in moment_ids:
+            tier = _get_moment_tier(mid)
+            if tier is None:
+                return jsonify({'error': f'Could not fetch tier for moment {mid}'}), 502
+            rate = _BUY_MVP_RATES.get(tier, 0)
+            if rate == 0:
+                return jsonify({'error': f'Moment {mid} has unsupported tier: {tier}'}), 400
+            total_cost += rate
+            tier_counts[tier] = tier_counts.get(tier, 0) + 1
+
+        if total_cost <= 0:
+            return jsonify({'error': 'No $MVP value for selected moments'}), 400
+
+        # --- 2. On-chain verification: $MVP deposited to treasury ---
+        treasury_mvp_addr = FLOW_SWAP_ACCOUNT.removeprefix('0x').lower()
+        try:
+            flow_resp = http_requests.get(
+                f'https://rest-mainnet.onflow.org/v1/transaction_results/{tx_id}',
+                timeout=15,
+            )
+            if flow_resp.status_code != 200:
+                return jsonify({'error': f'Could not fetch tx result from Flow (HTTP {flow_resp.status_code})'}), 502
+            tx_result = flow_resp.json()
+        except Exception as e:
+            return jsonify({'error': f'Flow API error: {str(e)}'}), 502
+
+        tx_status = tx_result.get('status', '').upper()
+        if tx_status != 'SEALED':
+            return jsonify({'error': f'Transaction not sealed (status: {tx_status})'}), 400
+        if tx_result.get('error_message'):
+            return jsonify({'error': f'Transaction failed on-chain: {tx_result["error_message"]}'}), 400
+
+        # Verify the transaction was proposed by the claiming user
+        try:
+            tx_body_resp = http_requests.get(
+                f'https://rest-mainnet.onflow.org/v1/transactions/{tx_id}',
+                timeout=10,
+            )
+            if tx_body_resp.status_code == 200:
+                tx_body = tx_body_resp.json()
+                proposer = tx_body.get('proposer', '').removeprefix('0x').lower()
+                claimed = user_addr.removeprefix('0x').lower()
+                if proposer and proposer != claimed:
+                    return jsonify({'error': 'Transaction proposer does not match your wallet'}), 403
+        except Exception:
+            pass  # non-fatal — deposit event verification is the primary guard
+
+        # Look for FungibleToken.Deposited event with PetJokicsHorses vault → treasury
+        # Cadence 1.0 emits generic FungibleToken.Deposited with a "type" field
+        # identifying the vault, e.g. "A.6fd2465f3a22e34c.PetJokicsHorses.Vault"
+        ft_deposited_type = 'A.f233dcee88fe0abe.FungibleToken.Deposited'
+        deposited_amount = 0.0
+        for ev in tx_result.get('events', []):
+            if ev.get('type') != ft_deposited_type:
+                continue
+            try:
+                payload = _json.loads(_b64.b64decode(ev['payload']).decode('utf-8'))
+                fields = payload.get('value', {}).get('fields', [])
+                ev_vault_type = None
+                ev_amount = None
+                ev_to = None
+                for f in fields:
+                    if f.get('name') == 'type':
+                        ev_vault_type = f.get('value', {}).get('value', '')
+                    elif f.get('name') == 'amount':
+                        ev_amount = float(f['value']['value'])
+                    elif f.get('name') == 'to':
+                        val = f.get('value', {})
+                        if val.get('type') == 'Optional' and val.get('value'):
+                            ev_to = val['value'].get('value', '').removeprefix('0x').lower()
+                        elif val.get('value'):
+                            ev_to = str(val['value']).removeprefix('0x').lower()
+                # Must be a PetJokicsHorses vault deposit to treasury address
+                if (ev_vault_type and 'PetJokicsHorses' in ev_vault_type
+                        and ev_amount and ev_to == treasury_mvp_addr):
+                    deposited_amount += ev_amount
+            except Exception:
+                continue
+
+        # Allow small floating-point tolerance
+        if deposited_amount < total_cost - 0.001:
+            return jsonify({
+                'error': f'Insufficient $MVP deposited. Expected {total_cost}, got {deposited_amount:.4f}',
+            }), 400
+
+        # --- 3. Send moments from treasury Dapper → user Dapper ---
+        moments_tx_id = None
+        if not FLOW_SWAP_PRIVATE_KEY:
+            note = 'Treasury key not configured; moments will be sent manually.'
+        else:
+            try:
+                moments_tx_id = asyncio.run(
+                    _send_moments_from_treasury(user_dapper, moment_ids)
+                )
+                note = None
+            except Exception as e:
+                return jsonify({'error': f'Failed to send moments: {str(e)}'}), 500
+
+        # --- 4. Record completed swap ---
+        cur.execute(
+            prepare_query(
+                "INSERT INTO completed_swaps "
+                "(tx_id, user_addr, moment_ids, mvp_amount, mvp_tx_id, completed_at) "
+                "VALUES (?, ?, ?, ?, ?, ?) "
+                "ON CONFLICT DO NOTHING"
+            ),
+            (tx_id, user_addr, ','.join(str(m) for m in moment_ids),
+             -total_cost, moments_tx_id, int(time.time())),
+        )
+        db.commit()
+
+        # Invalidate treasury moments cache
+        _treasury_moments_cache["data"] = None
+
+        result = {
+            'momentsTxId': moments_tx_id,
+            'mvpAmount': total_cost,
+            'tierCounts': tier_counts,
+        }
+        if note:
+            result['note'] = note
+
+        # --- 5. Discord notification ---
+        _notify_buy_discord(app, user_addr, moment_ids, total_cost, tier_counts, tx_id, moments_tx_id)
+
+        return jsonify(result), 200
+
     return app
 
 
@@ -1553,6 +1909,132 @@ async def _send_mvp_from_treasury(recipient_addr: str, amount: float) -> str:
         return tx_id  # Return even if not yet sealed
 
 
+async def _send_moments_from_treasury(recipient_dapper: str, moment_ids: list) -> str:
+    """Transfer TopShot moments from treasury Dapper child to recipient.
+
+    Uses HybridCustody: the treasury Flow wallet (FLOW_SWAP_ACCOUNT) is the
+    parent of the treasury Dapper wallet (FLOW_ACCOUNT).  The server signs
+    the transaction using FLOW_SWAP_PRIVATE_KEY.
+
+    Returns the Flow transaction ID hex string.
+    """
+    import asyncio
+    from flow_py_sdk import (
+        flow_client, Tx, ProposalKey, InMemorySigner, SignAlgo,
+    )
+    from flow_py_sdk.signer import HashAlgo
+    from flow_py_sdk.cadence import Address, Array, UInt64
+
+    child_addr = FLOW_ACCOUNT.removeprefix('0x')
+
+    cadence_code = f"""
+import HybridCustody from 0xd8a7e05a7ac670c0
+import NonFungibleToken from 0x1d7e57aa55817448
+import TopShot from 0x0b2a3299cc857e29
+
+transaction(momentIds: [UInt64], recipient: Address) {{
+
+  let provider: auth(NonFungibleToken.Withdraw)
+               &{{NonFungibleToken.Provider, NonFungibleToken.CollectionPublic}}
+
+  prepare(signer: auth(Storage, Capabilities) &Account) {{
+    let mgr = signer.storage.borrow<auth(HybridCustody.Manage) &HybridCustody.Manager>(
+      from: HybridCustody.ManagerStoragePath
+    ) ?? panic("No HybridCustody manager")
+
+    let childAcct = mgr.borrowAccount(addr: 0x{child_addr})
+      ?? panic("Child account not found")
+
+    let capType = Type<
+      auth(NonFungibleToken.Withdraw)
+      &{{NonFungibleToken.Provider, NonFungibleToken.CollectionPublic}}>()
+
+    let controllerID = childAcct.getControllerIDForType(
+      type: capType,
+      forPath: /storage/MomentCollection
+    ) ?? panic("Controller ID not found for TopShot collection on child")
+
+    let cap = childAcct.getCapability(
+      controllerID: controllerID,
+      type: capType
+    ) as! Capability<
+      auth(NonFungibleToken.Withdraw)
+      &{{NonFungibleToken.Provider, NonFungibleToken.CollectionPublic}}>
+
+    assert(cap.check(), message: "Invalid provider capability")
+    self.provider = cap.borrow()!
+  }}
+
+  execute {{
+    let recipientAcct = getAccount(recipient)
+    let receiver = recipientAcct.capabilities
+      .borrow<&{{NonFungibleToken.Receiver}}>(/public/MomentCollection)
+      ?? panic("Recipient has no TopShot collection")
+
+    for id in momentIds {{
+      let nft <- self.provider.withdraw(withdrawID: id)
+      receiver.deposit(token: <-nft)
+    }}
+  }}
+}}
+"""
+
+    treasury_addr = Address.from_hex(FLOW_SWAP_ACCOUNT.removeprefix('0x'))
+    recipient = Address.from_hex(recipient_dapper.removeprefix('0x'))
+
+    # Build moment IDs as UInt64 array
+    moment_args = Array([UInt64(int(mid)) for mid in moment_ids])
+
+    signer = InMemorySigner(
+        hash_algo=HashAlgo.SHA3_256,
+        sign_algo=SignAlgo.ECDSA_P256,
+        private_key_hex=FLOW_SWAP_PRIVATE_KEY,
+    )
+
+    async with flow_client(
+        host='access.mainnet.nodes.onflow.org',
+        port=9000,
+    ) as client:
+        block = await client.get_latest_block()
+        ref_block_id = block.id
+
+        account = await client.get_account(address=treasury_addr.bytes)
+        seq_number = account.keys[FLOW_SWAP_KEY_INDEX].sequence_number
+
+        tx = (
+            Tx(
+                code=cadence_code,
+                reference_block_id=ref_block_id,
+                payer=treasury_addr,
+                proposal_key=ProposalKey(
+                    key_address=treasury_addr,
+                    key_id=FLOW_SWAP_KEY_INDEX,
+                    key_sequence_number=seq_number,
+                ),
+            )
+            .add_arguments(moment_args, recipient)
+            .add_authorizers(treasury_addr)
+            .with_envelope_signature(
+                treasury_addr, FLOW_SWAP_KEY_INDEX, signer
+            )
+        )
+
+        response = await client.send_transaction(transaction=tx.to_signed_grpc())
+        tx_id = response.id.hex()
+
+        # Wait for seal (poll up to ~30s)
+        for _ in range(30):
+            result = await client.get_transaction_result(id=response.id)
+            status_val = result.status.value if hasattr(result.status, 'value') else int(result.status)
+            if status_val >= 4:  # SEALED
+                if result.error_message:
+                    raise RuntimeError(f'Transaction failed: {result.error_message}')
+                return tx_id
+            await asyncio.sleep(1)
+
+        return tx_id  # Return even if not yet sealed
+
+
 def get_db():
     """Get database connection for Flask requests."""
     from db.connection import get_db as get_db_func
@@ -1613,6 +2095,63 @@ def _notify_swap_discord(app, user_addr, moment_ids, total_mvp, tier_counts, tx_
             pass  # best-effort, don't break the API response
 
     # Schedule on the bot's event loop (runs in the Discord thread)
+    try:
+        bot.loop.call_soon_threadsafe(_aio.ensure_future, _send())
+    except Exception:
+        pass
+
+
+def _notify_buy_discord(app, user_addr, moment_ids, total_mvp, tier_counts, tx_id, moments_tx_id):
+    """Fire-and-forget Discord notification for a buy swap ($MVP → moments)."""
+    import asyncio as _aio
+
+    bot = getattr(app, 'discord_bot', None)
+    channel_id = getattr(app, 'swap_notify_channel_id', None)
+    if not bot or not channel_id or not bot.is_ready():
+        return
+
+    tier_parts = []
+    for tier, count in sorted(tier_counts.items()):
+        tier_parts.append(f"{count} {tier.capitalize()}")
+    tier_summary = ', '.join(tier_parts) if tier_parts else f"{len(moment_ids)} moment(s)"
+
+    try:
+        ts_username = get_ts_username_from_flow_wallet(user_addr)
+    except Exception:
+        ts_username = None
+
+    if ts_username:
+        user_display = f"[{ts_username}](https://www.nbatopshot.com/user/{ts_username})"
+    else:
+        short_addr = f"{user_addr[:6]}…{user_addr[-4:]}" if len(user_addr) > 10 else user_addr
+        user_display = f"**{short_addr}**"
+
+    flowdiver_tx = f"https://www.flowdiver.io/tx/{tx_id}"
+    moments_link = f"  |  [Moments tx](https://www.flowdiver.io/tx/{moments_tx_id})" if moments_tx_id else ""
+
+    embed_description = (
+        f"{user_display} bought **{len(moment_ids)}** moment{'s' if len(moment_ids) != 1 else ''} "
+        f"({tier_summary}) for **{total_mvp:,.1f} $MVP**\n\n"
+        f"[View $MVP tx]({flowdiver_tx}){moments_link}"
+    )
+
+    async def _send():
+        try:
+            channel = bot.get_channel(channel_id)
+            if not channel:
+                channel = await bot.fetch_channel(channel_id)
+            if channel:
+                import discord
+                embed = discord.Embed(
+                    title="🛒 Moment Purchase Completed",
+                    description=embed_description,
+                    color=0x4ade80,
+                )
+                embed.set_footer(text="MVP on Flow • Swap")
+                await channel.send(embed=embed)
+        except Exception:
+            pass
+
     try:
         bot.loop.call_soon_threadsafe(_aio.ensure_future, _send())
     except Exception:

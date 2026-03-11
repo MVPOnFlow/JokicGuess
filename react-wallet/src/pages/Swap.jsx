@@ -10,13 +10,16 @@ const TREASURY_DAPPER = '0xf853bd09d46e7db6';
 
 const TIERS = [
   { key: 'COMMON',    label: 'Common',    emoji: '🟢', color: '#4ade80', mvpRate: 1.5  },
-  { key: 'FANDOM',    label: 'Fandom',    emoji: '🩵', color: '#40e0d0', mvpRate: 1.5  },
+  { key: 'FANDOM',    label: 'Fandom',    emoji: '🔹', color: '#40e0d0', mvpRate: 1.5  },
   { key: 'RARE',      label: 'Rare',      emoji: '🔵', color: '#60a5fa', mvpRate: 75   },
   { key: 'LEGENDARY', label: 'Legendary', emoji: '🟡', color: '#fbbf24', mvpRate: 1500 },
 ];
 
 const TIER_MVP = {};
 TIERS.forEach(t => { TIER_MVP[t.key] = t.mvpRate; });
+
+// Buy prices (getting moments from treasury costs more)
+const TIER_MVP_BUY = { COMMON: 2, FANDOM: 2, RARE: 100, LEGENDARY: 2000 };
 
 /* ================================================================
    Cadence: discover child Dapper account
@@ -183,6 +186,39 @@ transaction {
 `;
 
 /* ================================================================
+   Cadence: send $MVP from user to treasury (buy direction)
+   User signs this tx to pay for moments.
+   ================================================================ */
+function buildSendMvpCadence() {
+  return `
+import FungibleToken from 0xf233dcee88fe0abe
+import PetJokicsHorses from 0x6fd2465f3a22e34c
+
+transaction(amount: UFix64, recipient: Address) {
+  let sentVault: @{FungibleToken.Vault}
+
+  prepare(signer: auth(Storage, BorrowValue) &Account) {
+    let vaultRef = signer.storage.borrow<auth(FungibleToken.Withdraw) &PetJokicsHorses.Vault>(
+      from: /storage/PetJokicsHorsesVault
+    ) ?? panic("Could not borrow reference to the owner's Vault!")
+    self.sentVault <- vaultRef.withdraw(amount: amount)
+  }
+
+  execute {
+    let recipientAccount = getAccount(recipient)
+    let receiverRef = recipientAccount.capabilities.borrow<&{FungibleToken.Vault}>(
+      /public/PetJokicsHorsesReceiver
+    ) ?? panic("Recipient is missing receiver capability")
+    receiverRef.deposit(from: <-self.sentVault)
+  }
+}
+`;
+}
+
+// Treasury Flow wallet that receives $MVP
+const TREASURY_FLOW = '0xcc4b6fa5550a4610';
+
+/* ================================================================
    Enrich moments via our backend (DB lookup, no TopShot API calls)
    ================================================================ */
 async function enrichMoments(rawMoments) {
@@ -210,6 +246,44 @@ async function enrichMoments(rawMoments) {
     return [];
   }
 }
+
+/* ================================================================
+   MomentCard – memoised so only cards whose selection changes re-render
+   ================================================================ */
+const TIER_MAP = {};
+TIERS.forEach(t => { TIER_MAP[t.key] = t; });
+
+const MomentCard = React.memo(function MomentCard({ m, isSelected, isBuyMode, onToggle }) {
+  const tierInfo = TIER_MAP[m.tier];
+  const accentColor = isBuyMode ? '#4ade80' : '#FDB927';
+  const price = isBuyMode ? (TIER_MVP_BUY[m.tier] || 0) : (TIER_MVP[m.tier] || 0);
+  const handleClick = useCallback(() => onToggle(m.id), [onToggle, m.id]);
+  return (
+    <div
+      className={`swap-moment-card ${isSelected ? 'selected' : ''}`}
+      onClick={handleClick}
+      style={{ borderColor: isSelected ? (tierInfo?.color || accentColor) : undefined }}
+    >
+      {m.imageUrl && (
+        <img src={m.imageUrl} alt={m.headline} className="swap-moment-img" loading="lazy" />
+      )}
+      <div className="swap-moment-info">
+        <div className="swap-moment-player">{m.set}</div>
+        <div className="swap-moment-headline">
+          {m.seriesNumber ? `Series ${m.seriesNumber}` : ''}
+        </div>
+        <div className="swap-moment-meta">
+          <span style={{ color: tierInfo?.color || '#adb5bd' }}>
+            {tierInfo?.emoji} {tierInfo?.label || m.tier}
+          </span>
+          <span style={{ color: '#9CA3AF', fontSize: '0.75rem' }}>#{m.serial}</span>
+          <span style={{ color: accentColor, fontWeight: 600 }}>{price} $MVP</span>
+        </div>
+      </div>
+      {isSelected && <div className="swap-moment-check" style={isBuyMode ? { background: '#4ade80' } : undefined}>✓</div>}
+    </div>
+  );
+});
 
 /* ================================================================
    SwapProgressStep – single step row in the progress modal
@@ -347,6 +421,9 @@ export default function Swap() {
   const [user, setUser] = useState({ loggedIn: null });
   useEffect(() => { fcl.currentUser().subscribe(setUser); }, []);
 
+  /* ── Mode toggle: 'send' = moments→$MVP, 'get' = $MVP→moments ── */
+  const [mode, setMode] = useState('send');
+
   /* ── Child (Dapper) account ── */
   const [childAddr, setChildAddr] = useState(null);
   const [childLoading, setChildLoading] = useState(false);
@@ -364,9 +441,11 @@ export default function Swap() {
   /* ── Transaction ── */
   // (modal-based progress – see swapModal state below)
 
-  /* ── Filter / sort ── */
+  /* ── Filters ── */
   const [tierFilter, setTierFilter] = useState('ALL');
-  const [searchText, setSearchText] = useState('');
+  const [seriesFilter, setSeriesFilter] = useState('ALL');
+  const [parallelFilter, setParallelFilter] = useState('ALL');
+  const [setFilter, setSetFilter] = useState('ALL');
 
   /* ── Check MVP vault when wallet connects ── */
   useEffect(() => {
@@ -462,6 +541,11 @@ export default function Swap() {
         const unlocked = parsed.filter(m => !m.isLocked);
         const enriched = await enrichMoments(unlocked);
         if (!cancelled) {
+          // Merge subedition from Cadence data back into enriched moments
+          const subMap = new Map(unlocked.map(u => [u.id, u.subedition || 0]));
+          for (const em of enriched) {
+            em.subedition = subMap.get(em.id) ?? 0;
+          }
           // Sort by serial number descending (highest first)
           enriched.sort((a, b) => b.serial - a.serial);
           setMoments(enriched);
@@ -475,22 +559,121 @@ export default function Swap() {
     return () => { cancelled = true; };
   }, [childAddr]);
 
-  /* ── Filtered moments ── */
+  /* ── Treasury moments (for "get" mode) ── */
+  const [treasuryMoments, setTreasuryMoments] = useState([]);
+  const [treasuryLoading, setTreasuryLoading] = useState(false);
+  const [treasurySelected, setTreasurySelected] = useState(new Set());
+
+  useEffect(() => {
+    if (mode !== 'get') return;
+    let cancelled = false;
+    (async () => {
+      setTreasuryLoading(true);
+      try {
+        const resp = await fetch('/api/treasury/moments');
+        if (!resp.ok) throw new Error('Failed to fetch');
+        const data = await resp.json();
+        if (!cancelled) {
+          const moms = (data.moments || []).map(m => ({
+            id: m.id,
+            serial: m.serial,
+            player: m.player || 'Nikola Jokić',
+            headline: m.headline || '',
+            team: m.team || '',
+            set: m.setName || '',
+            seriesNumber: m.seriesNumber || null,
+            tier: m.tier,
+            imageUrl: m.imageUrl || null,
+            mvpCost: m.mvpCost || 0,
+            subedition: m.subedition ?? 0,
+          }));
+          moms.sort((a, b) => a.serial - b.serial);
+          setTreasuryMoments(moms);
+        }
+      } catch {
+        if (!cancelled) setTreasuryMoments([]);
+      } finally {
+        if (!cancelled) setTreasuryLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [mode]);
+
+  /* ── Clear selection on mode switch ── */
+  useEffect(() => {
+    setSelected(new Set());
+    setTreasurySelected(new Set());
+    setTierFilter('ALL');
+    setSeriesFilter('ALL');
+    setParallelFilter('ALL');
+    setSetFilter('ALL');
+  }, [mode]);
+
+  /* ── Derived: available series & parallel values for dropdowns ── */
+  const seriesOptions = useMemo(() => {
+    const src = mode === 'send' ? moments : treasuryMoments;
+    const vals = [...new Set(src.map(m => m.seriesNumber).filter(Boolean))].sort((a, b) => a - b);
+    return vals;
+  }, [mode, moments, treasuryMoments]);
+
+  const parallelOptions = useMemo(() => {
+    const src = mode === 'send' ? moments : treasuryMoments;
+    const vals = [...new Set(src.map(m => m.subedition ?? 0))].sort((a, b) => a - b);
+    return vals;
+  }, [mode, moments, treasuryMoments]);
+
+  const PARALLEL_NAMES = {
+    0: 'Standard',
+    1: 'Explosion',
+    2: 'Torn',
+    3: 'Vortex',
+    4: 'Rippled',
+    5: 'Coded',
+    6: 'Halftone',
+    7: 'Bubbled',
+    8: 'Diced',
+    9: 'Bit',
+    10: 'Vibe',
+    11: 'Astra',
+    13: 'Voltage',
+    14: 'Livewire',
+    15: 'Championship',
+    16: 'Club Collection',
+    17: 'Blockchain',
+    18: 'Hardcourt',
+    19: 'Hexwave',
+    20: 'Jukebox',
+    21: 'Galactic',
+    22: 'Omega',
+  };
+  const parallelLabel = (v) => PARALLEL_NAMES[v] || `Parallel #${v}`;
+
+  const setOptions = useMemo(() => {
+    const src = mode === 'send' ? moments : treasuryMoments;
+    return [...new Set(src.map(m => m.set).filter(Boolean))].sort();
+  }, [mode, moments, treasuryMoments]);
+
+  /* ── Filtered moments (send mode) ── */
   const filtered = useMemo(() => {
     let list = moments;
     if (tierFilter !== 'ALL') list = list.filter(m => m.tier === tierFilter);
-    if (searchText.trim()) {
-      const q = searchText.toLowerCase();
-      list = list.filter(m =>
-        m.player.toLowerCase().includes(q) ||
-        m.headline.toLowerCase().includes(q) ||
-        m.set.toLowerCase().includes(q)
-      );
-    }
+    if (seriesFilter !== 'ALL') list = list.filter(m => String(m.seriesNumber) === seriesFilter);
+    if (parallelFilter !== 'ALL') list = list.filter(m => String(m.subedition ?? 0) === parallelFilter);
+    if (setFilter !== 'ALL') list = list.filter(m => m.set === setFilter);
     return list;
-  }, [moments, tierFilter, searchText]);
+  }, [moments, tierFilter, seriesFilter, parallelFilter, setFilter]);
 
-  /* ── Calculate $MVP total for selected moments ── */
+  /* ── Filtered treasury moments (get mode) ── */
+  const filteredTreasury = useMemo(() => {
+    let list = treasuryMoments;
+    if (tierFilter !== 'ALL') list = list.filter(m => m.tier === tierFilter);
+    if (seriesFilter !== 'ALL') list = list.filter(m => String(m.seriesNumber) === seriesFilter);
+    if (parallelFilter !== 'ALL') list = list.filter(m => String(m.subedition ?? 0) === parallelFilter);
+    if (setFilter !== 'ALL') list = list.filter(m => m.set === setFilter);
+    return list;
+  }, [treasuryMoments, tierFilter, seriesFilter, parallelFilter, setFilter]);
+
+  /* ── Calculate $MVP total for selected moments (send mode) ── */
   const selectedMvp = useMemo(() => {
     let total = 0;
     for (const id of selected) {
@@ -500,7 +683,17 @@ export default function Swap() {
     return total;
   }, [selected, moments]);
 
-  /* ── Toggle selection ── */
+  /* ── Calculate $MVP cost for selected treasury moments (get mode) ── */
+  const selectedBuyCost = useMemo(() => {
+    let total = 0;
+    for (const id of treasurySelected) {
+      const m = treasuryMoments.find(x => x.id === id);
+      if (m) total += TIER_MVP_BUY[m.tier] || 0;
+    }
+    return total;
+  }, [treasurySelected, treasuryMoments]);
+
+  /* ── Toggle selection (send mode) ── */
   const toggleSelect = useCallback((id) => {
     setSelected(prev => {
       const next = new Set(prev);
@@ -516,6 +709,24 @@ export default function Swap() {
 
   const selectNone = useCallback(() => {
     setSelected(new Set());
+  }, []);
+
+  /* ── Toggle selection (get mode) ── */
+  const toggleTreasurySelect = useCallback((id) => {
+    setTreasurySelected(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }, []);
+
+  const selectAllTreasury = useCallback(() => {
+    setTreasurySelected(new Set(filteredTreasury.map(m => m.id)));
+  }, [filteredTreasury]);
+
+  const selectNoneTreasury = useCallback(() => {
+    setTreasurySelected(new Set());
   }, []);
 
   /* ── Swap progress modal state ── */
@@ -600,6 +811,91 @@ export default function Swap() {
     }
   }, [user, childAddr, selected, selectedMvp]);
 
+  /* ── Execute buy: send $MVP → treasury, then receive moments ── */
+  const handleBuy = useCallback(async () => {
+    if (!user?.addr || !childAddr || treasurySelected.size === 0) return;
+
+    const momentIds = [...treasurySelected];
+    const mvpCost = selectedBuyCost;
+
+    setSwapModal({
+      step: 'signing',
+      momentCount: momentIds.length,
+      mvpExpected: mvpCost,
+      txId: null,
+      mvpTxId: null,
+      mvpAmount: null,
+      error: null,
+      buyMode: true,
+    });
+
+    try {
+      /* Step 1: Send $MVP to treasury */
+      const cadence = buildSendMvpCadence();
+      const authz = fcl.currentUser().authorization;
+      const amountStr = mvpCost.toFixed(8);
+
+      const transactionId = await fcl.mutate({
+        cadence,
+        args: (arg, t) => [
+          arg(amountStr, t.UFix64),
+          arg(TREASURY_FLOW, t.Address),
+        ],
+        proposer: authz,
+        payer: authz,
+        authorizations: [authz],
+        limit: 9999,
+      });
+
+      setSwapModal(prev => ({ ...prev, step: 'submitted', txId: transactionId }));
+
+      /* Step 2: Wait for seal */
+      setSwapModal(prev => ({ ...prev, step: 'sealing' }));
+      await fcl.tx(transactionId).onceSealed();
+
+      /* Step 3: Server sends moments */
+      setSwapModal(prev => ({ ...prev, step: 'sending-moments' }));
+
+      const resp = await fetch('/api/swap/buy', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          txId: transactionId,
+          userAddr: user.addr,
+          userDapperAddr: childAddr,
+          momentIds,
+        }),
+      });
+      const data = await resp.json();
+
+      if (!resp.ok) {
+        throw new Error(data.error || 'Purchase failed');
+      }
+
+      /* Step 4: Done */
+      setSwapModal(prev => ({
+        ...prev,
+        step: 'done',
+        mvpTxId: data.momentsTxId || null,
+        mvpAmount: data.mvpAmount || mvpCost,
+      }));
+
+      /* Remove purchased moments from treasury list */
+      setTreasuryMoments(prev => prev.filter(m => !treasurySelected.has(m.id)));
+      setTreasurySelected(new Set());
+
+    } catch (e) {
+      const msg = String(e?.message || e);
+      let errorMsg;
+      if (msg.toLowerCase().includes('declined') || msg.toLowerCase().includes('rejected') || msg.toLowerCase().includes('user rejected')) {
+        errorMsg = 'Transaction was declined.';
+      } else {
+        errorMsg = msg.length > 150 ? msg.slice(0, 150) + '…' : msg;
+      }
+      setSwapModal(prev => ({ ...(prev || {}), step: 'error', error: errorMsg }));
+    }
+  }, [user, childAddr, treasurySelected, selectedBuyCost]);
+
   /* ── Render ── */
   const walletConnected = !!user?.addr;
 
@@ -607,8 +903,24 @@ export default function Swap() {
     <div className="swap-container" style={{ maxWidth: 720 }}>
       {/* Hero */}
       <div className="swap-hero">
-        <h1>⇅ Swap Jokic Moments for $MVP</h1>
-        <p>Send TopShot Jokic moments from your Dapper wallet to the treasury and receive $MVP instantly</p>
+        <h1>⇅ Swap Jokic Moments &amp; $MVP</h1>
+        <p>Trade TopShot Jokic moments for $MVP tokens and back</p>
+      </div>
+
+      {/* ── Mode toggle ── */}
+      <div className="swap-mode-toggle">
+        <button
+          className={`swap-mode-btn ${mode === 'send' ? 'active' : ''}`}
+          onClick={() => setMode('send')}
+        >
+          📤 Send Moments → Get $MVP
+        </button>
+        <button
+          className={`swap-mode-btn ${mode === 'get' ? 'active-get' : ''}`}
+          onClick={() => setMode('get')}
+        >
+          🛒 Spend $MVP → Get Moments
+        </button>
       </div>
 
       {/* ── Status / connect ── */}
@@ -650,8 +962,8 @@ export default function Swap() {
         </div>
       )}
 
-      {/* ── Moment picker ── */}
-      {walletConnected && childAddr && (
+      {/* ── SEND MODE: Moment picker (user moments) ── */}
+      {walletConnected && childAddr && mode === 'send' && (
         <>
           <div className="swap-card">
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
@@ -667,43 +979,24 @@ export default function Swap() {
             </div>
 
             {/* Filters */}
-            <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.75rem', flexWrap: 'wrap' }}>
-              <button
-                className={`swap-tier-btn ${tierFilter === 'ALL' ? 'active' : ''}`}
-                onClick={() => setTierFilter('ALL')}
-              >
-                All
-              </button>
-              {TIERS.map(t => (
-                <button
-                  key={t.key}
-                  className={`swap-tier-btn ${tierFilter === t.key ? 'active' : ''}`}
-                  onClick={() => setTierFilter(t.key)}
-                >
-                  <span className="tier-dot" style={{ background: t.color }} />
-                  {t.label}
-                </button>
-              ))}
+            <div className="swap-filter-row">
+              <select className="swap-filter-select" value={tierFilter} onChange={e => setTierFilter(e.target.value)}>
+                <option value="ALL">All Tiers</option>
+                {TIERS.map(t => <option key={t.key} value={t.key}>{t.emoji} {t.label}</option>)}
+              </select>
+              <select className="swap-filter-select" value={seriesFilter} onChange={e => setSeriesFilter(e.target.value)}>
+                <option value="ALL">All Series</option>
+                {seriesOptions.map(s => <option key={s} value={String(s)}>Series {s}</option>)}
+              </select>
+              <select className="swap-filter-select" value={parallelFilter} onChange={e => setParallelFilter(e.target.value)}>
+                <option value="ALL">All Parallels</option>
+                {parallelOptions.map(p => <option key={p} value={String(p)}>{parallelLabel(p)}</option>)}
+              </select>
+              <select className="swap-filter-select" value={setFilter} onChange={e => setSetFilter(e.target.value)}>
+                <option value="ALL">All Sets</option>
+                {setOptions.map(s => <option key={s} value={s}>{s}</option>)}
+              </select>
             </div>
-
-            {/* Search */}
-            <input
-              type="text"
-              placeholder="Search by player, play, or set…"
-              value={searchText}
-              onChange={e => setSearchText(e.target.value)}
-              style={{
-                width: '100%',
-                padding: '0.5rem 0.75rem',
-                borderRadius: 8,
-                border: '1px solid #273549',
-                background: '#141e2e',
-                color: '#E5E7EB',
-                fontSize: '0.85rem',
-                marginBottom: '0.75rem',
-                outline: 'none',
-              }}
-            />
 
             {/* Select all / none */}
             <div style={{ display: 'flex', gap: '0.75rem', marginBottom: '0.75rem', fontSize: '0.8rem' }}>
@@ -722,50 +1015,20 @@ export default function Swap() {
               </div>
             ) : (
               <div className="swap-moment-grid">
-                {filtered.map(m => {
-                  const isSelected = selected.has(m.id);
-                  const tierInfo = TIERS.find(t => t.key === m.tier);
-                  return (
-                    <div
-                      key={m.id}
-                      className={`swap-moment-card ${isSelected ? 'selected' : ''}`}
-                      onClick={() => toggleSelect(m.id)}
-                      style={{ borderColor: isSelected ? (tierInfo?.color || '#FDB927') : undefined }}
-                    >
-                      {m.imageUrl && (
-                        <img
-                          src={m.imageUrl}
-                          alt={m.headline}
-                          className="swap-moment-img"
-                          loading="lazy"
-                        />
-                      )}
-                      <div className="swap-moment-info">
-                        <div className="swap-moment-player">{m.set}</div>
-                        <div className="swap-moment-headline">
-                          {m.seriesNumber ? `Series ${m.seriesNumber}` : ''}
-                        </div>
-                        <div className="swap-moment-meta">
-                          <span style={{ color: tierInfo?.color || '#adb5bd' }}>
-                            {tierInfo?.emoji} {tierInfo?.label || m.tier}
-                          </span>
-                          <span style={{ color: '#9CA3AF', fontSize: '0.75rem' }}>
-                            #{m.serial}
-                          </span>
-                          <span style={{ color: '#FDB927', fontWeight: 600 }}>
-                            {TIER_MVP[m.tier] || 0} $MVP
-                          </span>
-                        </div>
-                      </div>
-                      {isSelected && <div className="swap-moment-check">✓</div>}
-                    </div>
-                  );
-                })}
+                {filtered.map(m => (
+                  <MomentCard
+                    key={m.id}
+                    m={m}
+                    isSelected={selected.has(m.id)}
+                    isBuyMode={false}
+                    onToggle={toggleSelect}
+                  />
+                ))}
               </div>
             )}
           </div>
 
-          {/* ── Swap summary & action ── */}
+          {/* ── Swap summary & action (send mode) ── */}
           {selected.size > 0 && (
             <div className="swap-card" style={{ marginTop: '1rem' }}>
               <div className="swap-panel">
@@ -804,35 +1067,155 @@ export default function Swap() {
         </>
       )}
 
+      {/* ── GET MODE: Treasury moment picker ── */}
+      {walletConnected && childAddr && mode === 'get' && (
+        <>
+          <div className="swap-card">
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
+              <div className="swap-panel-label" style={{ margin: 0 }}>
+                Treasury Jokic Moments
+                <span style={{ color: '#6B7280', fontWeight: 400, marginLeft: 6 }}>
+                  ({treasuryMoments.length} available)
+                </span>
+              </div>
+              <div style={{ fontSize: '0.75rem', color: '#6B7280' }}>
+                PetJokicsHorses Treasury
+              </div>
+            </div>
+
+            {/* Filters */}
+            <div className="swap-filter-row">
+              <select className="swap-filter-select" value={tierFilter} onChange={e => setTierFilter(e.target.value)}>
+                <option value="ALL">All Tiers</option>
+                {TIERS.map(t => <option key={t.key} value={t.key}>{t.emoji} {t.label}</option>)}
+              </select>
+              <select className="swap-filter-select" value={seriesFilter} onChange={e => setSeriesFilter(e.target.value)}>
+                <option value="ALL">All Series</option>
+                {seriesOptions.map(s => <option key={s} value={String(s)}>Series {s}</option>)}
+              </select>
+              <select className="swap-filter-select" value={parallelFilter} onChange={e => setParallelFilter(e.target.value)}>
+                <option value="ALL">All Parallels</option>
+                {parallelOptions.map(p => <option key={p} value={String(p)}>{parallelLabel(p)}</option>)}
+              </select>
+              <select className="swap-filter-select" value={setFilter} onChange={e => setSetFilter(e.target.value)}>
+                <option value="ALL">All Sets</option>
+                {setOptions.map(s => <option key={s} value={s}>{s}</option>)}
+              </select>
+            </div>
+
+            {/* Select all / none */}
+            <div style={{ display: 'flex', gap: '0.75rem', marginBottom: '0.75rem', fontSize: '0.8rem' }}>
+              <button className="max-btn" onClick={selectAllTreasury} style={{ color: '#4ade80' }}>Select All ({filteredTreasury.length})</button>
+              <button className="max-btn" onClick={selectNoneTreasury} style={{ color: '#9CA3AF' }}>Clear</button>
+            </div>
+
+            {/* Treasury moment grid */}
+            {treasuryLoading ? (
+              <div style={{ textAlign: 'center', padding: '2rem', color: '#9CA3AF' }}>
+                Loading treasury moments…
+              </div>
+            ) : filteredTreasury.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '2rem', color: '#6B7280' }}>
+                {treasuryMoments.length === 0 ? 'No moments available in the treasury right now.' : 'No moments match your filter.'}
+              </div>
+            ) : (
+              <div className="swap-moment-grid">
+                {filteredTreasury.map(m => (
+                  <MomentCard
+                    key={m.id}
+                    m={m}
+                    isSelected={treasurySelected.has(m.id)}
+                    isBuyMode={true}
+                    onToggle={toggleTreasurySelect}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* ── Buy summary & action (get mode) ── */}
+          {treasurySelected.size > 0 && (
+            <div className="swap-card" style={{ marginTop: '1rem' }}>
+              <div className="swap-panel">
+                <div className="swap-panel-label">Purchase Summary</div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div>
+                    <span style={{ fontSize: '1.4rem', fontWeight: 700, color: '#FDB927' }}>
+                      {selectedBuyCost.toLocaleString()} $MVP
+                    </span>
+                    <span style={{ color: '#6B7280', marginLeft: 8, fontSize: '0.85rem' }}>→ treasury</span>
+                  </div>
+                  <div style={{ textAlign: 'right' }}>
+                    <span style={{ fontSize: '1.2rem', fontWeight: 700, color: '#4ade80' }}>
+                      {treasurySelected.size} moment{treasurySelected.size !== 1 ? 's' : ''}
+                    </span>
+                    <span style={{ color: '#6B7280', marginLeft: 8, fontSize: '0.85rem' }}>→ you</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="swap-rate-info">
+                Common/Fandom = <strong>2 $MVP</strong> · Rare = <strong>100 $MVP</strong> · Legendary = <strong>2,000 $MVP</strong>
+              </div>
+
+              <button
+                className="swap-action-btn swap-buy-btn"
+                disabled={!!swapModal || !vaultReady}
+                onClick={handleBuy}
+                title={!vaultReady ? 'Set up your $MVP vault first' : ''}
+              >
+                {!vaultReady
+                  ? '⚠ Set up $MVP vault first'
+                  : `Buy ${treasurySelected.size} moment${treasurySelected.size > 1 ? 's' : ''} for ${selectedBuyCost.toLocaleString()} $MVP`}
+              </button>
+            </div>
+          )}
+        </>
+      )}
+
       {/* ── Swap progress modal ── */}
       {swapModal && (
         <div className="swap-modal-overlay">
           <div className="swap-modal">
-            <h2 className="swap-modal-title">⇅ Swap in Progress</h2>
+            <h2 className="swap-modal-title">
+              {swapModal.buyMode ? '🛒 Purchase in Progress' : '⇅ Swap in Progress'}
+            </h2>
             <div className="swap-modal-summary">
-              {swapModal.momentCount} moment{swapModal.momentCount !== 1 ? 's' : ''} → <span style={{ color: '#FDB927', fontWeight: 700 }}>{swapModal.mvpExpected?.toLocaleString()} $MVP</span>
+              {swapModal.buyMode ? (
+                <>
+                  <span style={{ color: '#FDB927', fontWeight: 700 }}>{swapModal.mvpExpected?.toLocaleString()} $MVP</span>
+                  {' → '}
+                  {swapModal.momentCount} moment{swapModal.momentCount !== 1 ? 's' : ''}
+                </>
+              ) : (
+                <>
+                  {swapModal.momentCount} moment{swapModal.momentCount !== 1 ? 's' : ''}
+                  {' → '}
+                  <span style={{ color: '#FDB927', fontWeight: 700 }}>{swapModal.mvpExpected?.toLocaleString()} $MVP</span>
+                </>
+              )}
             </div>
 
             <div className="swap-modal-steps">
               {/* Step 1: Transaction submitted */}
               <SwapProgressStep
                 num={1}
-                label="Transaction submitted"
+                label={swapModal.buyMode ? '$MVP transfer submitted' : 'Transaction submitted'}
                 status={
                   swapModal.step === 'signing' ? 'active'
-                    : ['submitted','sealing','sending-mvp','done'].includes(swapModal.step) ? 'done'
+                    : ['submitted','sealing','sending-mvp','sending-moments','done'].includes(swapModal.step) ? 'done'
                     : swapModal.step === 'error' && !swapModal.txId ? 'error' : 'done'
                 }
               />
 
-              {/* Step 2: Moments sealed on-chain */}
+              {/* Step 2: Sealed on-chain */}
               <SwapProgressStep
                 num={2}
-                label="Moments sealed on-chain"
+                label={swapModal.buyMode ? '$MVP transfer sealed' : 'Moments sealed on-chain'}
                 status={
                   ['signing'].includes(swapModal.step) ? 'pending'
                     : ['submitted','sealing'].includes(swapModal.step) ? 'active'
-                    : ['sending-mvp','done'].includes(swapModal.step) ? 'done'
+                    : ['sending-mvp','sending-moments','done'].includes(swapModal.step) ? 'done'
                     : swapModal.step === 'error' && swapModal.txId ? 'error' : 'pending'
                 }
                 extra={swapModal.txId && (
@@ -842,13 +1225,13 @@ export default function Swap() {
                 )}
               />
 
-              {/* Step 3: Sending $MVP */}
+              {/* Step 3: Server action */}
               <SwapProgressStep
                 num={3}
-                label="Sending $MVP"
+                label={swapModal.buyMode ? 'Sending moments to you' : 'Sending $MVP'}
                 status={
                   ['signing','submitted','sealing'].includes(swapModal.step) ? 'pending'
-                    : swapModal.step === 'sending-mvp' ? 'active'
+                    : (swapModal.step === 'sending-mvp' || swapModal.step === 'sending-moments') ? 'active'
                     : swapModal.step === 'done' ? 'done'
                     : 'pending'
                 }
@@ -858,8 +1241,10 @@ export default function Swap() {
               <SwapProgressStep
                 num={4}
                 label={swapModal.step === 'done'
-                  ? `${swapModal.mvpAmount?.toLocaleString()} $MVP sent!`
-                  : '$MVP received'}
+                  ? (swapModal.buyMode
+                      ? `${swapModal.momentCount} moment${swapModal.momentCount !== 1 ? 's' : ''} sent!`
+                      : `${swapModal.mvpAmount?.toLocaleString()} $MVP sent!`)
+                  : (swapModal.buyMode ? 'Moments received' : '$MVP received')}
                 status={swapModal.step === 'done' ? 'done' : 'pending'}
                 extra={swapModal.mvpTxId && (
                   <a href={`https://www.flowdiver.io/tx/${swapModal.mvpTxId}`} target="_blank" rel="noopener noreferrer" className="swap-tx-link">
@@ -893,27 +1278,55 @@ export default function Swap() {
       {/* ── How it works ── */}
       <div className="swap-how-card">
         <h3>How It Works</h3>
-        <div className="swap-step">
-          <div className="swap-step-num">1</div>
-          <div className="swap-step-text">
-            <h4>Connect &amp; pick moments</h4>
-            <p>Connect your Flow wallet. We'll find your linked Dapper account and list your TopShot moments.</p>
-          </div>
-        </div>
-        <div className="swap-step">
-          <div className="swap-step-num">2</div>
-          <div className="swap-step-text">
-            <h4>Sign one transaction</h4>
-            <p>Select moments to swap and click Swap. You sign a single Flow transaction that sends the moments to the treasury.</p>
-          </div>
-        </div>
-        <div className="swap-step">
-          <div className="swap-step-num">3</div>
-          <div className="swap-step-text">
-            <h4>Receive $MVP instantly</h4>
-            <p>Once the transaction seals, the treasury wallet automatically sends $MVP to your Flow wallet.</p>
-          </div>
-        </div>
+        {mode === 'send' ? (
+          <>
+            <div className="swap-step">
+              <div className="swap-step-num">1</div>
+              <div className="swap-step-text">
+                <h4>Connect &amp; pick moments</h4>
+                <p>Connect your Flow wallet. We'll find your linked Dapper account and list your TopShot moments.</p>
+              </div>
+            </div>
+            <div className="swap-step">
+              <div className="swap-step-num">2</div>
+              <div className="swap-step-text">
+                <h4>Sign one transaction</h4>
+                <p>Select moments to swap and click Swap. You sign a single Flow transaction that sends the moments to the treasury.</p>
+              </div>
+            </div>
+            <div className="swap-step">
+              <div className="swap-step-num">3</div>
+              <div className="swap-step-text">
+                <h4>Receive $MVP instantly</h4>
+                <p>Once the transaction seals, the treasury wallet automatically sends $MVP to your Flow wallet.</p>
+              </div>
+            </div>
+          </>
+        ) : (
+          <>
+            <div className="swap-step">
+              <div className="swap-step-num">1</div>
+              <div className="swap-step-text">
+                <h4>Browse treasury moments</h4>
+                <p>Browse the Jokic moments available in the treasury. Select the ones you want to purchase.</p>
+              </div>
+            </div>
+            <div className="swap-step">
+              <div className="swap-step-num">2</div>
+              <div className="swap-step-text">
+                <h4>Send $MVP</h4>
+                <p>Click Buy and sign one transaction to send $MVP from your Flow wallet to the treasury.</p>
+              </div>
+            </div>
+            <div className="swap-step">
+              <div className="swap-step-num">3</div>
+              <div className="swap-step-text">
+                <h4>Receive moments instantly</h4>
+                <p>Once the $MVP transfer seals, the treasury automatically sends the selected moments to your Dapper wallet.</p>
+              </div>
+            </div>
+          </>
+        )}
       </div>
 
       {/* ── Monthly Swap Leaderboard ── */}
