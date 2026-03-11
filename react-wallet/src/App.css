@@ -22,6 +22,7 @@ body {
   background-color: #0E2240;
   flex-shrink: 0;
   box-shadow: 0 2px 6px rgba(0,0,0,0.5);
+  font-family: 'Montserrat', sans-serif;
 }
 
 .navbar-brand, .navbar-nav .nav-link {
@@ -78,19 +79,25 @@ body {
   color: #FDB927;
   font-weight: 500;
   background-color: transparent;
-  padding: 0.45rem 1rem;
-  transition: background-color 0.2s, color 0.2s;
+  padding: 0.55rem 1rem;
+  transition: all 0.2s ease;
+  border-left: 3px solid transparent;
+  letter-spacing: 0.02em;
+  font-size: 0.92rem;
 }
 
 .navbar .nav-dropdown-themed .dropdown-item:hover,
 .navbar .nav-dropdown-themed .dropdown-item:focus {
-  background-color: #FDB927;
-  color: #0E2240;
+  background-color: rgba(253, 185, 39, 0.12);
+  color: #FDB927;
+  border-left-color: #FDB927;
+  padding-left: calc(1rem + 2px);
 }
 
 .navbar .nav-dropdown-themed .dropdown-item.active {
   background-color: rgba(253, 185, 39, 0.15);
   color: #FDB927;
+  border-left-color: #FDB927;
 }
 
 /* Burger icon tweaks for dark navbar */

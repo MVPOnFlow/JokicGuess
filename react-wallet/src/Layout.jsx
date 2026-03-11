@@ -86,16 +86,16 @@ export default function Layout() {
             <Nav className="me-auto mb-2 mb-lg-0">
               <Nav.Link as={NavLink} to="/">Home</Nav.Link>
 
-              <NavDropdown title="Fandom" className="nav-dropdown-themed">
-                <NavDropdown.Item as={NavLink} to="/museum">Museum</NavDropdown.Item>
-                <NavDropdown.Item as={NavLink} to="/tdwatch">TD Watch</NavDropdown.Item>
-                <NavDropdown.Item as={NavLink} to="/blog">Blog</NavDropdown.Item>
-                <NavDropdown.Item as={NavLink} to="/vote">Vote</NavDropdown.Item>
+              <NavDropdown title="🏀 Fandom" className="nav-dropdown-themed">
+                <NavDropdown.Item as={NavLink} to="/museum">🏛️ Museum</NavDropdown.Item>
+                <NavDropdown.Item as={NavLink} to="/tdwatch">📊 TD Watch</NavDropdown.Item>
+                <NavDropdown.Item as={NavLink} to="/blog">📝 Blog</NavDropdown.Item>
+                <NavDropdown.Item as={NavLink} to="/vote">🗳️ Vote</NavDropdown.Item>
               </NavDropdown>
 
-              <NavDropdown title="Exchange" className="nav-dropdown-themed">
-                <NavDropdown.Item as={NavLink} to="/swap">Swap</NavDropdown.Item>
-                <NavDropdown.Item as={NavLink} to="/nft">NFT</NavDropdown.Item>
+              <NavDropdown title="💱 Exchange" className="nav-dropdown-themed">
+                <NavDropdown.Item as={NavLink} to="/swap">🔄 Swap</NavDropdown.Item>
+                <NavDropdown.Item as={NavLink} to="/nft">🖼️ NFT</NavDropdown.Item>
                 <NavDropdown.Item
                   href="https://swap.kittypunch.xyz/swap?tokens=0x0000000000000000000000000000000000000000-0x4dcdd1b9a5103fa5f13cc4c3b758e05ffaccb4dd"
                   target="_blank"
@@ -103,9 +103,9 @@ export default function Layout() {
                 >💰 Buy $MVP</NavDropdown.Item>
               </NavDropdown>
 
-              <NavDropdown title="Play" className="nav-dropdown-themed">
-                <NavDropdown.Item as={NavLink} to="/fastbreak">Fastbreak</NavDropdown.Item>
-                <NavDropdown.Item as={NavLink} to="/horsestats">Horse Stats</NavDropdown.Item>
+              <NavDropdown title="🎮 Play" className="nav-dropdown-themed">
+                <NavDropdown.Item as={NavLink} to="/fastbreak">⚡ Fastbreak</NavDropdown.Item>
+                <NavDropdown.Item as={NavLink} to="/horsestats">🐎 Horse Stats</NavDropdown.Item>
               </NavDropdown>
             </Nav>
 
