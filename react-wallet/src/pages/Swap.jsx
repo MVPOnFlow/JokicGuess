@@ -445,6 +445,7 @@ export default function Swap() {
   const [tierFilter, setTierFilter] = useState('ALL');
   const [seriesFilter, setSeriesFilter] = useState('ALL');
   const [parallelFilter, setParallelFilter] = useState('ALL');
+  const [setFilter, setSetFilter] = useState('ALL');
 
   /* ── Check MVP vault when wallet connects ── */
   useEffect(() => {
@@ -605,6 +606,7 @@ export default function Swap() {
     setTierFilter('ALL');
     setSeriesFilter('ALL');
     setParallelFilter('ALL');
+    setSetFilter('ALL');
   }, [mode]);
 
   /* ── Derived: available series & parallel values for dropdowns ── */
@@ -625,14 +627,20 @@ export default function Swap() {
     return `Parallel #${v}`;
   };
 
+  const setOptions = useMemo(() => {
+    const src = mode === 'send' ? moments : treasuryMoments;
+    return [...new Set(src.map(m => m.set).filter(Boolean))].sort();
+  }, [mode, moments, treasuryMoments]);
+
   /* ── Filtered moments (send mode) ── */
   const filtered = useMemo(() => {
     let list = moments;
     if (tierFilter !== 'ALL') list = list.filter(m => m.tier === tierFilter);
     if (seriesFilter !== 'ALL') list = list.filter(m => String(m.seriesNumber) === seriesFilter);
     if (parallelFilter !== 'ALL') list = list.filter(m => String(m.subedition ?? 0) === parallelFilter);
+    if (setFilter !== 'ALL') list = list.filter(m => m.set === setFilter);
     return list;
-  }, [moments, tierFilter, seriesFilter, parallelFilter]);
+  }, [moments, tierFilter, seriesFilter, parallelFilter, setFilter]);
 
   /* ── Filtered treasury moments (get mode) ── */
   const filteredTreasury = useMemo(() => {
@@ -640,8 +648,9 @@ export default function Swap() {
     if (tierFilter !== 'ALL') list = list.filter(m => m.tier === tierFilter);
     if (seriesFilter !== 'ALL') list = list.filter(m => String(m.seriesNumber) === seriesFilter);
     if (parallelFilter !== 'ALL') list = list.filter(m => String(m.subedition ?? 0) === parallelFilter);
+    if (setFilter !== 'ALL') list = list.filter(m => m.set === setFilter);
     return list;
-  }, [treasuryMoments, tierFilter, seriesFilter, parallelFilter]);
+  }, [treasuryMoments, tierFilter, seriesFilter, parallelFilter, setFilter]);
 
   /* ── Calculate $MVP total for selected moments (send mode) ── */
   const selectedMvp = useMemo(() => {
@@ -962,6 +971,10 @@ export default function Swap() {
                 <option value="ALL">All Parallels</option>
                 {parallelOptions.map(p => <option key={p} value={String(p)}>{parallelLabel(p)}</option>)}
               </select>
+              <select className="swap-filter-select" value={setFilter} onChange={e => setSetFilter(e.target.value)}>
+                <option value="ALL">All Sets</option>
+                {setOptions.map(s => <option key={s} value={s}>{s}</option>)}
+              </select>
             </div>
 
             {/* Select all / none */}
@@ -1062,6 +1075,10 @@ export default function Swap() {
               <select className="swap-filter-select" value={parallelFilter} onChange={e => setParallelFilter(e.target.value)}>
                 <option value="ALL">All Parallels</option>
                 {parallelOptions.map(p => <option key={p} value={String(p)}>{parallelLabel(p)}</option>)}
+              </select>
+              <select className="swap-filter-select" value={setFilter} onChange={e => setSetFilter(e.target.value)}>
+                <option value="ALL">All Sets</option>
+                {setOptions.map(s => <option key={s} value={s}>{s}</option>)}
               </select>
             </div>
 
