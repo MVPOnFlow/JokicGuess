@@ -966,15 +966,14 @@ def register_routes(app):
         for m in moments_in:
             mid = m.get('id')
             play_id = str(m.get('playID', ''))
-            set_id = m.get('setID', 0)
+            set_name = m.get('setName', '')
             serial = m.get('serial', 0)
             subedition = m.get('subedition', 0)
 
-            # Match by set_flow_id (numeric) instead of set_name to avoid
-            # Cadence vs API naming mismatches (e.g. 'Base Set6' vs 'Base Set').
             # Use subedition (parallel ID from on-chain getMomentsSubedition)
-            # to prefer the correct parallel's image. Edition_id format:
+            # to match the correct edition row. The edition_id format is
             # "{setUUID}+{playUUID}+{parallelID}".
+            # If exact parallel match fails, fall back to standard (+0).
             edition_suffix = '+' + str(subedition)
             cur.execute(
                 prepare_query(
@@ -982,11 +981,11 @@ def register_routes(app):
                     "play_headline, play_category, team, date_of_moment, "
                     "nba_season, jersey_number, image_url, video_url, "
                     "circulation_count, low_ask "
-                    "FROM jokic_editions WHERE play_flow_id = ? AND set_flow_id = ? "
+                    "FROM jokic_editions WHERE play_flow_id = ? AND set_name = ? "
                     "ORDER BY CASE WHEN edition_id LIKE ? THEN 0 ELSE 1 END "
                     "LIMIT 1"
                 ),
-                (int(play_id), int(set_id), '%' + edition_suffix),
+                (int(play_id), set_name, '%' + edition_suffix),
             )
             row = cur.fetchone()
             if not row:
