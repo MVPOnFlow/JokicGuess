@@ -1176,6 +1176,92 @@ def register_routes(app):
             result['note'] = note
         return jsonify(result), 200
 
+    # ─── Swap leaderboard ────────────────────────────────────────
+    @app.route('/api/swap/leaderboard')
+    def api_swap_leaderboard():
+        """Monthly swap leaderboard — $MVP earned per wallet per month.
+
+        Optional query params:
+          ?month=YYYY-MM   — filter to a specific month (default: current month)
+        """
+        db = get_db()
+        cur = db.cursor()
+
+        # Determine the requested month boundaries (UTC epoch)
+        month_param = request.args.get('month')  # e.g. "2026-03"
+        try:
+            if month_param:
+                year, mon = month_param.split('-')
+                year, mon = int(year), int(mon)
+            else:
+                now = datetime.datetime.now(datetime.UTC)
+                year, mon = now.year, now.month
+        except (ValueError, TypeError):
+            return jsonify({'error': 'Invalid month format. Use YYYY-MM'}), 400
+
+        month_start = datetime.datetime(year, mon, 1, tzinfo=datetime.UTC)
+        if mon == 12:
+            month_end = datetime.datetime(year + 1, 1, 1, tzinfo=datetime.UTC)
+        else:
+            month_end = datetime.datetime(year, mon + 1, 1, tzinfo=datetime.UTC)
+
+        start_ts = int(month_start.timestamp())
+        end_ts = int(month_end.timestamp())
+
+        cur.execute(prepare_query('''
+            SELECT user_addr, SUM(mvp_amount) as total_mvp, COUNT(*) as swap_count
+            FROM completed_swaps
+            WHERE completed_at >= ? AND completed_at < ?
+            GROUP BY user_addr
+            ORDER BY total_mvp DESC
+        '''), (start_ts, end_ts))
+        rows = cur.fetchall()
+
+        # Resolve TopShot usernames in parallel
+        addrs = [r[0] for r in rows]
+        username_map = {}
+        if addrs:
+            def _lookup(addr):
+                try:
+                    return addr, get_ts_username_from_flow_wallet(addr)
+                except Exception:
+                    return addr, None
+            with ThreadPoolExecutor(max_workers=min(len(addrs), 10)) as pool:
+                for addr, uname in pool.map(lambda a: _lookup(a), addrs):
+                    if uname:
+                        username_map[addr] = uname
+
+        # Also fetch the list of distinct months that have data
+        cur.execute(prepare_query('''
+            SELECT DISTINCT completed_at FROM completed_swaps
+            ORDER BY completed_at ASC
+        '''))
+        all_ts = [r[0] for r in cur.fetchall()]
+        seen_months = set()
+        for ts in all_ts:
+            dt = datetime.datetime.fromtimestamp(ts, tz=datetime.UTC)
+            seen_months.add(f'{dt.year}-{dt.month:02d}')
+        available_months = sorted(seen_months, reverse=True)
+
+        leaderboard = []
+        for rank, row in enumerate(rows, 1):
+            addr, total_mvp, swap_count = row
+            entry = {
+                'rank': rank,
+                'address': addr,
+                'totalMvp': total_mvp,
+                'swapCount': swap_count,
+            }
+            if addr in username_map:
+                entry['topshotUsername'] = username_map[addr]
+            leaderboard.append(entry)
+
+        return jsonify({
+            'month': f'{year}-{mon:02d}',
+            'availableMonths': available_months,
+            'leaderboard': leaderboard,
+        })
+
     return app
 
 

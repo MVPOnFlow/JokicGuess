@@ -598,3 +598,127 @@
   cursor: default;
   user-select: none;
 }
+
+/* ── Monthly Swap Leaderboard ── */
+.swap-leaderboard-card {
+  background: #1C2A3A;
+  border: 1px solid #273549;
+  border-radius: 16px;
+  padding: 1.5rem;
+  margin-top: 1.5rem;
+}
+
+.swap-lb-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.swap-lb-header h3 {
+  color: #FDB927;
+  font-size: 1.25rem;
+  font-weight: 700;
+  margin: 0;
+}
+
+.swap-lb-month-select {
+  background: #0F1923;
+  border: 1px solid #3B4A5E;
+  border-radius: 8px;
+  color: #E2E8F0;
+  padding: 0.4rem 0.75rem;
+  font-size: 0.85rem;
+  cursor: pointer;
+  outline: none;
+}
+
+.swap-lb-month-select:focus {
+  border-color: #FDB927;
+}
+
+.swap-lb-loading,
+.swap-lb-empty {
+  text-align: center;
+  color: #9CA3AF;
+  padding: 2rem 0;
+  font-size: 0.9rem;
+}
+
+.swap-lb-table-wrap {
+  overflow-x: auto;
+}
+
+.swap-lb-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+
+.swap-lb-table thead th {
+  text-align: left;
+  color: #9CA3AF;
+  font-weight: 600;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 0.5rem 0.75rem;
+  border-bottom: 1px solid #273549;
+}
+
+.swap-lb-table tbody tr {
+  border-bottom: 1px solid rgba(39, 53, 73, 0.5);
+  transition: background 0.15s;
+}
+
+.swap-lb-table tbody tr:hover {
+  background: rgba(253, 185, 39, 0.04);
+}
+
+.swap-lb-table td {
+  padding: 0.6rem 0.75rem;
+  color: #CBD5E1;
+}
+
+.swap-lb-rank {
+  font-weight: 700;
+  font-size: 1rem;
+  width: 3rem;
+}
+
+.swap-lb-top1 td { color: #FDB927; }
+.swap-lb-top2 td { color: #C0C0C0; }
+.swap-lb-top3 td { color: #CD7F32; }
+
+.swap-lb-user {
+  max-width: 200px;
+}
+
+.swap-lb-ts-link {
+  color: #60a5fa;
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.swap-lb-ts-link:hover {
+  color: #93bbfc;
+  text-decoration: underline;
+}
+
+.swap-lb-addr-link {
+  color: #9CA3AF;
+  text-decoration: none;
+  font-family: monospace;
+  font-size: 0.85rem;
+}
+
+.swap-lb-addr-link:hover {
+  color: #CBD5E1;
+}
+
+.swap-lb-mvp {
+  color: #FDB927;
+  font-weight: 700;
+}
