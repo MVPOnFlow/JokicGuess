@@ -144,6 +144,42 @@ transaction(momentIds: [UInt64], recipient: Address) {
 }
 
 /* ================================================================
+   Cadence: check if user has $MVP vault set up
+   ================================================================ */
+const CADENCE_CHECK_MVP_VAULT = `
+import PetJokicsHorses from 0x6fd2465f3a22e34c
+
+access(all) fun main(address: Address): Bool {
+  let account = getAccount(address)
+  return account.capabilities
+    .borrow<&PetJokicsHorses.Vault>(/public/PetJokicsHorsesReceiver) != nil
+}
+`;
+
+/* ================================================================
+   Cadence: set up $MVP vault for the user
+   ================================================================ */
+const CADENCE_SETUP_MVP_VAULT = `
+import FungibleToken from 0xf233dcee88fe0abe
+import PetJokicsHorses from 0x6fd2465f3a22e34c
+
+transaction {
+  prepare(signer: auth(Storage, Capabilities) &Account) {
+    if signer.storage.borrow<&PetJokicsHorses.Vault>(from: /storage/PetJokicsHorsesVault) == nil {
+      signer.storage.save(<- PetJokicsHorses.createEmptyVault(vaultType: Type<@PetJokicsHorses.Vault>()), to: /storage/PetJokicsHorsesVault)
+    }
+    if signer.capabilities.get<&PetJokicsHorses.Vault>(/public/PetJokicsHorsesReceiver) == nil {
+      signer.capabilities.unpublish(/public/PetJokicsHorsesReceiver)
+      signer.capabilities.publish(
+        signer.capabilities.storage.issue<&PetJokicsHorses.Vault>(/storage/PetJokicsHorsesVault),
+        at: /public/PetJokicsHorsesReceiver
+      )
+    }
+  }
+}
+`;
+
+/* ================================================================
    Enrich moments via our backend (DB lookup, no TopShot API calls)
    ================================================================ */
 async function enrichMoments(rawMoments) {
@@ -313,6 +349,10 @@ export default function Swap() {
   const [childLoading, setChildLoading] = useState(false);
   const [childError, setChildError] = useState(null);
 
+  /* ── MVP vault status ── */
+  const [vaultReady, setVaultReady] = useState(null); // null=checking, true/false
+  const [vaultSetting, setVaultSetting] = useState(false);
+
   /* ── Moments ── */
   const [moments, setMoments] = useState([]);
   const [momentsLoading, setMomentsLoading] = useState(false);
@@ -324,6 +364,42 @@ export default function Swap() {
   /* ── Filter / sort ── */
   const [tierFilter, setTierFilter] = useState('ALL');
   const [searchText, setSearchText] = useState('');
+
+  /* ── Check MVP vault when wallet connects ── */
+  useEffect(() => {
+    if (!user?.addr) { setVaultReady(null); return; }
+    let cancelled = false;
+    (async () => {
+      try {
+        const ok = await fcl.query({
+          cadence: CADENCE_CHECK_MVP_VAULT,
+          args: (arg, t) => [arg(user.addr, t.Address)],
+        });
+        if (!cancelled) setVaultReady(ok);
+      } catch { if (!cancelled) setVaultReady(false); }
+    })();
+    return () => { cancelled = true; };
+  }, [user?.addr]);
+
+  /* ── Set up MVP vault ── */
+  const setupMvpVault = useCallback(async () => {
+    setVaultSetting(true);
+    try {
+      const txId = await fcl.mutate({
+        cadence: CADENCE_SETUP_MVP_VAULT,
+        proposer: fcl.currentUser().authorization,
+        payer: fcl.currentUser().authorization,
+        authorizations: [fcl.currentUser().authorization],
+        limit: 999,
+      });
+      await fcl.tx(txId).onceSealed();
+      setVaultReady(true);
+    } catch {
+      // User declined or tx failed — stay on false
+    } finally {
+      setVaultSetting(false);
+    }
+  }, []);
 
   /* ── Discover child account when wallet connects ── */
   useEffect(() => {
@@ -541,6 +617,23 @@ export default function Swap() {
         </div>
       )}
 
+      {walletConnected && vaultReady === false && (
+        <div className="swap-card swap-vault-banner">
+          <div style={{ fontSize: '1.5rem', marginBottom: '0.5rem' }}>⚠️ $MVP Vault Not Set Up</div>
+          <p style={{ color: '#CBD5E1', marginBottom: '1rem' }}>
+            Your wallet doesn't have a $MVP token vault yet. You need to set it up before you can receive $MVP from swaps.
+          </p>
+          <button
+            className="swap-action-btn"
+            style={{ maxWidth: 280 }}
+            onClick={setupMvpVault}
+            disabled={vaultSetting}
+          >
+            {vaultSetting ? 'Setting up…' : 'Set Up $MVP Vault'}
+          </button>
+        </div>
+      )}
+
       {walletConnected && childLoading && (
         <div className="swap-card" style={{ textAlign: 'center', padding: '2rem' }}>
           <p style={{ color: '#9CA3AF' }}>Discovering your Dapper account…</p>
@@ -694,10 +787,13 @@ export default function Swap() {
 
               <button
                 className="swap-action-btn"
-                disabled={!!swapModal}
+                disabled={!!swapModal || !vaultReady}
                 onClick={handleSwap}
+                title={!vaultReady ? 'Set up your $MVP vault first' : ''}
               >
-                {`Swap ${selected.size} moment${selected.size > 1 ? 's' : ''} → ${selectedMvp.toLocaleString()} $MVP`}
+                {!vaultReady
+                  ? '⚠ Set up $MVP vault first'
+                  : `Swap ${selected.size} moment${selected.size > 1 ? 's' : ''} → ${selectedMvp.toLocaleString()} $MVP`}
               </button>
             </div>
           )}

@@ -33,6 +33,13 @@
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
 }
 
+.swap-vault-banner {
+  text-align: center;
+  padding: 1.5rem;
+  border-color: #FDB927;
+  background: rgba(253, 185, 39, 0.06);
+}
+
 /* From / To panels */
 .swap-panel {
   background: #141e2e;
