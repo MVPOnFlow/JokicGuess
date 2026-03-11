@@ -1266,6 +1266,7 @@ def register_routes(app):
             SELECT user_addr, SUM(mvp_amount) as total_mvp, COUNT(*) as swap_count
             FROM completed_swaps
             WHERE completed_at >= ? AND completed_at < ?
+              AND mvp_amount > 0
             GROUP BY user_addr
             ORDER BY total_mvp DESC
         '''), (start_ts, end_ts))

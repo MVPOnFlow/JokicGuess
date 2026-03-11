@@ -624,22 +624,17 @@ export default function Swap() {
 
   const PARALLEL_NAMES = {
     0: 'Standard',
-    1: 'Metallic Silver FE',
-    2: 'Metallic Gold LE',
-    3: 'MGLE',
-    4: 'Lenticular',
-    5: 'Fandom Reserve',
-    6: 'Wild Card',
-    7: 'Hustle and Show',
-    8: 'Cosmic',
-    9: 'Holographic Icon',
-    10: 'Vintage Vibes',
-    11: 'Throwbacks',
-    12: 'Blueprint',
-    13: 'Phantom',
-    14: 'Black and White',
-    15: 'Explosion',
-    16: 'Club Collection',
+    1: 'Explosion',
+    2: 'Torn',
+    3: 'Vortex',
+    4: 'Rippled',
+    5: 'Coded',
+    6: 'Halftone',
+    7: 'Bubbled',
+    8: 'Diced',
+    9: 'Bit',
+    10: 'Vibe',
+    11: 'Astra',
   };
   const parallelLabel = (v) => PARALLEL_NAMES[v] || `Parallel #${v}`;
 
