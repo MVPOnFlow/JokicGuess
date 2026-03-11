@@ -693,19 +693,17 @@ export default function Swap() {
     return total;
   }, [treasurySelected, treasuryMoments]);
 
+  const MAX_SELECT = 20;
+
   /* ── Toggle selection (send mode) ── */
   const toggleSelect = useCallback((id) => {
     setSelected(prev => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id);
-      else next.add(id);
+      else if (next.size < MAX_SELECT) next.add(id);
       return next;
     });
   }, []);
-
-  const selectAll = useCallback(() => {
-    setSelected(new Set(filtered.map(m => m.id)));
-  }, [filtered]);
 
   const selectNone = useCallback(() => {
     setSelected(new Set());
@@ -716,14 +714,10 @@ export default function Swap() {
     setTreasurySelected(prev => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id);
-      else next.add(id);
+      else if (next.size < MAX_SELECT) next.add(id);
       return next;
     });
   }, []);
-
-  const selectAllTreasury = useCallback(() => {
-    setTreasurySelected(new Set(filteredTreasury.map(m => m.id)));
-  }, [filteredTreasury]);
 
   const selectNoneTreasury = useCallback(() => {
     setTreasurySelected(new Set());
@@ -998,10 +992,10 @@ export default function Swap() {
               </select>
             </div>
 
-            {/* Select all / none */}
-            <div style={{ display: 'flex', gap: '0.75rem', marginBottom: '0.75rem', fontSize: '0.8rem' }}>
-              <button className="max-btn" onClick={selectAll} style={{ color: '#FDB927' }}>Select All ({filtered.length})</button>
+            {/* Selection controls */}
+            <div style={{ display: 'flex', gap: '0.75rem', marginBottom: '0.75rem', fontSize: '0.8rem', alignItems: 'center' }}>
               <button className="max-btn" onClick={selectNone} style={{ color: '#9CA3AF' }}>Clear</button>
+              {selected.size >= MAX_SELECT && <span style={{ color: '#FDB927', fontSize: '0.75rem' }}>Max {MAX_SELECT} per transaction</span>}
             </div>
 
             {/* Moment grid */}
@@ -1103,10 +1097,10 @@ export default function Swap() {
               </select>
             </div>
 
-            {/* Select all / none */}
-            <div style={{ display: 'flex', gap: '0.75rem', marginBottom: '0.75rem', fontSize: '0.8rem' }}>
-              <button className="max-btn" onClick={selectAllTreasury} style={{ color: '#4ade80' }}>Select All ({filteredTreasury.length})</button>
+            {/* Selection controls */}
+            <div style={{ display: 'flex', gap: '0.75rem', marginBottom: '0.75rem', fontSize: '0.8rem', alignItems: 'center' }}>
               <button className="max-btn" onClick={selectNoneTreasury} style={{ color: '#9CA3AF' }}>Clear</button>
+              {treasurySelected.size >= MAX_SELECT && <span style={{ color: '#4ade80', fontSize: '0.75rem' }}>Max {MAX_SELECT} per transaction</span>}
             </div>
 
             {/* Treasury moment grid */}
