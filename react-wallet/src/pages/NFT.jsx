@@ -19,6 +19,12 @@ function ipfsToHttp(uri) {
   return uri;
 }
 
+/** Shorten a 0x… address for display */
+function shortAddr(addr) {
+  if (!addr) return '';
+  return addr.slice(0, 6) + '\u2026' + addr.slice(-4);
+}
+
 /* ================================================================
    Cadence: check if collection is enabled
    ================================================================ */
@@ -114,21 +120,24 @@ access(all) fun main(addr: Address): [[String]] {
 export default function NFT() {
   const [user, setUser]                     = useState({ loggedIn: null });
   const [hasCollection, setHasCollection]   = useState(null);   // null = loading
-  const [nfts, setNfts]                     = useState([]);
+  const [myNfts, setMyNfts]                 = useState([]);
+  const [allNfts, setAllNfts]               = useState([]);
   const [loading, setLoading]               = useState(false);
+  const [allLoading, setAllLoading]         = useState(false);
   const [setupBusy, setSetupBusy]           = useState(false);
   const [error, setError]                   = useState(null);
+  const [viewMode, setViewMode]             = useState('mine');   // 'mine' | 'all'
 
   /* ── subscribe to wallet ── */
   useEffect(() => {
     fcl.currentUser().subscribe(setUser);
   }, []);
 
-  /* ── check collection & load NFTs when wallet changes ── */
-  const refresh = useCallback(async (addr) => {
+  /* ── check collection & load MY NFTs ── */
+  const refreshMine = useCallback(async (addr) => {
     if (!addr) {
       setHasCollection(null);
-      setNfts([]);
+      setMyNfts([]);
       return;
     }
     setLoading(true);
@@ -145,7 +154,7 @@ export default function NFT() {
           cadence: CADENCE_LIST_NFTS,
           args: (arg, t) => [arg(addr, t.Address)],
         });
-        setNfts(
+        setMyNfts(
           raw.map(([id, name, desc, thumb]) => ({
             id,
             name,
@@ -154,7 +163,7 @@ export default function NFT() {
           }))
         );
       } else {
-        setNfts([]);
+        setMyNfts([]);
       }
     } catch (err) {
       console.error('NFT refresh error:', err);
@@ -165,8 +174,41 @@ export default function NFT() {
   }, []);
 
   useEffect(() => {
-    refresh(user.addr);
-  }, [user.addr, refresh]);
+    refreshMine(user.addr);
+  }, [user.addr, refreshMine]);
+
+  /* ── fetch ALL NFTs from backend API ── */
+  const refreshAll = useCallback(async () => {
+    setAllLoading(true);
+    setError(null);
+    try {
+      const resp = await fetch('/api/nft/holders');
+      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+      const data = await resp.json();
+      setAllNfts(
+        (data.nfts || []).map((n) => ({
+          id: String(n.id),
+          name: n.name,
+          thumbnail: ipfsToHttp(n.thumbnail),
+          owner: n.owner,
+          dapper: n.dapper,
+          username: n.username || null,
+        }))
+      );
+    } catch (err) {
+      console.error('All NFTs fetch error:', err);
+      setError('Failed to load all NFTs.');
+    } finally {
+      setAllLoading(false);
+    }
+  }, []);
+
+  /* Auto-fetch when switching to "all" tab */
+  useEffect(() => {
+    if (viewMode === 'all' && allNfts.length === 0) {
+      refreshAll();
+    }
+  }, [viewMode, allNfts.length, refreshAll]);
 
   /* ── enable collection ── */
   const handleSetup = async () => {
@@ -178,7 +220,7 @@ export default function NFT() {
         limit: 300,
       });
       await fcl.tx(txId).onceSealed();
-      await refresh(user.addr);
+      await refreshMine(user.addr);
     } catch (err) {
       console.error('Setup error:', err);
       if (err?.message?.includes('Declined')) {
@@ -218,23 +260,26 @@ export default function NFT() {
         <p>View and manage your Swapboost30MVP collection on Flow</p>
       </div>
 
-      {/* Status card */}
+      {/* Toggle + Status */}
       <div className="nft-status-card">
-        <div className="d-flex justify-content-between align-items-center flex-wrap gap-2">
-          <div>
-            <span style={{ color: '#9CA3AF', fontSize: '0.85rem' }}>Collection status</span>
-            <div className="mt-1">
-              {hasCollection === null ? (
-                <span style={{ color: '#6B7280' }}>Checking…</span>
-              ) : hasCollection ? (
-                <span className="nft-collection-badge enabled">✓ Enabled</span>
-              ) : (
-                <span className="nft-collection-badge disabled">✗ Not enabled</span>
-              )}
-            </div>
+        <div className="nft-toggle-row">
+          <div className="nft-toggle">
+            <button
+              className={`nft-toggle-btn ${viewMode === 'mine' ? 'active' : ''}`}
+              onClick={() => setViewMode('mine')}
+            >
+              My NFTs
+            </button>
+            <button
+              className={`nft-toggle-btn ${viewMode === 'all' ? 'active' : ''}`}
+              onClick={() => setViewMode('all')}
+            >
+              All NFTs
+            </button>
           </div>
+
           <div className="d-flex gap-2 align-items-center">
-            {hasCollection === false && (
+            {viewMode === 'mine' && hasCollection === false && (
               <button
                 className="nft-btn nft-btn-primary"
                 onClick={handleSetup}
@@ -245,13 +290,26 @@ export default function NFT() {
             )}
             <button
               className="nft-btn nft-btn-outline"
-              onClick={() => refresh(user.addr)}
-              disabled={loading}
+              onClick={() => viewMode === 'mine' ? refreshMine(user.addr) : refreshAll()}
+              disabled={viewMode === 'mine' ? loading : allLoading}
             >
               ↻ Refresh
             </button>
           </div>
         </div>
+
+        {viewMode === 'mine' && (
+          <div className="mt-2">
+            <span style={{ color: '#9CA3AF', fontSize: '0.85rem' }}>Collection status </span>
+            {hasCollection === null ? (
+              <span style={{ color: '#6B7280' }}>Checking…</span>
+            ) : hasCollection ? (
+              <span className="nft-collection-badge enabled">✓ Enabled</span>
+            ) : (
+              <span className="nft-collection-badge disabled">✗ Not enabled</span>
+            )}
+          </div>
+        )}
 
         {error && (
           <div className="mt-2" style={{ color: '#f87171', fontSize: '0.85rem' }}>
@@ -261,12 +319,16 @@ export default function NFT() {
       </div>
 
       {/* NFT grid */}
-      {loading ? (
+      {(viewMode === 'mine' ? loading : allLoading) ? (
         <div className="nft-spinner" />
-      ) : hasCollection && nfts.length === 0 ? (
+      ) : (viewMode === 'mine' ? myNfts : allNfts).length === 0 ? (
         <div className="nft-empty">
           <div className="nft-empty-icon">📦</div>
-          <p>No Swapboost NFTs found in your wallet.</p>
+          <p>
+            {viewMode === 'mine'
+              ? 'No Swapboost NFTs found in your wallet.'
+              : 'No holders found yet.'}
+          </p>
           <a
             href={FLOWTY_COLLECTION_URL}
             target="_blank"
@@ -278,8 +340,15 @@ export default function NFT() {
         </div>
       ) : (
         <>
+          {viewMode === 'all' && (
+            <div className="nft-summary">
+              {allNfts.length} NFTs found across{' '}
+              {new Set(allNfts.map((n) => n.owner)).size} wallets
+            </div>
+          )}
+
           <div className="nft-grid">
-            {nfts.map((nft) => (
+            {(viewMode === 'mine' ? myNfts : allNfts).map((nft) => (
               <a
                 key={nft.id}
                 href={`https://www.flowty.io/asset/${CONTRACT_ADDR}/${CONTRACT_NAME}/NFT/${nft.id}`}
@@ -287,7 +356,7 @@ export default function NFT() {
                 rel="noopener noreferrer"
                 style={{ textDecoration: 'none' }}
               >
-                <div className="nft-card">
+                <div className={`nft-card${nft.owner === user.addr ? ' nft-card-mine' : ''}`}>
                   {nft.thumbnail ? (
                     <img
                       className="nft-card-img"
@@ -311,10 +380,28 @@ export default function NFT() {
                   )}
                   <div className="nft-card-body">
                     <div className="nft-card-title">{nft.name}</div>
-                    {nft.description && (
+                    {viewMode === 'mine' && nft.description && (
                       <div className="nft-card-desc">{nft.description}</div>
                     )}
                     <div className="nft-card-id">ID #{nft.id}</div>
+
+                    {/* Owner info (All NFTs view) */}
+                    {viewMode === 'all' && (
+                      <div className="nft-card-owner">
+                        {nft.username ? (
+                          <span className="nft-owner-username" title={nft.owner}>
+                            {nft.username}
+                          </span>
+                        ) : (
+                          <span className="nft-owner-addr" title={nft.owner}>
+                            {shortAddr(nft.owner)}
+                          </span>
+                        )}
+                        {nft.owner === user.addr && (
+                          <span className="nft-mine-badge">You</span>
+                        )}
+                      </div>
+                    )}
                   </div>
                 </div>
               </a>

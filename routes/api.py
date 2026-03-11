@@ -1266,6 +1266,128 @@ def register_routes(app):
             'leaderboard': leaderboard,
         })
 
+    # ── NFT collection: all holders ────────────────────────────────
+    _nft_holders_cache = {"data": None, "ts": 0}
+
+    @app.route('/api/nft/holders')
+    def api_nft_holders():
+        """Return all Swapboost30MVP NFTs with owner info.
+
+        Scans the chain by resolving HybridCustody parents for every
+        known Dapper child address, then probing each parent for
+        Swapboost NFTs.  Results are cached for 5 minutes.
+        """
+        import base64 as _b64
+
+        now = time.time()
+        if _nft_holders_cache["data"] and now - _nft_holders_cache["ts"] < 300:
+            return jsonify(_nft_holders_cache["data"])
+
+        from utils.helpers import WALLET_USERNAME_MAP
+
+        dapper_children = list(WALLET_USERNAME_MAP.keys())
+        child_to_username = {k.lower(): v for k, v in WALLET_USERNAME_MAP.items()}
+
+        cadence = r"""
+import NonFungibleToken from 0x1d7e57aa55817448
+import MetadataViews from 0x1d7e57aa55817448
+import Swapboost30MVP from 0xaad9f8fa31ecbaf9
+import HybridCustody from 0xd8a7e05a7ac670c0
+
+access(all) fun main(dapperChildren: [Address]): [[String]] {
+  let totalSupply = Swapboost30MVP.totalSupply
+  var result: [[String]] = []
+  var checked: {Address: Bool} = {}
+
+  for child in dapperChildren {
+    let childAcct = getAuthAccount<auth(Storage) &Account>(child)
+    let ownedAcct = childAcct.storage
+      .borrow<auth(HybridCustody.Owner) &HybridCustody.OwnedAccount>(
+        from: HybridCustody.OwnedAccountStoragePath
+      )
+    if ownedAcct == nil { continue }
+    let parents = ownedAcct!.getParentAddresses()
+
+    for parent in parents {
+      if checked[parent] != nil { continue }
+      checked[parent] = true
+
+      let acct = getAccount(parent)
+      let col = acct.capabilities
+        .borrow<&{NonFungibleToken.Collection}>(
+          /public/Swapboost30MVP_aad9f8fa31ecbaf9
+        )
+      if col == nil { continue }
+
+      var id: UInt64 = 1
+      while id <= totalSupply {
+        let nft = col!.borrowNFT(id)
+        if nft != nil {
+          var name = ""
+          var thumb = ""
+          if let display = nft!.resolveView(Type<MetadataViews.Display>()) {
+            let d = display as! MetadataViews.Display
+            name = d.name
+            thumb = d.thumbnail.uri()
+          }
+          result.append([
+            id.toString(), name, thumb,
+            parent.toString(), child.toString()
+          ])
+        }
+        id = id + 1
+      }
+    }
+  }
+  return result
+}
+"""
+        import json as _json
+
+        args_val = [{"type": "Address", "value": a} for a in dapper_children]
+        body = {
+            "script": _b64.b64encode(cadence.encode()).decode(),
+            "arguments": [
+                _b64.b64encode(
+                    _json.dumps({"type": "Array", "value": args_val}).encode()
+                ).decode()
+            ],
+        }
+
+        try:
+            resp = http_requests.post(
+                "https://rest-mainnet.onflow.org/v1/scripts",
+                json=body, timeout=30,
+            )
+            if resp.status_code != 200:
+                return jsonify({"error": "chain query failed"}), 502
+
+            raw = resp.json()
+            decoded = _json.loads(_b64.b64decode(raw).decode()) if isinstance(raw, str) else raw
+            entries = decoded.get("value", [])
+
+            nfts = []
+            for entry in entries:
+                vals = [v["value"] for v in entry["value"]]
+                nft_id, name, thumb, owner, dapper = vals
+                username = child_to_username.get(dapper.lower())
+                nfts.append({
+                    "id": int(nft_id),
+                    "name": name,
+                    "thumbnail": thumb,
+                    "owner": owner,
+                    "dapper": dapper,
+                    "username": username,
+                })
+
+            nfts.sort(key=lambda n: n["id"])
+            result = {"totalSupply": 50, "nfts": nfts}
+            _nft_holders_cache["data"] = result
+            _nft_holders_cache["ts"] = now
+            return jsonify(result)
+        except Exception as exc:
+            return jsonify({"error": str(exc)}), 500
+
     return app
 
 
