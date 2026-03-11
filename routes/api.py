@@ -1425,12 +1425,23 @@ def _notify_swap_discord(app, user_addr, moment_ids, total_mvp, tier_counts, tx_
         tier_parts.append(f"{count} {tier.capitalize()}")
     tier_summary = ', '.join(tier_parts) if tier_parts else f"{len(moment_ids)} moment(s)"
 
-    short_addr = f"{user_addr[:6]}…{user_addr[-4:]}" if len(user_addr) > 10 else user_addr
+    # Resolve TopShot username (best-effort)
+    try:
+        ts_username = get_ts_username_from_flow_wallet(user_addr)
+    except Exception:
+        ts_username = None
+
+    if ts_username:
+        user_display = f"[{ts_username}](https://www.nbatopshot.com/user/{ts_username})"
+    else:
+        short_addr = f"{user_addr[:6]}…{user_addr[-4:]}" if len(user_addr) > 10 else user_addr
+        user_display = f"**{short_addr}**"
+
     flowdiver_tx = f"https://www.flowdiver.io/tx/{tx_id}"
     mvp_tx_link = f"  |  [$MVP tx](https://www.flowdiver.io/tx/{mvp_tx_id})" if mvp_tx_id else ""
 
     embed_description = (
-        f"**{short_addr}** swapped **{len(moment_ids)}** moment{'s' if len(moment_ids) != 1 else ''} "
+        f"{user_display} swapped **{len(moment_ids)}** moment{'s' if len(moment_ids) != 1 else ''} "
         f"({tier_summary}) for **{total_mvp:,.1f} $MVP**\n\n"
         f"[View tx]({flowdiver_tx}){mvp_tx_link}"
     )

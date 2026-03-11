@@ -89,6 +89,7 @@ export default function Layout() {
               <Nav.Link as={NavLink} to="/museum">Museum</Nav.Link>
               <Nav.Link as={NavLink} to="/fastbreak">Fastbreak</Nav.Link>
               <Nav.Link as={NavLink} to="/swap">Swap</Nav.Link>
+              <Nav.Link as={NavLink} to="/nft">NFT</Nav.Link>
                 {/* Buy $MVP button */}
                 <Nav.Link
                   id="buy-mvp"
