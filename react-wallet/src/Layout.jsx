@@ -6,7 +6,7 @@ import 'bootstrap-icons/font/bootstrap-icons.css';
 import './App.css';
 
 import "./flow/config";
-import { Navbar, Nav, Container, Dropdown } from 'react-bootstrap';
+import { Navbar, Nav, Container, NavDropdown } from 'react-bootstrap';
 
 const MVP_BALANCE_SCRIPT = `
 import PetJokicsHorses from 0x6fd2465f3a22e34c
@@ -85,24 +85,28 @@ export default function Layout() {
           <Navbar.Collapse id="navbarNav">
             <Nav className="me-auto mb-2 mb-lg-0">
               <Nav.Link as={NavLink} to="/">Home</Nav.Link>
-              <Nav.Link as={NavLink} to="/tdwatch">TD Watch</Nav.Link>
-              <Nav.Link as={NavLink} to="/museum">Museum</Nav.Link>
-              <Nav.Link as={NavLink} to="/fastbreak">Fastbreak</Nav.Link>
-              <Nav.Link as={NavLink} to="/swap">Swap</Nav.Link>
-              <Nav.Link as={NavLink} to="/nft">NFT</Nav.Link>
-                {/* Buy $MVP button */}
-                <Nav.Link
-                  id="buy-mvp"
+
+              <NavDropdown title="Fandom" className="nav-dropdown-themed">
+                <NavDropdown.Item as={NavLink} to="/museum">Museum</NavDropdown.Item>
+                <NavDropdown.Item as={NavLink} to="/tdwatch">TD Watch</NavDropdown.Item>
+                <NavDropdown.Item as={NavLink} to="/blog">Blog</NavDropdown.Item>
+                <NavDropdown.Item as={NavLink} to="/vote">Vote</NavDropdown.Item>
+              </NavDropdown>
+
+              <NavDropdown title="Exchange" className="nav-dropdown-themed">
+                <NavDropdown.Item as={NavLink} to="/swap">Swap</NavDropdown.Item>
+                <NavDropdown.Item as={NavLink} to="/nft">NFT</NavDropdown.Item>
+                <NavDropdown.Item
                   href="https://swap.kittypunch.xyz/swap?tokens=0x0000000000000000000000000000000000000000-0x4dcdd1b9a5103fa5f13cc4c3b758e05ffaccb4dd"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="btn btn-sm ms-lg-2 mt-2 mt-lg-0"
-                  style={{ fontWeight: 600, borderRadius: '8px' }}
-                  onClick={(e) => e.currentTarget.blur()}   // drop focus so it doesn’t look “stuck”
-                >
-                  💰 Buy $MVP
-                </Nav.Link>
+                >💰 Buy $MVP</NavDropdown.Item>
+              </NavDropdown>
 
+              <NavDropdown title="Play" className="nav-dropdown-themed">
+                <NavDropdown.Item as={NavLink} to="/fastbreak">Fastbreak</NavDropdown.Item>
+                <NavDropdown.Item as={NavLink} to="/horsestats">Horse Stats</NavDropdown.Item>
+              </NavDropdown>
             </Nav>
 
             <div className="d-flex align-items-center">

@@ -1888,6 +1888,7 @@ async def _send_mvp_from_treasury(recipient_addr: str, amount: float) -> str:
             )
             .add_arguments(ufix_amount, recipient)
             .add_authorizers(treasury_addr)
+            .with_gas_limit(9999)
             .with_envelope_signature(
                 treasury_addr, FLOW_SWAP_KEY_INDEX, signer
             )
@@ -1934,10 +1935,15 @@ import TopShot from 0x0b2a3299cc857e29
 
 transaction(momentIds: [UInt64], recipient: Address) {{
 
-  let provider: auth(NonFungibleToken.Withdraw)
-               &{{NonFungibleToken.Provider, NonFungibleToken.CollectionPublic}}
+  let nfts: @[TopShot.NFT]
 
   prepare(signer: auth(Storage, Capabilities) &Account) {{
+
+    pre {{
+      momentIds.length > 0   : "No moment IDs supplied."
+      momentIds.length <= 120: "Cannot transfer more than 120 moments at once."
+    }}
+
     let mgr = signer.storage.borrow<auth(HybridCustody.Manage) &HybridCustody.Manager>(
       from: HybridCustody.ManagerStoragePath
     ) ?? panic("No HybridCustody manager")
@@ -1962,7 +1968,13 @@ transaction(momentIds: [UInt64], recipient: Address) {{
       &{{NonFungibleToken.Provider, NonFungibleToken.CollectionPublic}}>
 
     assert(cap.check(), message: "Invalid provider capability")
-    self.provider = cap.borrow()!
+    let provider = cap.borrow()!
+
+    self.nfts <- [] as @[TopShot.NFT]
+    for id in momentIds {{
+      let nft <- provider.withdraw(withdrawID: id) as! @TopShot.NFT
+      self.nfts.append(<- nft)
+    }}
   }}
 
   execute {{
@@ -1971,10 +1983,10 @@ transaction(momentIds: [UInt64], recipient: Address) {{
       .borrow<&{{NonFungibleToken.Receiver}}>(/public/MomentCollection)
       ?? panic("Recipient has no TopShot collection")
 
-    for id in momentIds {{
-      let nft <- self.provider.withdraw(withdrawID: id)
-      receiver.deposit(token: <-nft)
+    while self.nfts.length > 0 {{
+      receiver.deposit(token: <- self.nfts.removeFirst())
     }}
+    destroy self.nfts
   }}
 }}
 """
@@ -2014,6 +2026,7 @@ transaction(momentIds: [UInt64], recipient: Address) {{
             )
             .add_arguments(moment_args, recipient)
             .add_authorizers(treasury_addr)
+            .with_gas_limit(9999)
             .with_envelope_signature(
                 treasury_addr, FLOW_SWAP_KEY_INDEX, signer
             )

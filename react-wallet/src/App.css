@@ -53,33 +53,44 @@ body {
   color: #FACC15 !important;
 }
 
-/* Fastbreak Dropdown Custom Theme */
-.navbar .fastbreak-dropdown-toggle {
+/* Nav Dropdown Theme */
+.navbar .nav-dropdown-themed > .nav-link,
+.navbar .nav-dropdown-themed > a {
   color: #FDB927 !important;
   font-weight: 600;
 }
 
-.navbar .fastbreak-dropdown-toggle::after {
+.navbar .nav-dropdown-themed > .nav-link::after,
+.navbar .nav-dropdown-themed > a::after {
   border-top-color: #FDB927;
 }
 
-.navbar .fastbreak-dropdown-menu {
+.navbar .nav-dropdown-themed .dropdown-menu {
   background-color: #0E2240;
-  border: none;
+  border: 1px solid rgba(253, 185, 39, 0.15);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+  border-radius: 6px;
+  padding: 0.25rem 0;
+  min-width: 10rem;
 }
 
-.navbar .fastbreak-dropdown-menu .dropdown-item {
+.navbar .nav-dropdown-themed .dropdown-item {
   color: #FDB927;
   font-weight: 500;
   background-color: transparent;
+  padding: 0.45rem 1rem;
   transition: background-color 0.2s, color 0.2s;
 }
 
-.navbar .fastbreak-dropdown-menu .dropdown-item:hover,
-.navbar .fastbreak-dropdown-menu .dropdown-item:focus {
+.navbar .nav-dropdown-themed .dropdown-item:hover,
+.navbar .nav-dropdown-themed .dropdown-item:focus {
   background-color: #FDB927;
   color: #0E2240;
+}
+
+.navbar .nav-dropdown-themed .dropdown-item.active {
+  background-color: rgba(253, 185, 39, 0.15);
+  color: #FDB927;
 }
 
 /* Burger icon tweaks for dark navbar */
