@@ -975,19 +975,38 @@ def register_routes(app):
             # "{setUUID}+{playUUID}+{parallelID}".
             # If exact parallel match fails, fall back to standard (+0).
             edition_suffix = '+' + str(subedition)
+            _edition_q = prepare_query(
+                "SELECT edition_id, tier, set_name, series_number, "
+                "play_headline, play_category, team, date_of_moment, "
+                "nba_season, jersey_number, image_url, video_url, "
+                "circulation_count, low_ask "
+                "FROM jokic_editions WHERE play_flow_id = ? AND set_name = ? "
+                "ORDER BY CASE WHEN edition_id LIKE ? THEN 0 ELSE 1 END "
+                "LIMIT 1"
+            )
             cur.execute(
-                prepare_query(
-                    "SELECT edition_id, tier, set_name, series_number, "
-                    "play_headline, play_category, team, date_of_moment, "
-                    "nba_season, jersey_number, image_url, video_url, "
-                    "circulation_count, low_ask "
-                    "FROM jokic_editions WHERE play_flow_id = ? AND set_name = ? "
-                    "ORDER BY CASE WHEN edition_id LIKE ? THEN 0 ELSE 1 END "
-                    "LIMIT 1"
-                ),
+                _edition_q,
                 (int(play_id), set_name, '%' + edition_suffix),
             )
             row = cur.fetchone()
+
+            # Fallback: on-chain set names can differ from API names
+            # (e.g. 'Base Set6' on-chain vs 'Base Set' in DB).
+            # Retry matching by play_flow_id only.
+            if not row:
+                cur.execute(
+                    prepare_query(
+                        "SELECT edition_id, tier, set_name, series_number, "
+                        "play_headline, play_category, team, date_of_moment, "
+                        "nba_season, jersey_number, image_url, video_url, "
+                        "circulation_count, low_ask "
+                        "FROM jokic_editions WHERE play_flow_id = ? "
+                        "ORDER BY CASE WHEN edition_id LIKE ? THEN 0 ELSE 1 END "
+                        "LIMIT 1"
+                    ),
+                    (int(play_id), '%' + edition_suffix),
+                )
+                row = cur.fetchone()
             if not row:
                 continue
 
