@@ -1591,6 +1591,7 @@ access(all) fun main(account: Address): [[String]] {
                 'team': row[6] or '',
                 'imageUrl': row[10] or None,
                 'mvpCost': mvp_cost,
+                'subedition': m.get('subedition', 0),
             })
 
         result_data = {'moments': enriched}

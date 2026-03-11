@@ -441,9 +441,10 @@ export default function Swap() {
   /* ── Transaction ── */
   // (modal-based progress – see swapModal state below)
 
-  /* ── Filter / sort ── */
+  /* ── Filters ── */
   const [tierFilter, setTierFilter] = useState('ALL');
-  const [searchText, setSearchText] = useState('');
+  const [seriesFilter, setSeriesFilter] = useState('ALL');
+  const [parallelFilter, setParallelFilter] = useState('ALL');
 
   /* ── Check MVP vault when wallet connects ── */
   useEffect(() => {
@@ -539,6 +540,11 @@ export default function Swap() {
         const unlocked = parsed.filter(m => !m.isLocked);
         const enriched = await enrichMoments(unlocked);
         if (!cancelled) {
+          // Merge subedition from Cadence data back into enriched moments
+          const subMap = new Map(unlocked.map(u => [u.id, u.subedition || 0]));
+          for (const em of enriched) {
+            em.subedition = subMap.get(em.id) ?? 0;
+          }
           // Sort by serial number descending (highest first)
           enriched.sort((a, b) => b.serial - a.serial);
           setMoments(enriched);
@@ -578,6 +584,7 @@ export default function Swap() {
             tier: m.tier,
             imageUrl: m.imageUrl || null,
             mvpCost: m.mvpCost || 0,
+            subedition: m.subedition ?? 0,
           }));
           moms.sort((a, b) => a.serial - b.serial);
           setTreasuryMoments(moms);
@@ -596,38 +603,45 @@ export default function Swap() {
     setSelected(new Set());
     setTreasurySelected(new Set());
     setTierFilter('ALL');
-    setSearchText('');
+    setSeriesFilter('ALL');
+    setParallelFilter('ALL');
   }, [mode]);
+
+  /* ── Derived: available series & parallel values for dropdowns ── */
+  const seriesOptions = useMemo(() => {
+    const src = mode === 'send' ? moments : treasuryMoments;
+    const vals = [...new Set(src.map(m => m.seriesNumber).filter(Boolean))].sort((a, b) => a - b);
+    return vals;
+  }, [mode, moments, treasuryMoments]);
+
+  const parallelOptions = useMemo(() => {
+    const src = mode === 'send' ? moments : treasuryMoments;
+    const vals = [...new Set(src.map(m => m.subedition ?? 0))].sort((a, b) => a - b);
+    return vals;
+  }, [mode, moments, treasuryMoments]);
+
+  const parallelLabel = (v) => {
+    if (v === 0) return 'Standard';
+    return `Parallel #${v}`;
+  };
 
   /* ── Filtered moments (send mode) ── */
   const filtered = useMemo(() => {
     let list = moments;
     if (tierFilter !== 'ALL') list = list.filter(m => m.tier === tierFilter);
-    if (searchText.trim()) {
-      const q = searchText.toLowerCase();
-      list = list.filter(m =>
-        m.player.toLowerCase().includes(q) ||
-        m.headline.toLowerCase().includes(q) ||
-        m.set.toLowerCase().includes(q)
-      );
-    }
+    if (seriesFilter !== 'ALL') list = list.filter(m => String(m.seriesNumber) === seriesFilter);
+    if (parallelFilter !== 'ALL') list = list.filter(m => String(m.subedition ?? 0) === parallelFilter);
     return list;
-  }, [moments, tierFilter, searchText]);
+  }, [moments, tierFilter, seriesFilter, parallelFilter]);
 
   /* ── Filtered treasury moments (get mode) ── */
   const filteredTreasury = useMemo(() => {
     let list = treasuryMoments;
     if (tierFilter !== 'ALL') list = list.filter(m => m.tier === tierFilter);
-    if (searchText.trim()) {
-      const q = searchText.toLowerCase();
-      list = list.filter(m =>
-        m.player.toLowerCase().includes(q) ||
-        m.headline.toLowerCase().includes(q) ||
-        m.set.toLowerCase().includes(q)
-      );
-    }
+    if (seriesFilter !== 'ALL') list = list.filter(m => String(m.seriesNumber) === seriesFilter);
+    if (parallelFilter !== 'ALL') list = list.filter(m => String(m.subedition ?? 0) === parallelFilter);
     return list;
-  }, [treasuryMoments, tierFilter, searchText]);
+  }, [treasuryMoments, tierFilter, seriesFilter, parallelFilter]);
 
   /* ── Calculate $MVP total for selected moments (send mode) ── */
   const selectedMvp = useMemo(() => {
@@ -935,43 +949,20 @@ export default function Swap() {
             </div>
 
             {/* Filters */}
-            <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.75rem', flexWrap: 'wrap' }}>
-              <button
-                className={`swap-tier-btn ${tierFilter === 'ALL' ? 'active' : ''}`}
-                onClick={() => setTierFilter('ALL')}
-              >
-                All
-              </button>
-              {TIERS.map(t => (
-                <button
-                  key={t.key}
-                  className={`swap-tier-btn ${tierFilter === t.key ? 'active' : ''}`}
-                  onClick={() => setTierFilter(t.key)}
-                >
-                  <span className="tier-dot" style={{ background: t.color }} />
-                  {t.label}
-                </button>
-              ))}
+            <div className="swap-filter-row">
+              <select className="swap-filter-select" value={tierFilter} onChange={e => setTierFilter(e.target.value)}>
+                <option value="ALL">All Tiers</option>
+                {TIERS.map(t => <option key={t.key} value={t.key}>{t.emoji} {t.label}</option>)}
+              </select>
+              <select className="swap-filter-select" value={seriesFilter} onChange={e => setSeriesFilter(e.target.value)}>
+                <option value="ALL">All Series</option>
+                {seriesOptions.map(s => <option key={s} value={String(s)}>Series {s}</option>)}
+              </select>
+              <select className="swap-filter-select" value={parallelFilter} onChange={e => setParallelFilter(e.target.value)}>
+                <option value="ALL">All Parallels</option>
+                {parallelOptions.map(p => <option key={p} value={String(p)}>{parallelLabel(p)}</option>)}
+              </select>
             </div>
-
-            {/* Search */}
-            <input
-              type="text"
-              placeholder="Search by player, play, or set…"
-              value={searchText}
-              onChange={e => setSearchText(e.target.value)}
-              style={{
-                width: '100%',
-                padding: '0.5rem 0.75rem',
-                borderRadius: 8,
-                border: '1px solid #273549',
-                background: '#141e2e',
-                color: '#E5E7EB',
-                fontSize: '0.85rem',
-                marginBottom: '0.75rem',
-                outline: 'none',
-              }}
-            />
 
             {/* Select all / none */}
             <div style={{ display: 'flex', gap: '0.75rem', marginBottom: '0.75rem', fontSize: '0.8rem' }}>
@@ -1059,43 +1050,20 @@ export default function Swap() {
             </div>
 
             {/* Filters */}
-            <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.75rem', flexWrap: 'wrap' }}>
-              <button
-                className={`swap-tier-btn ${tierFilter === 'ALL' ? 'active' : ''}`}
-                onClick={() => setTierFilter('ALL')}
-              >
-                All
-              </button>
-              {TIERS.map(t => (
-                <button
-                  key={t.key}
-                  className={`swap-tier-btn ${tierFilter === t.key ? 'active' : ''}`}
-                  onClick={() => setTierFilter(t.key)}
-                >
-                  <span className="tier-dot" style={{ background: t.color }} />
-                  {t.label}
-                </button>
-              ))}
+            <div className="swap-filter-row">
+              <select className="swap-filter-select" value={tierFilter} onChange={e => setTierFilter(e.target.value)}>
+                <option value="ALL">All Tiers</option>
+                {TIERS.map(t => <option key={t.key} value={t.key}>{t.emoji} {t.label}</option>)}
+              </select>
+              <select className="swap-filter-select" value={seriesFilter} onChange={e => setSeriesFilter(e.target.value)}>
+                <option value="ALL">All Series</option>
+                {seriesOptions.map(s => <option key={s} value={String(s)}>Series {s}</option>)}
+              </select>
+              <select className="swap-filter-select" value={parallelFilter} onChange={e => setParallelFilter(e.target.value)}>
+                <option value="ALL">All Parallels</option>
+                {parallelOptions.map(p => <option key={p} value={String(p)}>{parallelLabel(p)}</option>)}
+              </select>
             </div>
-
-            {/* Search */}
-            <input
-              type="text"
-              placeholder="Search by player, play, or set…"
-              value={searchText}
-              onChange={e => setSearchText(e.target.value)}
-              style={{
-                width: '100%',
-                padding: '0.5rem 0.75rem',
-                borderRadius: 8,
-                border: '1px solid #273549',
-                background: '#141e2e',
-                color: '#E5E7EB',
-                fontSize: '0.85rem',
-                marginBottom: '0.75rem',
-                outline: 'none',
-              }}
-            />
 
             {/* Select all / none */}
             <div style={{ display: 'flex', gap: '0.75rem', marginBottom: '0.75rem', fontSize: '0.8rem' }}>
