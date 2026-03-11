@@ -30,7 +30,7 @@ FLOW_SWAP_KEY_INDEX = int(os.getenv('FLOW_SWAP_KEY_INDEX', '1'))  # Key index on
 FLOW_SCAN_API_URL = os.getenv('FLOW_SCAN_API_URL', '')
 
 # Database configuration
-DATABASE_URL = os.getenv('DATABASE_URL')  # Heroku PostgreSQL URL
+DATABASE_URL = os.getenv('DATABASE_URL')  # PostgreSQL URL
 
 # Discord bot configuration
 DISCORD_TOKEN = os.getenv('DISCORD_TOKEN')
@@ -41,10 +41,10 @@ FLASK_PORT = 8000
 
 # Treasury data
 TREASURY_DATA = {
-    "tokens_in_wild": 14028,
-    "common_count": 2453,
-    "rare_count": 139,
+    "tokens_in_wild": 11807,
+    "common_count": 2514,
+    "rare_count": 101,
     "tsd_count": 0,
     "lego_count": 0,
-    "last_updated": "2025-12-15 15:00 UTC"
+    "last_updated": "2026-03-12 15:00 UTC"
 }
