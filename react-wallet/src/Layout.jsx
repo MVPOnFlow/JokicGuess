@@ -8,12 +8,43 @@ import './App.css';
 import "./flow/config";
 import { Navbar, Nav, Container, Dropdown } from 'react-bootstrap';
 
+const MVP_BALANCE_SCRIPT = `
+import PetJokicsHorses from 0x6fd2465f3a22e34c
+
+access(all) fun main(address: Address): UFix64 {
+  let account = getAccount(address)
+  if let vaultRef = account.capabilities
+        .borrow<&PetJokicsHorses.Vault>(/public/PetJokicsHorsesReceiver) {
+    return vaultRef.balance
+  }
+  return 0.0
+}
+`;
+
 export default function Layout() {
   const [user, setUser] = useState({ loggedIn: null });
+  const [mvpBalance, setMvpBalance] = useState(null);
 
   useEffect(() => {
     fcl.currentUser().subscribe(setUser);
   }, []);
+
+  useEffect(() => {
+    if (!user.addr) { setMvpBalance(null); return; }
+    let cancelled = false;
+    const fetchBalance = async () => {
+      try {
+        const result = await fcl.query({
+          cadence: MVP_BALANCE_SCRIPT,
+          args: (arg, t) => [arg(user.addr, t.Address)],
+        });
+        if (!cancelled) setMvpBalance(parseFloat(result));
+      } catch { if (!cancelled) setMvpBalance(null); }
+    };
+    fetchBalance();
+    const id = setInterval(fetchBalance, 30000);
+    return () => { cancelled = true; clearInterval(id); };
+  }, [user.addr]);
 
   const handleConnect = () => {
     fcl.authenticate();
@@ -55,18 +86,9 @@ export default function Layout() {
             <Nav className="me-auto mb-2 mb-lg-0">
               <Nav.Link as={NavLink} to="/">Home</Nav.Link>
               <Nav.Link as={NavLink} to="/tdwatch">TD Watch</Nav.Link>
-              <Nav.Link as={NavLink} to="/museum" className="d-flex align-items-center">
-                <span>Museum</span>
-                <span className="ms-2 badge bg-info text-dark" style={{ fontSize: '0.65rem' }}>NEW</span>
-              </Nav.Link>
-              <Nav.Link as={NavLink} to="/fastbreak" className="d-flex align-items-center">
-                <span>Fastbreak</span>
-                <span className="ms-2 badge bg-warning text-dark" style={{ fontSize: '0.65rem' }}>BETA</span>
-              </Nav.Link>
-              <Nav.Link as={NavLink} to="/swap" className="d-flex align-items-center">
-                <span>Swap</span>
-                <span className="ms-2 badge bg-info text-dark" style={{ fontSize: '0.65rem' }}>NEW</span>
-              </Nav.Link>
+              <Nav.Link as={NavLink} to="/museum">Museum</Nav.Link>
+              <Nav.Link as={NavLink} to="/fastbreak">Fastbreak</Nav.Link>
+              <Nav.Link as={NavLink} to="/swap">Swap</Nav.Link>
                 {/* Buy $MVP button */}
                 <Nav.Link
                   id="buy-mvp"
@@ -84,15 +106,22 @@ export default function Layout() {
 
             <div className="d-flex align-items-center">
               {user.loggedIn ? (
-                <>
-                  <span className="wallet-address me-2">{user.addr}</span>
+                <div className="d-flex align-items-center">
+                  <div className="text-end me-2">
+                    <span className="wallet-address">{user.addr}</span>
+                    {mvpBalance !== null && (
+                      <div style={{ fontSize: '0.75rem', color: '#FDB927', fontWeight: 600 }}>
+                        {mvpBalance.toLocaleString(undefined, { maximumFractionDigits: 2 })} $MVP
+                      </div>
+                    )}
+                  </div>
                   <button
                     className="btn-wallet"
                     onClick={handleDisconnect}
                   >
                     Disconnect
                   </button>
-                </>
+                </div>
               ) : (
                 <button
                   className="btn-wallet"
