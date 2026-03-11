@@ -63,6 +63,10 @@ export default function Layout() {
                 <span>Fastbreak</span>
                 <span className="ms-2 badge bg-warning text-dark" style={{ fontSize: '0.65rem' }}>BETA</span>
               </Nav.Link>
+              <Nav.Link as={NavLink} to="/swap" className="d-flex align-items-center">
+                <span>Swap</span>
+                <span className="ms-2 badge bg-info text-dark" style={{ fontSize: '0.65rem' }}>NEW</span>
+              </Nav.Link>
                 {/* Buy $MVP button */}
                 <Nav.Link
                   id="buy-mvp"

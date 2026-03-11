@@ -920,12 +920,14 @@ def get_jokic_editions(cursor="", limit=100, dapper_id="") -> dict:
                   tier
                   set {{
                     id
+                    flowId
                     flowName
                     setVisualId
                     flowSeriesNumber
                   }}
                   play {{
                     id
+                    flowID
                     description
                     shortDescription
                     stats {{
@@ -1073,6 +1075,9 @@ def _parse_marketplace_edition(m: dict) -> dict:
     return {
         "id": m.get("id"),
         "playId": play.get("id", ""),
+        "playFlowId": play.get("flowID"),
+        "setId": set_info.get("id", ""),
+        "setFlowId": set_info.get("flowId"),
         "tier": tier,
         "setName": set_info.get("flowName", "Unknown Set"),
         "setVisualId": set_info.get("setVisualId", ""),

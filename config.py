@@ -1,6 +1,9 @@
 """Configuration constants for JokicGuess application."""
 
 import os
+from dotenv import load_dotenv
+
+load_dotenv()  # loads .env file (gitignored) for local dev
 
 # Swapfest event timings (UTC) format 2025-11-24T05:10:56.167Z
 SWAPFEST_START_TIME = '2025-12-09T22:00:00.000Z'
@@ -17,7 +20,13 @@ SPECIAL_REWARD_NAME = "Grail seeker pack"  # Special rewards
 SPECIAL_REWARD_ODDS = 1 / 200
 
 # Flow blockchain configuration
+# Treasury Dapper wallet – receives TopShot moments from swap users (also used by Swapfest)
 FLOW_ACCOUNT = "0xf853bd09d46e7db6"
+
+# Treasury Flow wallet – sends $MVP to swap users
+FLOW_SWAP_ACCOUNT = "0xcc4b6fa5550a4610"
+FLOW_SWAP_PRIVATE_KEY = os.getenv('FLOW_SWAP_PRIVATE_KEY', '')  # Hex private key for swap tx signing
+FLOW_SWAP_KEY_INDEX = int(os.getenv('FLOW_SWAP_KEY_INDEX', '1'))  # Key index on the swap account
 FLOW_SCAN_API_URL = os.getenv('FLOW_SCAN_API_URL', '')
 
 # Database configuration

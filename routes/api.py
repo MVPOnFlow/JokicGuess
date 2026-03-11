@@ -17,7 +17,8 @@ from utils.helpers import (
 from config import (
     SWAPFEST_START_TIME, SWAPFEST_END_TIME,
     SWAPFEST_BOOST1_CUTOFF, SWAPFEST_BOOST2_CUTOFF,
-    TREASURY_DATA
+    TREASURY_DATA, FLOW_ACCOUNT,
+    FLOW_SWAP_ACCOUNT, FLOW_SWAP_PRIVATE_KEY, FLOW_SWAP_KEY_INDEX
 )
 
 
@@ -940,7 +941,377 @@ def register_routes(app):
             'parent_id': parent_id
         }), 201
 
+    # ──────────────────────────────────────────────────────────
+    #  Moments lookup endpoint (swap feature)
+    # ──────────────────────────────────────────────────────────
+
+    @app.route('/api/moment-lookup', methods=['POST'])
+    def api_moments_lookup():
+        """Look up which user moments are Jokic editions stored in our DB.
+
+        Expects JSON: { moments: [{id, playID, setID, serial}, ...] }
+        Returns JSON: { moments: [...enriched Jokic moments...] }
+        """
+        data = request.get_json(force=True) or {}
+        moments_in = data.get('moments', [])
+        if not moments_in:
+            return jsonify({'moments': []})
+
+        db = get_db()
+        cur = db.cursor()
+
+        results = []
+        cache_rows = []
+
+        for m in moments_in:
+            mid = m.get('id')
+            play_id = str(m.get('playID', ''))
+            set_name = m.get('setName', '')
+            serial = m.get('serial', 0)
+
+            cur.execute(
+                prepare_query(
+                    "SELECT edition_id, tier, set_name, series_number, "
+                    "play_headline, play_category, team, date_of_moment, "
+                    "nba_season, jersey_number, image_url, video_url, "
+                    "circulation_count, low_ask "
+                    "FROM jokic_editions WHERE play_flow_id = ? AND set_name = ? LIMIT 1"
+                ),
+                (int(play_id), set_name),
+            )
+            row = cur.fetchone()
+            if not row:
+                continue
+
+            results.append({
+                'id': mid,
+                'serial': serial,
+                'editionId': row[0],
+                'tier': row[1],
+                'setName': row[2] or '',
+                'seriesNumber': row[3],
+                'player': 'Nikola Jokić',
+                'headline': row[4] or '',
+                'playCategory': row[5] or '',
+                'team': row[6] or '',
+                'dateOfMoment': row[7] or '',
+                'nbaSeason': row[8] or '',
+                'jerseyNumber': row[9] or '',
+                'imageUrl': row[10] or '',
+                'videoUrl': row[11] or '',
+                'circulationCount': row[12],
+                'lowAsk': row[13],
+            })
+
+            cache_rows.append(
+                (mid, row[0], play_id, set_name, serial, row[1], int(time.time()))
+            )
+
+        # Cache moment→edition mapping for swap/complete
+        for c in cache_rows:
+            cur.execute(
+                prepare_query(
+                    "INSERT INTO jokic_moments "
+                    "(moment_id, edition_id, play_id, set_id, serial_number, tier, cached_at) "
+                    "VALUES (?, ?, ?, ?, ?, ?, ?) "
+                    "ON CONFLICT DO NOTHING"
+                ),
+                c,
+            )
+        db.commit()
+
+        return jsonify({'moments': results})
+
+    # ──────────────────────────────────────────────────────────
+    #  Swap endpoint: moments → $MVP
+    # ──────────────────────────────────────────────────────────
+
+    # Tier → $MVP mapping (75% of the "sending in" rates)
+    _SWAP_MVP_RATES = {
+        'COMMON': 1.5,
+        'FANDOM': 1.5,
+        'RARE': 75,
+        'LEGENDARY': 1500,
+    }
+
+    @app.route('/api/swap/complete', methods=['POST'])
+    def api_swap_complete():
+        """Verify moment transfer tx on-chain and send $MVP from treasury.
+
+        Expects JSON: { txId, userAddr, momentIds }
+        Returns JSON: { mvpAmount, mvpTxId }
+
+        Security:
+        1. Replay protection – rejects txId already in completed_swaps.
+        2. On-chain verification – queries Flow REST API to confirm the
+           transaction is sealed and TopShot.Deposit events prove the
+           claimed moments arrived at the treasury address.
+        3. Only then sends $MVP from treasury.
+        """
+        import asyncio
+        import json as _json
+        import base64 as _b64
+
+        data = request.get_json(force=True) or {}
+        tx_id = data.get('txId', '').strip()
+        user_addr = data.get('userAddr', '').strip()
+        moment_ids = data.get('momentIds', [])
+
+        if not tx_id or not user_addr or not moment_ids:
+            return jsonify({'error': 'Missing txId, userAddr, or momentIds'}), 400
+
+        # --- 0. Replay protection ---
+        db = get_db()
+        cur = db.cursor()
+        cur.execute(
+            prepare_query("SELECT tx_id FROM completed_swaps WHERE tx_id = ?"),
+            (tx_id,),
+        )
+        if cur.fetchone():
+            return jsonify({'error': 'This transaction has already been processed'}), 409
+
+        # --- 1. On-chain verification via Flow REST API ---
+        # Verify moments were deposited to the Dapper treasury wallet
+        treasury_addr_clean = FLOW_ACCOUNT.removeprefix('0x').lower()
+        try:
+            flow_resp = http_requests.get(
+                f'https://rest-mainnet.onflow.org/v1/transaction_results/{tx_id}',
+                timeout=15,
+            )
+            if flow_resp.status_code != 200:
+                return jsonify({'error': f'Could not fetch tx result from Flow (HTTP {flow_resp.status_code})'}), 502
+            tx_result = flow_resp.json()
+        except Exception as e:
+            return jsonify({'error': f'Flow API error: {str(e)}'}), 502
+
+        # Verify sealed
+        tx_status = tx_result.get('status', '').upper()
+        if tx_status != 'SEALED':
+            return jsonify({'error': f'Transaction not sealed (status: {tx_status})'}), 400
+        if tx_result.get('error_message'):
+            return jsonify({'error': f'Transaction failed on-chain: {tx_result["error_message"]}'}), 400
+
+        # Parse TopShot.Deposit events to verify moments arrived at treasury
+        deposited_ids = set()
+        deposit_event_type = 'A.0b2a3299cc857e29.TopShot.Deposit'
+        for ev in tx_result.get('events', []):
+            if ev.get('type') != deposit_event_type:
+                continue
+            try:
+                payload = _json.loads(_b64.b64decode(ev['payload']).decode('utf-8'))
+                fields = payload.get('value', {}).get('fields', [])
+                ev_id = None
+                ev_to = None
+                for f in fields:
+                    if f.get('name') == 'id':
+                        ev_id = int(f['value']['value'])
+                    elif f.get('name') == 'to':
+                        val = f.get('value', {})
+                        # Optional<Address> — could be wrapped
+                        if val.get('type') == 'Optional' and val.get('value'):
+                            ev_to = val['value'].get('value', '').removeprefix('0x').lower()
+                        elif val.get('value'):
+                            ev_to = str(val['value']).removeprefix('0x').lower()
+                if ev_id is not None and ev_to == treasury_addr_clean:
+                    deposited_ids.add(ev_id)
+            except Exception:
+                continue
+
+        # Every claimed moment must appear in deposits to treasury
+        claimed_set = set(int(mid) for mid in moment_ids)
+        missing = claimed_set - deposited_ids
+        if missing:
+            return jsonify({
+                'error': f'On-chain verification failed: moments {sorted(missing)} '
+                         f'not deposited to treasury in tx {tx_id}',
+            }), 400
+
+        # --- 2. Look up tier for each moment (DB first, TopShot fallback) ---
+        total_mvp = 0
+        tier_counts = {}
+        for mid in moment_ids:
+            tier = _get_moment_tier(mid)
+            if tier is None:
+                return jsonify({'error': f'Could not fetch tier for moment {mid}'}), 502
+            rate = _SWAP_MVP_RATES.get(tier, 0)
+            if rate == 0:
+                return jsonify({'error': f'Moment {mid} has unsupported tier: {tier}'}), 400
+            total_mvp += rate
+            tier_counts[tier] = tier_counts.get(tier, 0) + 1
+
+        if total_mvp <= 0:
+            return jsonify({'error': 'No $MVP value for selected moments'}), 400
+
+        # --- 3. Send $MVP from treasury to user ---
+        mvp_tx_id = None
+        if not FLOW_SWAP_PRIVATE_KEY:
+            # Treasury key not configured – record swap but note manual send
+            note = 'Treasury key not configured; $MVP will be sent manually.'
+        else:
+            try:
+                mvp_tx_id = asyncio.run(_send_mvp_from_treasury(user_addr, total_mvp))
+                note = None
+            except Exception as e:
+                return jsonify({'error': f'Failed to send $MVP: {str(e)}'}), 500
+
+        # --- 4. Record completed swap (replay protection) ---
+        cur.execute(
+            prepare_query(
+                "INSERT INTO completed_swaps "
+                "(tx_id, user_addr, moment_ids, mvp_amount, mvp_tx_id, completed_at) "
+                "VALUES (?, ?, ?, ?, ?, ?) "
+                "ON CONFLICT DO NOTHING"
+            ),
+            (tx_id, user_addr, ','.join(str(m) for m in moment_ids),
+             total_mvp, mvp_tx_id, int(time.time())),
+        )
+        db.commit()
+
+        result = {
+            'mvpAmount': total_mvp,
+            'mvpTxId': mvp_tx_id,
+            'tierCounts': tier_counts,
+        }
+        if note:
+            result['note'] = note
+        return jsonify(result), 200
+
     return app
+
+
+# ─── Swap helpers (module-level) ────────────────────────────────
+
+def _get_moment_tier(moment_id):
+    """Look up moment tier from local DB, fallback to TopShot GraphQL."""
+    # --- Try local DB first ---
+    try:
+        from db.connection import get_db as _get_flask_db
+        db = _get_flask_db()
+        cur = db.cursor()
+        cur.execute(
+            prepare_query("SELECT tier FROM jokic_moments WHERE moment_id = ?"),
+            (int(moment_id),),
+        )
+        row = cur.fetchone()
+        if row:
+            return row[0]
+    except Exception:
+        pass  # outside Flask request context or table missing
+
+    # --- Fallback: TopShot GraphQL ---
+    query = """
+    query GetMintedMoment($momentId: ID!) {
+      getMintedMoment(momentId: $momentId) {
+        data { tier }
+      }
+    }
+    """
+    try:
+        resp = http_requests.post(
+            'https://public-api.nbatopshot.com/graphql',
+            json={'query': query, 'variables': {'momentId': str(moment_id)}},
+            headers={'User-Agent': 'MVPonFlow', 'Content-Type': 'application/json'},
+            timeout=10,
+        )
+        data = resp.json()
+        raw = data['data']['getMintedMoment']['data']['tier']
+        return raw.replace('MOMENT_TIER_', '')
+    except Exception:
+        return None
+
+
+async def _send_mvp_from_treasury(recipient_addr: str, amount: float) -> str:
+    """Build, sign, and submit a $MVP transfer tx from the treasury wallet.
+
+    Returns the Flow transaction ID hex string.
+    """
+    import asyncio
+    from flow_py_sdk import (
+        flow_client, Tx, ProposalKey, InMemorySigner, SignAlgo,
+    )
+    from flow_py_sdk.signer import HashAlgo
+    from flow_py_sdk.cadence import Address, UFix64
+
+    cadence_code = """
+    import FungibleToken from 0xf233dcee88fe0abe
+    import PetJokicsHorses from 0x6fd2465f3a22e34c
+
+    transaction(amount: UFix64, recipient: Address) {
+      let sentVault: @{FungibleToken.Vault}
+
+      prepare(signer: auth(Storage, BorrowValue) &Account) {
+        let vaultRef = signer.storage.borrow<auth(FungibleToken.Withdraw) &PetJokicsHorses.Vault>(
+          from: /storage/PetJokicsHorsesVault
+        ) ?? panic("Could not borrow reference to the owner's Vault!")
+        self.sentVault <- vaultRef.withdraw(amount: amount)
+      }
+
+      execute {
+        let recipientAccount = getAccount(recipient)
+        let receiverRef = recipientAccount.capabilities.borrow<&{FungibleToken.Vault}>(
+          /public/PetJokicsHorsesReceiver
+        ) ?? panic("Recipient is missing receiver capability")
+        receiverRef.deposit(from: <-self.sentVault)
+      }
+    }
+    """
+
+    treasury_addr = Address.from_hex(FLOW_SWAP_ACCOUNT.removeprefix('0x'))
+    recipient = Address.from_hex(recipient_addr.removeprefix('0x'))
+
+    # Format amount as UFix64 (8-decimal fixed point, scale by 10^8)
+    ufix_amount = UFix64(int(amount * 100_000_000))
+
+    signer = InMemorySigner(
+        hash_algo=HashAlgo.SHA3_256,
+        sign_algo=SignAlgo.ECDSA_P256,
+        private_key_hex=FLOW_SWAP_PRIVATE_KEY,
+    )
+
+    async with flow_client(
+        host='access.mainnet.nodes.onflow.org',
+        port=9000,
+    ) as client:
+        # Get latest block for reference
+        block = await client.get_latest_block()
+        ref_block_id = block.id
+
+        # Get account to read sequence number
+        account = await client.get_account(address=treasury_addr.bytes)
+        seq_number = account.keys[FLOW_SWAP_KEY_INDEX].sequence_number
+
+        tx = (
+            Tx(
+                code=cadence_code,
+                reference_block_id=ref_block_id,
+                payer=treasury_addr,
+                proposal_key=ProposalKey(
+                    key_address=treasury_addr,
+                    key_id=FLOW_SWAP_KEY_INDEX,
+                    key_sequence_number=seq_number,
+                ),
+            )
+            .add_arguments(ufix_amount, recipient)
+            .add_authorizers(treasury_addr)
+            .with_envelope_signature(
+                treasury_addr, FLOW_SWAP_KEY_INDEX, signer
+            )
+        )
+
+        response = await client.send_transaction(transaction=tx.to_signed_grpc())
+        tx_id = response.id.hex()
+
+        # Wait for seal (poll up to ~30s)
+        for _ in range(30):
+            result = await client.get_transaction_result(id=response.id)
+            status_val = result.status.value if hasattr(result.status, 'value') else int(result.status)
+            if status_val >= 4:  # SEALED
+                if result.error_message:
+                    raise RuntimeError(f'Transaction failed: {result.error_message}')
+                return tx_id
+            await asyncio.sleep(1)
+
+        return tx_id  # Return even if not yet sealed
 
 
 def get_db():

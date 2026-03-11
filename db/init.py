@@ -238,4 +238,133 @@ def initialize_database(conn, db_type):
 
         conn.commit()
 
+    # ── Jokic editions table (swap feature) ──
+    cursor.execute(prepare_query('''
+        CREATE TABLE IF NOT EXISTS jokic_editions (
+            edition_id TEXT PRIMARY KEY,
+            play_id TEXT NOT NULL,
+            play_flow_id INTEGER,
+            set_id TEXT NOT NULL,
+            set_flow_id INTEGER,
+            tier TEXT NOT NULL,
+            set_name TEXT,
+            series_number INTEGER,
+            play_category TEXT,
+            play_headline TEXT,
+            player_name TEXT DEFAULT 'Nikola Jokić',
+            team TEXT,
+            date_of_moment TEXT,
+            nba_season TEXT,
+            jersey_number TEXT,
+            image_url TEXT,
+            video_url TEXT,
+            circulation_count INTEGER,
+            low_ask REAL,
+            updated_at BIGINT
+        )
+    '''))
+    conn.commit()
+
+    cursor.execute(prepare_query('''
+        CREATE TABLE IF NOT EXISTS jokic_moments (
+            moment_id BIGINT PRIMARY KEY,
+            edition_id TEXT,
+            play_id TEXT,
+            set_id TEXT,
+            serial_number INTEGER,
+            tier TEXT,
+            cached_at BIGINT
+        )
+    '''))
+    conn.commit()
+
+    # ── Completed swaps table (replay protection) ──
+    cursor.execute(prepare_query('''
+        CREATE TABLE IF NOT EXISTS completed_swaps (
+            tx_id TEXT PRIMARY KEY,
+            user_addr TEXT NOT NULL,
+            moment_ids TEXT NOT NULL,
+            mvp_amount REAL NOT NULL,
+            mvp_tx_id TEXT,
+            completed_at BIGINT NOT NULL
+        )
+    '''))
+    conn.commit()
+
+    # ── One-time seed: populate jokic_editions if empty ──
+    cursor.execute(prepare_query("SELECT COUNT(*) FROM jokic_editions"))
+    if cursor.fetchone()[0] == 0:
+        _seed_jokic_editions(conn, db_type)
+
     return cursor
+
+
+def _seed_jokic_editions(conn, db_type):
+    """Fetch all Jokic editions from TopShot and insert into jokic_editions.
+
+    Runs once on first deploy when the table is empty.
+    """
+    import time
+    from utils.helpers import get_jokic_editions
+
+    print("🌱 jokic_editions is empty — seeding from TopShot…")
+    result = get_jokic_editions()
+
+    if result.get("error"):
+        print(f"  ⚠️  Warning: {result['error']}")
+
+    editions = result.get("editions", [])
+    print(f"  📦 Got {len(editions)} editions")
+    if not editions:
+        return
+
+    cursor = conn.cursor()
+    now = int(time.time())
+    count = 0
+
+    for ed in editions:
+        edition_id = ed.get("id", "")
+        play_id = str(ed.get("playId", ""))
+        set_id = str(ed.get("setId", ""))
+        if not edition_id or not play_id or not set_id:
+            continue
+
+        params = (
+            edition_id, play_id, ed.get("playFlowId"), set_id, ed.get("setFlowId"),
+            ed.get("tier", "COMMON"), ed.get("setName", ""), ed.get("seriesNumber"),
+            ed.get("playCategory", ""),
+            ed.get("shortDescription") or ed.get("description", ""),
+            ed.get("playerName", "Nikola Jokić"), ed.get("teamAtMoment", ""),
+            ed.get("dateOfMoment", ""), ed.get("nbaSeason", ""),
+            ed.get("jerseyNumber", ""), ed.get("imageUrl", ""),
+            ed.get("videoUrl", ""), ed.get("circulationCount"),
+            ed.get("lowAsk"), now,
+        )
+
+        if db_type == "postgresql":
+            cursor.execute(
+                """INSERT INTO jokic_editions
+                   (edition_id, play_id, play_flow_id, set_id, set_flow_id,
+                    tier, set_name, series_number,
+                    play_category, play_headline, player_name, team, date_of_moment,
+                    nba_season, jersey_number, image_url, video_url,
+                    circulation_count, low_ask, updated_at)
+                   VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+                   ON CONFLICT (edition_id) DO NOTHING""",
+                params,
+            )
+        else:
+            cursor.execute(
+                """INSERT OR IGNORE INTO jokic_editions
+                   (edition_id, play_id, play_flow_id, set_id, set_flow_id,
+                    tier, set_name, series_number,
+                    play_category, play_headline, player_name, team, date_of_moment,
+                    nba_season, jersey_number, image_url, video_url,
+                    circulation_count, low_ask, updated_at)
+                   VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                params,
+            )
+        count += 1
+
+    conn.commit()
+    print(f"  ✅ Seeded {count} Jokic editions")

@@ -212,3 +212,137 @@ class TestFastbreakEntryAPI:
         )
         
         assert response.status_code == 404
+
+
+class TestSwapComplete:
+    """Test /api/swap/complete endpoint with on-chain verification."""
+
+    def _flow_sealed_response(self, deposited_moment_ids, treasury='f853bd09d46e7db6'):
+        """Build a mock Flow REST API response with TopShot.Deposit events."""
+        import base64 as _b64
+        import json as _json
+
+        events = []
+        for mid in deposited_moment_ids:
+            payload = {
+                'type': 'Event',
+                'value': {
+                    'id': 'A.0b2a3299cc857e29.TopShot.Deposit',
+                    'fields': [
+                        {'name': 'id', 'value': {'type': 'UInt64', 'value': str(mid)}},
+                        {'name': 'to', 'value': {
+                            'type': 'Optional',
+                            'value': {'type': 'Address', 'value': f'0x{treasury}'},
+                        }},
+                    ],
+                },
+            }
+            events.append({
+                'type': 'A.0b2a3299cc857e29.TopShot.Deposit',
+                'transaction_id': 'abc123',
+                'payload': _b64.b64encode(_json.dumps(payload).encode()).decode(),
+            })
+        return {
+            'status': 'SEALED',
+            'error_message': '',
+            'events': events,
+        }
+
+    @patch('routes.api.http_requests')
+    @patch('routes.api.get_db')
+    def test_missing_fields_returns_400(self, mock_get_db, mock_http, client):
+        """Missing txId / userAddr / momentIds → 400."""
+        resp = client.post('/api/swap/complete',
+                           data=json.dumps({'txId': '', 'userAddr': '', 'momentIds': []}),
+                           content_type='application/json')
+        assert resp.status_code == 400
+
+    @patch('routes.api.http_requests')
+    @patch('routes.api.get_db')
+    def test_replay_rejected(self, mock_get_db, mock_http, client):
+        """Duplicate txId → 409."""
+        mock_db = Mock()
+        mock_cursor = Mock()
+        mock_db.cursor.return_value = mock_cursor
+        mock_get_db.return_value = mock_db
+        # fetchone returns a row → replay
+        mock_cursor.fetchone.return_value = ('already_done',)
+
+        resp = client.post('/api/swap/complete',
+                           data=json.dumps({'txId': 'tx1', 'userAddr': '0xabc', 'momentIds': [1]}),
+                           content_type='application/json')
+        assert resp.status_code == 409
+        assert 'already been processed' in resp.get_json()['error']
+
+    @patch('routes.api.http_requests')
+    @patch('routes.api.get_db')
+    def test_unsealed_tx_rejected(self, mock_get_db, mock_http, client):
+        """Non-sealed transaction → 400."""
+        mock_db = Mock()
+        mock_cursor = Mock()
+        mock_db.cursor.return_value = mock_cursor
+        mock_get_db.return_value = mock_db
+        mock_cursor.fetchone.return_value = None  # no replay
+
+        flow_resp = Mock()
+        flow_resp.status_code = 200
+        flow_resp.json.return_value = {'status': 'PENDING', 'error_message': '', 'events': []}
+        mock_http.get.return_value = flow_resp
+
+        resp = client.post('/api/swap/complete',
+                           data=json.dumps({'txId': 'tx1', 'userAddr': '0xabc', 'momentIds': [1]}),
+                           content_type='application/json')
+        assert resp.status_code == 400
+        assert 'not sealed' in resp.get_json()['error'].lower()
+
+    @patch('routes.api.http_requests')
+    @patch('routes.api.get_db')
+    def test_missing_deposit_rejected(self, mock_get_db, mock_http, client):
+        """Claimed moment not in Deposit events → 400."""
+        mock_db = Mock()
+        mock_cursor = Mock()
+        mock_db.cursor.return_value = mock_cursor
+        mock_get_db.return_value = mock_db
+        mock_cursor.fetchone.return_value = None
+
+        flow_resp = Mock()
+        flow_resp.status_code = 200
+        # Only moment 99 deposited, but user claims 1
+        flow_resp.json.return_value = self._flow_sealed_response([99])
+        mock_http.get.return_value = flow_resp
+
+        resp = client.post('/api/swap/complete',
+                           data=json.dumps({'txId': 'tx1', 'userAddr': '0xabc', 'momentIds': [1]}),
+                           content_type='application/json')
+        assert resp.status_code == 400
+        assert 'verification failed' in resp.get_json()['error'].lower()
+
+    @patch('routes.api._get_moment_tier')
+    @patch('routes.api.FLOW_SWAP_PRIVATE_KEY', '')
+    @patch('routes.api.http_requests')
+    @patch('routes.api.get_db')
+    def test_valid_swap_no_treasury_key(self, mock_get_db, mock_http,
+                                        mock_tier, client):
+        """Valid on-chain swap but no FLOW_SWAP_PRIVATE_KEY → 200 with note."""
+        mock_db = Mock()
+        mock_cursor = Mock()
+        mock_db.cursor.return_value = mock_cursor
+        mock_get_db.return_value = mock_db
+        mock_cursor.fetchone.return_value = None  # no replay
+
+        flow_resp = Mock()
+        flow_resp.status_code = 200
+        flow_resp.json.return_value = self._flow_sealed_response([42, 43])
+        mock_http.get.return_value = flow_resp
+
+        mock_tier.return_value = 'COMMON'
+
+        resp = client.post('/api/swap/complete',
+                           data=json.dumps({'txId': 'tx_ok', 'userAddr': '0xabc',
+                                            'momentIds': [42, 43]}),
+                           content_type='application/json')
+        data = resp.get_json()
+        assert resp.status_code == 200
+        assert data['mvpAmount'] == 3  # 1.5 COMMON × 2
+        assert data['mvpTxId'] is None
+        assert 'note' in data

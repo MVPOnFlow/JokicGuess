@@ -1,0 +1,600 @@
+/* ── Swap page ── */
+
+.swap-container {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 0 1rem;
+}
+
+.swap-hero {
+  text-align: center;
+  margin-bottom: 1.5rem;
+}
+
+.swap-hero h1 {
+  color: #FDB927;
+  font-size: 2rem;
+  font-weight: 700;
+  margin-bottom: 0.25rem;
+}
+
+.swap-hero p {
+  color: #9CA3AF;
+  font-size: 0.95rem;
+}
+
+/* ── Swap card (main containers) ── */
+.swap-card {
+  background: #1C2A3A;
+  border: 1px solid #273549;
+  border-radius: 16px;
+  padding: 1.25rem;
+  position: relative;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+}
+
+/* From / To panels */
+.swap-panel {
+  background: #141e2e;
+  border: 1px solid #273549;
+  border-radius: 12px;
+  padding: 1rem 1.1rem;
+  transition: border-color 0.2s;
+}
+
+.swap-panel:hover {
+  border-color: #FDB92740;
+}
+
+.swap-panel-label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #9CA3AF;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 0.6rem;
+}
+
+/* ── Tier filter buttons ── */
+.swap-tier-btn {
+  padding: 0.35rem 0.6rem;
+  border-radius: 8px;
+  border: 1px solid #273549;
+  background: transparent;
+  color: #9CA3AF;
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.swap-tier-btn:hover {
+  border-color: #FDB92780;
+  color: #E5E7EB;
+}
+
+.swap-tier-btn.active {
+  border-color: #FDB927;
+  background: #FDB92718;
+  color: #FDB927;
+}
+
+.swap-tier-btn .tier-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  margin-right: 4px;
+  vertical-align: middle;
+}
+
+/* ── Max / select buttons ── */
+.max-btn {
+  background: none;
+  border: none;
+  font-weight: 600;
+  cursor: pointer;
+  font-size: inherit;
+  padding: 0;
+}
+
+.max-btn:hover {
+  text-decoration: underline;
+}
+
+/* ── Moment grid ── */
+.swap-moment-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 0.75rem;
+  max-height: 520px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.swap-moment-grid::-webkit-scrollbar {
+  width: 6px;
+}
+
+.swap-moment-grid::-webkit-scrollbar-track {
+  background: #141e2e;
+  border-radius: 3px;
+}
+
+.swap-moment-grid::-webkit-scrollbar-thumb {
+  background: #273549;
+  border-radius: 3px;
+}
+
+/* ── Moment card ── */
+.swap-moment-card {
+  background: #141e2e;
+  border: 2px solid #273549;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: border-color 0.15s, transform 0.15s, box-shadow 0.15s;
+  position: relative;
+  overflow: hidden;
+}
+
+.swap-moment-card:hover {
+  border-color: #FDB92750;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.swap-moment-card.selected {
+  box-shadow: 0 0 0 1px rgba(253, 185, 39, 0.3), 0 4px 12px rgba(0, 0, 0, 0.4);
+}
+
+.swap-moment-img {
+  width: 100%;
+  aspect-ratio: 1;
+  object-fit: cover;
+  display: block;
+}
+
+.swap-moment-info {
+  padding: 0.5rem 0.6rem;
+}
+
+.swap-moment-player {
+  font-weight: 700;
+  font-size: 0.8rem;
+  color: #E5E7EB;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.swap-moment-headline {
+  font-size: 0.7rem;
+  color: #6B7280;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-top: 1px;
+}
+
+.swap-moment-meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 0.35rem;
+  font-size: 0.72rem;
+}
+
+.swap-moment-check {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: #FDB927;
+  color: #0E2240;
+  font-weight: 700;
+  font-size: 0.85rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+}
+
+/* ── Action button ── */
+.swap-action-btn {
+  width: 100%;
+  margin-top: 1rem;
+  padding: 0.85rem;
+  border-radius: 12px;
+  border: none;
+  background: #FDB927;
+  color: #0E2240;
+  font-weight: 700;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.swap-action-btn:hover:not(:disabled) {
+  background: #D89A1E;
+}
+
+.swap-action-btn:disabled {
+  background: #273549;
+  color: #4B5563;
+  cursor: not-allowed;
+}
+
+/* ── Rate info ── */
+.swap-rate-info {
+  text-align: center;
+  margin-top: 0.75rem;
+  padding: 0.5rem;
+  background: #141e2e;
+  border-radius: 8px;
+  font-size: 0.82rem;
+  color: #9CA3AF;
+}
+
+.swap-rate-info strong {
+  color: #FDB927;
+}
+
+/* ── Status messages ── */
+.swap-status {
+  margin-top: 0.75rem;
+  padding: 0.6rem 0.8rem;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  text-align: center;
+}
+
+.swap-status.success {
+  background: rgba(74, 222, 128, 0.1);
+  border: 1px solid rgba(74, 222, 128, 0.3);
+  color: #4ade80;
+}
+
+.swap-status.error {
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  color: #ef4444;
+}
+
+.swap-status.pending {
+  background: rgba(253, 185, 39, 0.1);
+  border: 1px solid rgba(253, 185, 39, 0.3);
+  color: #FDB927;
+}
+
+/* ── Tx link ── */
+.swap-tx-link {
+  color: #4FC3F7;
+  text-decoration: underline;
+}
+
+.swap-tx-link:hover {
+  color: #fff;
+}
+
+/* ── Treasury inventory ── */
+.swap-treasury-card {
+  background: #1C2A3A;
+  border: 1px solid #273549;
+  border-radius: 16px;
+  padding: 1.25rem;
+  margin-top: 1.5rem;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+}
+
+.swap-treasury-card h3 {
+  color: #FDB927;
+  font-size: 1.1rem;
+  font-weight: 700;
+  margin-bottom: 1rem;
+  text-align: center;
+}
+
+.swap-inventory-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.75rem;
+}
+
+.swap-inv-item {
+  background: #141e2e;
+  border-radius: 10px;
+  padding: 0.75rem;
+  text-align: center;
+  border: 1px solid transparent;
+}
+
+.swap-inv-item .inv-emoji {
+  font-size: 1.8rem;
+}
+
+.swap-inv-item .inv-tier {
+  font-weight: 600;
+  font-size: 0.9rem;
+  margin-top: 0.25rem;
+}
+
+.swap-inv-item .inv-count {
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: #E5E7EB;
+  margin-top: 0.15rem;
+}
+
+.swap-inv-item .inv-rate {
+  font-size: 0.75rem;
+  color: #6B7280;
+  margin-top: 0.2rem;
+}
+
+/* ── How it works ── */
+.swap-how-card {
+  background: #1C2A3A;
+  border: 1px solid #273549;
+  border-radius: 16px;
+  padding: 1.25rem;
+  margin-top: 1.5rem;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+}
+
+.swap-how-card h3 {
+  color: #FDB927;
+  font-size: 1.1rem;
+  font-weight: 700;
+  margin-bottom: 1rem;
+  text-align: center;
+}
+
+.swap-step {
+  display: flex;
+  gap: 0.75rem;
+  align-items: flex-start;
+  margin-bottom: 1rem;
+}
+
+.swap-step:last-child {
+  margin-bottom: 0;
+}
+
+.swap-step-num {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: #0E2240;
+  border: 2px solid #FDB927;
+  color: #FDB927;
+  font-weight: 700;
+  font-size: 0.85rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.swap-step-text h4 {
+  color: #E5E7EB;
+  font-size: 0.9rem;
+  font-weight: 600;
+  margin: 0 0 0.15rem;
+}
+
+.swap-step-text p {
+  color: #9CA3AF;
+  font-size: 0.82rem;
+  margin: 0;
+  line-height: 1.4;
+}
+
+/* ── Responsive ── */
+@media (max-width: 576px) {
+  .swap-container {
+    padding: 0 0.5rem;
+  }
+
+  .swap-hero h1 {
+    font-size: 1.5rem;
+  }
+
+  .swap-moment-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.5rem;
+  }
+
+  .swap-inventory-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   Swap Progress Modal
+   ═══════════════════════════════════════════════════════════════════ */
+
+.swap-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  background: rgba(0, 0, 0, 0.75);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: modalFadeIn 0.25s ease;
+}
+
+@keyframes modalFadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+.swap-modal {
+  background: #1C2A3A;
+  border: 1px solid #273549;
+  border-radius: 20px;
+  padding: 2rem 2rem 1.5rem;
+  width: 90%;
+  max-width: 420px;
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.6);
+  animation: modalSlideUp 0.3s ease;
+}
+
+@keyframes modalSlideUp {
+  from { transform: translateY(30px); opacity: 0; }
+  to   { transform: translateY(0);    opacity: 1; }
+}
+
+.swap-modal-title {
+  text-align: center;
+  color: #FDB927;
+  font-size: 1.3rem;
+  font-weight: 700;
+  margin: 0 0 0.5rem;
+}
+
+.swap-modal-summary {
+  text-align: center;
+  color: #9CA3AF;
+  font-size: 0.9rem;
+  margin-bottom: 1.5rem;
+}
+
+/* ── Progress steps ── */
+.swap-modal-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.swap-progress-step {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  padding: 0.65rem 0;
+  border-left: 2px solid #273549;
+  margin-left: 15px;
+  padding-left: 1.25rem;
+  position: relative;
+}
+
+.swap-progress-step:first-child {
+  padding-top: 0;
+}
+
+.swap-progress-step:last-child {
+  padding-bottom: 0;
+  border-left-color: transparent;
+}
+
+/* ── Step icon ── */
+.sps-icon {
+  position: absolute;
+  left: -15px;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.75rem;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.sps-icon.pending {
+  background: #0E2240;
+  border: 2px solid #273549;
+  color: #4B5563;
+}
+
+.sps-icon.active {
+  background: #0E2240;
+  border: 2px solid #FDB927;
+  color: #FDB927;
+}
+
+.sps-icon.done {
+  background: #166534;
+  border: 2px solid #4ade80;
+  color: #4ade80;
+}
+
+.sps-icon.error {
+  background: #7f1d1d;
+  border: 2px solid #ef4444;
+  color: #ef4444;
+}
+
+/* ── Spinner inside active icon ── */
+.sps-spinner {
+  display: block;
+  width: 14px;
+  height: 14px;
+  border: 2px solid #FDB92740;
+  border-top-color: #FDB927;
+  border-radius: 50%;
+  animation: spsSpinnerRotate 0.8s linear infinite;
+}
+
+@keyframes spsSpinnerRotate {
+  to { transform: rotate(360deg); }
+}
+
+/* ── Step text ── */
+.sps-content {
+  padding-top: 2px;
+}
+
+.sps-label {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #6B7280;
+  transition: color 0.2s;
+}
+
+.swap-progress-step.active .sps-label {
+  color: #FDB927;
+}
+
+.swap-progress-step.done .sps-label {
+  color: #4ade80;
+}
+
+.swap-progress-step.error .sps-label {
+  color: #ef4444;
+}
+
+.sps-extra {
+  margin-top: 2px;
+  font-size: 0.78rem;
+}
+
+/* ── Error message in modal ── */
+.swap-modal-error {
+  margin-top: 1rem;
+  padding: 0.6rem 0.8rem;
+  border-radius: 8px;
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  color: #ef4444;
+  font-size: 0.85rem;
+  text-align: center;
+}
+
+/* ── Warning button (don't leave) ── */
+.swap-modal-wait-btn {
+  margin-top: 1.25rem;
+  padding: 0.85rem;
+  border-radius: 12px;
+  background: #273549;
+  color: #FDB927;
+  font-weight: 700;
+  font-size: 0.95rem;
+  text-align: center;
+  cursor: default;
+  user-select: none;
+}

@@ -8,6 +8,7 @@ import Fastbreak from "./pages/Fastbreak";
 import HorseStats from "./pages/HorseStats";
 import TDWatch from "./pages/TDWatch";
 import Museum from "./pages/Museum";
+import Swap from "./pages/Swap";
 import BlogList from "./pages/blog/BlogList";
 import OKCGameFeb012026 from "./pages/blog/OKCGameFeb012026";
 import TripleDoubleChase from "./pages/blog/TripleDoubleChase";
@@ -28,6 +29,7 @@ function App() {
           <Route path="horsestats" element={<HorseStats />} />
           <Route path="tdwatch" element={<TDWatch />} />
           <Route path="museum" element={<Museum />} />
+          <Route path="swap" element={<Swap />} />
           <Route path="blog" element={<BlogList />} />
           <Route path="blog/okc-game-feb-01-2026" element={<OKCGameFeb012026 />} />
           <Route path="blog/triple-double-chase" element={<TripleDoubleChase />} />
