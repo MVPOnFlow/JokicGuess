@@ -1126,6 +1126,21 @@ def register_routes(app):
         if tx_result.get('error_message'):
             return jsonify({'error': f'Transaction failed on-chain: {tx_result["error_message"]}'}), 400
 
+        # Verify the transaction was proposed by the claiming user
+        try:
+            tx_body_resp = http_requests.get(
+                f'https://rest-mainnet.onflow.org/v1/transactions/{tx_id}',
+                timeout=10,
+            )
+            if tx_body_resp.status_code == 200:
+                tx_body = tx_body_resp.json()
+                proposer = tx_body.get('proposer', '').removeprefix('0x').lower()
+                claimed = user_addr.removeprefix('0x').lower()
+                if proposer and proposer != claimed:
+                    return jsonify({'error': 'Transaction proposer does not match your wallet'}), 403
+        except Exception:
+            pass  # non-fatal — event verification is the primary guard
+
         # Parse TopShot.Deposit events to verify moments arrived at treasury
         deposited_ids = set()
         deposit_event_type = 'A.0b2a3299cc857e29.TopShot.Deposit'
@@ -1658,6 +1673,21 @@ access(all) fun main(account: Address): [[String]] {
             return jsonify({'error': f'Transaction not sealed (status: {tx_status})'}), 400
         if tx_result.get('error_message'):
             return jsonify({'error': f'Transaction failed on-chain: {tx_result["error_message"]}'}), 400
+
+        # Verify the transaction was proposed by the claiming user
+        try:
+            tx_body_resp = http_requests.get(
+                f'https://rest-mainnet.onflow.org/v1/transactions/{tx_id}',
+                timeout=10,
+            )
+            if tx_body_resp.status_code == 200:
+                tx_body = tx_body_resp.json()
+                proposer = tx_body.get('proposer', '').removeprefix('0x').lower()
+                claimed = user_addr.removeprefix('0x').lower()
+                if proposer and proposer != claimed:
+                    return jsonify({'error': 'Transaction proposer does not match your wallet'}), 403
+        except Exception:
+            pass  # non-fatal — deposit event verification is the primary guard
 
         # Look for FungibleToken.Deposited event with PetJokicsHorses vault → treasury
         # Cadence 1.0 emits generic FungibleToken.Deposited with a "type" field
