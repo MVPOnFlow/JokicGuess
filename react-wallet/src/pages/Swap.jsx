@@ -635,6 +635,16 @@ export default function Swap() {
     9: 'Bit',
     10: 'Vibe',
     11: 'Astra',
+    13: 'Voltage',
+    14: 'Livewire',
+    15: 'Championship',
+    16: 'Club Collection',
+    17: 'Blockchain',
+    18: 'Hardcourt',
+    19: 'Hexwave',
+    20: 'Jukebox',
+    21: 'Galactic',
+    22: 'Omega',
   };
   const parallelLabel = (v) => PARALLEL_NAMES[v] || `Parallel #${v}`;
 
