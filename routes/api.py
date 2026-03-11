@@ -969,13 +969,18 @@ def register_routes(app):
             set_name = m.get('setName', '')
             serial = m.get('serial', 0)
 
+            # ORDER BY edition_id: prefer standard parallel (+0 suffix)
+            # over club/special parallels (+16, +19, etc.) since we
+            # can't determine the parallel from on-chain NFT data.
             cur.execute(
                 prepare_query(
                     "SELECT edition_id, tier, set_name, series_number, "
                     "play_headline, play_category, team, date_of_moment, "
                     "nba_season, jersey_number, image_url, video_url, "
                     "circulation_count, low_ask "
-                    "FROM jokic_editions WHERE play_flow_id = ? AND set_name = ? LIMIT 1"
+                    "FROM jokic_editions WHERE play_flow_id = ? AND set_name = ? "
+                    "ORDER BY CASE WHEN edition_id LIKE '%+0' THEN 0 ELSE 1 END "
+                    "LIMIT 1"
                 ),
                 (int(play_id), set_name),
             )
