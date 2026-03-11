@@ -1174,6 +1174,10 @@ def register_routes(app):
         }
         if note:
             result['note'] = note
+
+        # --- 5. Send Discord notification (fire-and-forget) ---
+        _notify_swap_discord(app, user_addr, moment_ids, total_mvp, tier_counts, tx_id, mvp_tx_id)
+
         return jsonify(result), 200
 
     # ─── Swap leaderboard ────────────────────────────────────────
@@ -1404,6 +1408,55 @@ def get_db():
     """Get database connection for Flask requests."""
     from db.connection import get_db as get_db_func
     return get_db_func()
+
+
+def _notify_swap_discord(app, user_addr, moment_ids, total_mvp, tier_counts, tx_id, mvp_tx_id):
+    """Fire-and-forget Discord notification for a completed swap."""
+    import asyncio as _aio
+
+    bot = getattr(app, 'discord_bot', None)
+    channel_id = getattr(app, 'swap_notify_channel_id', None)
+    if not bot or not channel_id or not bot.is_ready():
+        return
+
+    # Build tier summary  e.g. "2 Common, 1 Rare"
+    tier_parts = []
+    for tier, count in sorted(tier_counts.items()):
+        tier_parts.append(f"{count} {tier.capitalize()}")
+    tier_summary = ', '.join(tier_parts) if tier_parts else f"{len(moment_ids)} moment(s)"
+
+    short_addr = f"{user_addr[:6]}…{user_addr[-4:]}" if len(user_addr) > 10 else user_addr
+    flowdiver_tx = f"https://www.flowdiver.io/tx/{tx_id}"
+    mvp_tx_link = f"  |  [$MVP tx](https://www.flowdiver.io/tx/{mvp_tx_id})" if mvp_tx_id else ""
+
+    embed_description = (
+        f"**{short_addr}** swapped **{len(moment_ids)}** moment{'s' if len(moment_ids) != 1 else ''} "
+        f"({tier_summary}) for **{total_mvp:,.1f} $MVP**\n\n"
+        f"[View tx]({flowdiver_tx}){mvp_tx_link}"
+    )
+
+    async def _send():
+        try:
+            channel = bot.get_channel(channel_id)
+            if not channel:
+                channel = await bot.fetch_channel(channel_id)
+            if channel:
+                import discord
+                embed = discord.Embed(
+                    title="⇅ Moment Swap Completed",
+                    description=embed_description,
+                    color=0xFDB927,
+                )
+                embed.set_footer(text="MVP on Flow • Swap")
+                await channel.send(embed=embed)
+        except Exception:
+            pass  # best-effort, don't break the API response
+
+    # Schedule on the bot's event loop (runs in the Discord thread)
+    try:
+        bot.loop.call_soon_threadsafe(_aio.ensure_future, _send())
+    except Exception:
+        pass
 
 
 import os

@@ -30,6 +30,8 @@ cursor = initialize_database(conn, db_type)
 # Register Flask routes
 register_routes(app)
 
+# Channel for swap notifications
+SWAP_NOTIFY_CHANNEL_ID = 1261666640051966055
 
 # Initialize Discord bot
 intents = discord.Intents.default()
@@ -41,6 +43,10 @@ bot = commands.Bot(command_prefix='/', intents=intents)
 # Store DB connection on bot for per-command cursor creation
 bot.db_conn = conn
 bot.db_type = db_type
+
+# Make bot accessible from Flask routes (swap notifications)
+app.discord_bot = bot
+app.swap_notify_channel_id = SWAP_NOTIFY_CHANNEL_ID
 
 # Register Discord bot commands
 register_commands(bot, conn, cursor, db_type)
