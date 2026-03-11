@@ -12,6 +12,67 @@ const IPFS_GATEWAY   = 'https://ipfs.io/ipfs/';
 const FLOWTY_COLLECTION_URL =
   `https://www.flowty.io/collection/${CONTRACT_ADDR}/${CONTRACT_NAME}`;
 
+/* Horse names – mirrors config.py HORSE_NAMES */
+const HORSE_NAMES = {
+  1:  'Dreamcatcher',
+  2:  'Sombor Star',
+  3:  'Big Honey',
+  4:  'Midnight Run',
+  5:  'Silver Thunder',
+  6:  'Balkan Spirit',
+  7:  'Golden Mane',
+  8:  'Storm Chaser',
+  9:  'Noble Heart',
+  10: 'Shadow Dancer',
+  11: 'Prairie Wind',
+  12: 'Thunderbolt',
+  13: 'Velvet Rush',
+  14: 'Starlight Express',
+  15: 'Dark Horse',
+  16: 'Painted Sky',
+  17: 'Diamond Dust',
+  18: 'Copper Coin',
+  19: 'Rolling Thunder',
+  20: 'Iron Will',
+  21: 'Lucky Strike',
+  22: 'Crimson Tide',
+  23: 'Blazing Trail',
+  24: 'High Noon',
+  25: "Champion's Pride",
+  26: 'Steel Magnolia',
+  27: 'Silver Bullet',
+  28: 'Northern Lights',
+  29: 'Gentle Giant',
+  30: 'Gold Rush',
+  31: 'Whispering Wind',
+  32: 'Iron Horse',
+  33: 'Night Rider',
+  34: 'Royal Flush',
+  35: 'Spirit Runner',
+  36: 'Sunset Ridge',
+  37: 'Brave Heart',
+  38: 'Maverick',
+  39: 'Lightning Bolt',
+  40: 'Victory Lap',
+  41: "Joker's Wild",
+  42: 'Mile High',
+  43: 'Triple Double',
+  44: 'Nugget',
+  45: 'Wild Card',
+  46: 'Rapid Fire',
+  47: 'Mustang Sally',
+  48: 'Blue Ribbon',
+  49: 'Desert Storm',
+  50: 'Trotter King',
+};
+
+/** Get display name for an NFT by id */
+function horseName(id) {
+  const num = Number(id);
+  const name = HORSE_NAMES[num];
+  return name ? `${name} #${num}` : `Horse #${num}`;
+}
+
 /** Convert ipfs:// URI to an HTTP gateway URL */
 function ipfsToHttp(uri) {
   if (!uri) return '';
@@ -90,7 +151,7 @@ access(all) fun main(addr: Address): [[String]] {
   while id <= totalSupply {
     let nft = col!.borrowNFT(id)
     if nft != nil {
-      var name  = "Swapboost30MVP #".concat(id.toString())
+      var name  = "Horse #".concat(id.toString())
       var desc  = ""
       var thumb = ""
 
@@ -167,7 +228,7 @@ export default function NFT() {
       }
     } catch (err) {
       console.error('NFT refresh error:', err);
-      setError('Failed to load collection data.');
+      setError('Failed to load horse collection data.');
     } finally {
       setLoading(false);
     }
@@ -197,7 +258,7 @@ export default function NFT() {
       );
     } catch (err) {
       console.error('All NFTs fetch error:', err);
-      setError('Failed to load all NFTs.');
+      setError('Failed to load all horses.');
     } finally {
       setAllLoading(false);
     }
@@ -238,12 +299,12 @@ export default function NFT() {
     return (
       <div className="nft-container">
         <div className="nft-hero">
-          <h1>🎫 Swapboost NFTs</h1>
-          <p>View and manage your Swapboost30MVP collection on Flow</p>
+          <h1>🐎 Jokic's Horse Stable</h1>
+          <p>Each horse grants a <strong>20% $MVP boost</strong> on your entire swap transaction</p>
         </div>
         <div className="nft-connect-prompt">
           <h3>Connect Your Wallet</h3>
-          <p>Connect your Flow wallet to view your NFTs and enable the collection.</p>
+          <p>Connect your Flow wallet to view your MVP Horse NFTs and enable the collection.</p>
           <button className="nft-btn nft-btn-primary" onClick={() => fcl.authenticate()}>
             Connect Wallet
           </button>
@@ -256,8 +317,8 @@ export default function NFT() {
     <div className="nft-container">
       {/* Hero */}
       <div className="nft-hero">
-        <h1>🎫 Swapboost NFTs</h1>
-        <p>View and manage your Swapboost30MVP collection on Flow</p>
+        <h1>🐎 Jokic's Horse Stable</h1>
+        <p>Each horse grants a <strong>20% $MVP boost</strong> on your entire swap transaction</p>
       </div>
 
       {/* Toggle + Status */}
@@ -268,13 +329,13 @@ export default function NFT() {
               className={`nft-toggle-btn ${viewMode === 'mine' ? 'active' : ''}`}
               onClick={() => setViewMode('mine')}
             >
-              My NFTs
+              My Horses
             </button>
             <button
               className={`nft-toggle-btn ${viewMode === 'all' ? 'active' : ''}`}
               onClick={() => setViewMode('all')}
             >
-              All NFTs
+              All Horses
             </button>
           </div>
 
@@ -323,10 +384,10 @@ export default function NFT() {
         <div className="nft-spinner" />
       ) : (viewMode === 'mine' ? myNfts : allNfts).length === 0 ? (
         <div className="nft-empty">
-          <div className="nft-empty-icon">📦</div>
+          <div className="nft-empty-icon">�</div>
           <p>
             {viewMode === 'mine'
-              ? 'No Swapboost NFTs found in your wallet.'
+              ? 'No horses found in your wallet.'
               : 'No holders found yet.'}
           </p>
           <a
@@ -342,8 +403,8 @@ export default function NFT() {
         <>
           {viewMode === 'all' && (
             <div className="nft-summary">
-              {allNfts.length} NFTs found across{' '}
-              {new Set(allNfts.map((n) => n.owner)).size} wallets
+              {allNfts.length} horses found across{' '}
+              {new Set(allNfts.map((n) => n.owner)).size} stables
             </div>
           )}
 
@@ -379,10 +440,8 @@ export default function NFT() {
                     </div>
                   )}
                   <div className="nft-card-body">
-                    <div className="nft-card-title">{nft.name}</div>
-                    {viewMode === 'mine' && nft.description && (
-                      <div className="nft-card-desc">{nft.description}</div>
-                    )}
+                    <div className="nft-card-title">{horseName(nft.id)}</div>
+                    <div className="nft-card-desc">20% boost on entire transaction</div>
                     <div className="nft-card-id">ID #{nft.id}</div>
 
                     {/* Owner info (All NFTs view) */}

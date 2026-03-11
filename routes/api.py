@@ -18,7 +18,8 @@ from config import (
     SWAPFEST_START_TIME, SWAPFEST_END_TIME,
     SWAPFEST_BOOST1_CUTOFF, SWAPFEST_BOOST2_CUTOFF,
     TREASURY_DATA, FLOW_ACCOUNT,
-    FLOW_SWAP_ACCOUNT, FLOW_SWAP_PRIVATE_KEY, FLOW_SWAP_KEY_INDEX
+    FLOW_SWAP_ACCOUNT, FLOW_SWAP_PRIVATE_KEY, FLOW_SWAP_KEY_INDEX,
+    HORSE_NAMES
 )
 
 
@@ -1421,10 +1422,13 @@ access(all) fun main(dapperChildren: [Address]): [[String]] {
             for entry in entries:
                 vals = [v["value"] for v in entry["value"]]
                 nft_id, name, thumb, owner, dapper = vals
+                nid = int(nft_id)
+                horse = HORSE_NAMES.get(nid)
+                display_name = f"{horse} #{nid}" if horse else name
                 username = child_to_username.get(dapper.lower())
                 nfts.append({
-                    "id": int(nft_id),
-                    "name": name,
+                    "id": nid,
+                    "name": display_name,
                     "thumbnail": thumb,
                     "owner": owner,
                     "dapper": dapper,

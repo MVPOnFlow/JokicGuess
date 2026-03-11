@@ -16,7 +16,7 @@ function TDWatch() {
     { name: "RARE Run It Back Origins August Pack", amount: 1 },
     { name: "Rookie Debut: Chance Hit", amount: 3 },
     { name: "Rookie Debut Standard Pack", amount: 1 },
-    { name: "$MVP Swap Boost NFT", amount: 1 },
+    { name: "MVP Horse NFT", amount: 1 },
     { name: "Pet Your Horse 10 Times", amount: 2 },
     { name: "Jolly Joker NFT", amount: 1 },
     { name: "FastBreak 25-26 Classic Run 2 - 4 Win Pack", amount: 1 },
@@ -236,6 +236,9 @@ function TDWatch() {
             </Card.Header>
             <Card.Body className="p-0">
               <Table striped hover size="sm" className="mb-0 td-leaders-table">
+
+
+
                 <thead>
                   <tr>
                     <th className="text-center" style={{width: '60px'}}>Rank</th>
