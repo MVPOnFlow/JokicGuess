@@ -246,14 +246,14 @@ body {
 }
 
 /* Buttons */
-.btn-primary, .btn-discord, .btn-wallet {
+.btn-primary, .btn-discord, .btn-wallet, .btn-swap {
   background-color: #FDB927;
   color: #0E2240;
   font-weight: 600;
   border: none;
 }
 
-.btn-primary:hover, .btn-discord:hover, .btn-wallet:hover {
+.btn-primary:hover, .btn-discord:hover, .btn-wallet:hover, .btn-swap:hover {
   background-color: #D89A1E;
   color: #FFFFFF;
 }

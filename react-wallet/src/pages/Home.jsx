@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 
 export default function Home() {
   const [treasury, setTreasury] = useState(null);
@@ -21,14 +22,19 @@ export default function Home() {
         <p>
           Earn and use <strong>$MVP</strong> tokens in community games, swap them for Jokic moments, trade them on Flow exchanges or stake them to earn rewards. Whether you're a collector or a fan, there's something for everyone.
         </p>
-        <a
-          href="https://discord.gg/3p3ff9PHqW"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="btn btn-discord"
-        >
-          <i className="bi bi-discord"></i> Join Our Discord
-        </a>
+        <div className="d-flex gap-3 justify-content-center flex-wrap">
+          <a
+            href="https://discord.gg/3p3ff9PHqW"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="btn btn-discord"
+          >
+            <i className="bi bi-discord"></i> Join Our Discord
+          </a>
+          <Link to="/swap" className="btn btn-swap">
+            🔄 Swap Moments
+          </Link>
+        </div>
       </div>
 
       {/* ── Tokenomics ── */}
