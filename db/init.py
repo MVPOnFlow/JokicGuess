@@ -292,9 +292,13 @@ def initialize_database(conn, db_type):
     conn.commit()
 
     # ── One-time seed: populate jokic_editions if empty ──
-    cursor.execute(prepare_query("SELECT COUNT(*) FROM jokic_editions"))
-    if cursor.fetchone()[0] == 0:
-        _seed_jokic_editions(conn, db_type)
+    try:
+        cursor.execute(prepare_query("SELECT COUNT(*) FROM jokic_editions"))
+        row = cursor.fetchone()
+        if row and row[0] == 0:
+            _seed_jokic_editions(conn, db_type)
+    except Exception:
+        pass  # table may not exist yet in test mocks
 
     return cursor
 

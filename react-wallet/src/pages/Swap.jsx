@@ -163,6 +163,7 @@ async function enrichMoments(rawMoments) {
       headline: m.headline || '',
       team: m.team || '',
       set: m.setName || '',
+      seriesNumber: m.seriesNumber || null,
       tier: m.tier,
       imageUrl: m.imageUrl || null,
     }));
@@ -212,12 +213,6 @@ export default function Swap() {
 
   /* ── Transaction ── */
   // (modal-based progress – see swapModal state below)
-
-  /* ── Treasury data ── */
-  const [treasury, setTreasury] = useState(null);
-  useEffect(() => {
-    fetch('/api/treasury').then(r => r.json()).then(setTreasury).catch(() => {});
-  }, []);
 
   /* ── Filter / sort ── */
   const [tierFilter, setTierFilter] = useState('ALL');
@@ -425,8 +420,8 @@ export default function Swap() {
     <div className="swap-container" style={{ maxWidth: 720 }}>
       {/* Hero */}
       <div className="swap-hero">
-        <h1>⇅ Swap Moments for $MVP</h1>
-        <p>Send TopShot moments from your Dapper wallet to the treasury and receive $MVP instantly</p>
+        <h1>⇅ Swap Jokic Moments for $MVP</h1>
+        <p>Send TopShot Jokic moments from your Dapper wallet to the treasury and receive $MVP instantly</p>
       </div>
 
       {/* ── Status / connect ── */}
@@ -457,7 +452,7 @@ export default function Swap() {
           <div className="swap-card">
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
               <div className="swap-panel-label" style={{ margin: 0 }}>
-                Your TopShot Moments
+                Your TopShot Jokic Moments
                 <span style={{ color: '#6B7280', fontWeight: 400, marginLeft: 6 }}>
                   ({moments.length} total)
                 </span>
@@ -542,8 +537,10 @@ export default function Swap() {
                         />
                       )}
                       <div className="swap-moment-info">
-                        <div className="swap-moment-player">{m.player}</div>
-                        <div className="swap-moment-headline">{m.headline}</div>
+                        <div className="swap-moment-player">{m.set}</div>
+                        <div className="swap-moment-headline">
+                          {m.seriesNumber ? `Series ${m.seriesNumber}` : ''}
+                        </div>
                         <div className="swap-moment-meta">
                           <span style={{ color: tierInfo?.color || '#adb5bd' }}>
                             {tierInfo?.emoji} {tierInfo?.label || m.tier}
@@ -598,28 +595,6 @@ export default function Swap() {
             </div>
           )}
         </>
-      )}
-
-      {/* ── Treasury Inventory ── */}
-      {treasury && (
-        <div className="swap-treasury-card">
-          <h3>🏦 Treasury Inventory</h3>
-          <div className="swap-inventory-grid">
-            {[
-              { label: 'Common',    emoji: '🟢', color: '#4ade80', count: treasury.common_count, rate: 1.5 },
-              { label: 'Rare',      emoji: '🔵', color: '#60a5fa', count: treasury.rare_count,   rate: 75 },
-              { label: 'TSD',       emoji: '🟣', color: '#c084fc', count: treasury.tsd_count,    rate: 500 },
-              { label: 'Legendary', emoji: '🟡', color: '#fbbf24', count: treasury.lego_count,   rate: 1500 },
-            ].map(t => (
-              <div key={t.label} className="swap-inv-item">
-                <div className="inv-emoji">{t.emoji}</div>
-                <div className="inv-tier" style={{ color: t.color }}>{t.label}</div>
-                <div className="inv-count">{(t.count || 0).toLocaleString()}</div>
-                <div className="inv-rate">{t.rate.toLocaleString()} $MVP ea.</div>
-              </div>
-            ))}
-          </div>
-        </div>
       )}
 
       {/* ── Swap progress modal ── */}
