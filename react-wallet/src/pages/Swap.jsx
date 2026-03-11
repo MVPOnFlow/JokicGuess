@@ -18,6 +18,9 @@ const TIERS = [
 const TIER_MVP = {};
 TIERS.forEach(t => { TIER_MVP[t.key] = t.mvpRate; });
 
+// Buy prices (getting moments from treasury costs more)
+const TIER_MVP_BUY = { COMMON: 2, FANDOM: 2, RARE: 100, LEGENDARY: 2000 };
+
 /* ================================================================
    Cadence: discover child Dapper account
    ================================================================ */
@@ -243,6 +246,44 @@ async function enrichMoments(rawMoments) {
     return [];
   }
 }
+
+/* ================================================================
+   MomentCard – memoised so only cards whose selection changes re-render
+   ================================================================ */
+const TIER_MAP = {};
+TIERS.forEach(t => { TIER_MAP[t.key] = t; });
+
+const MomentCard = React.memo(function MomentCard({ m, isSelected, isBuyMode, onToggle }) {
+  const tierInfo = TIER_MAP[m.tier];
+  const accentColor = isBuyMode ? '#4ade80' : '#FDB927';
+  const price = isBuyMode ? (TIER_MVP_BUY[m.tier] || 0) : (TIER_MVP[m.tier] || 0);
+  const handleClick = useCallback(() => onToggle(m.id), [onToggle, m.id]);
+  return (
+    <div
+      className={`swap-moment-card ${isSelected ? 'selected' : ''}`}
+      onClick={handleClick}
+      style={{ borderColor: isSelected ? (tierInfo?.color || accentColor) : undefined }}
+    >
+      {m.imageUrl && (
+        <img src={m.imageUrl} alt={m.headline} className="swap-moment-img" loading="lazy" />
+      )}
+      <div className="swap-moment-info">
+        <div className="swap-moment-player">{m.set}</div>
+        <div className="swap-moment-headline">
+          {m.seriesNumber ? `Series ${m.seriesNumber}` : ''}
+        </div>
+        <div className="swap-moment-meta">
+          <span style={{ color: tierInfo?.color || '#adb5bd' }}>
+            {tierInfo?.emoji} {tierInfo?.label || m.tier}
+          </span>
+          <span style={{ color: '#9CA3AF', fontSize: '0.75rem' }}>#{m.serial}</span>
+          <span style={{ color: accentColor, fontWeight: 600 }}>{price} $MVP</span>
+        </div>
+      </div>
+      {isSelected && <div className="swap-moment-check" style={isBuyMode ? { background: '#4ade80' } : undefined}>✓</div>}
+    </div>
+  );
+});
 
 /* ================================================================
    SwapProgressStep – single step row in the progress modal
@@ -538,7 +579,7 @@ export default function Swap() {
             imageUrl: m.imageUrl || null,
             mvpCost: m.mvpCost || 0,
           }));
-          moms.sort((a, b) => b.serial - a.serial);
+          moms.sort((a, b) => a.serial - b.serial);
           setTreasuryMoments(moms);
         }
       } catch {
@@ -603,7 +644,7 @@ export default function Swap() {
     let total = 0;
     for (const id of treasurySelected) {
       const m = treasuryMoments.find(x => x.id === id);
-      if (m) total += TIER_MVP[m.tier] || 0;
+      if (m) total += TIER_MVP_BUY[m.tier] || 0;
     }
     return total;
   }, [treasurySelected, treasuryMoments]);
@@ -949,45 +990,15 @@ export default function Swap() {
               </div>
             ) : (
               <div className="swap-moment-grid">
-                {filtered.map(m => {
-                  const isSelected = selected.has(m.id);
-                  const tierInfo = TIERS.find(t => t.key === m.tier);
-                  return (
-                    <div
-                      key={m.id}
-                      className={`swap-moment-card ${isSelected ? 'selected' : ''}`}
-                      onClick={() => toggleSelect(m.id)}
-                      style={{ borderColor: isSelected ? (tierInfo?.color || '#FDB927') : undefined }}
-                    >
-                      {m.imageUrl && (
-                        <img
-                          src={m.imageUrl}
-                          alt={m.headline}
-                          className="swap-moment-img"
-                          loading="lazy"
-                        />
-                      )}
-                      <div className="swap-moment-info">
-                        <div className="swap-moment-player">{m.set}</div>
-                        <div className="swap-moment-headline">
-                          {m.seriesNumber ? `Series ${m.seriesNumber}` : ''}
-                        </div>
-                        <div className="swap-moment-meta">
-                          <span style={{ color: tierInfo?.color || '#adb5bd' }}>
-                            {tierInfo?.emoji} {tierInfo?.label || m.tier}
-                          </span>
-                          <span style={{ color: '#9CA3AF', fontSize: '0.75rem' }}>
-                            #{m.serial}
-                          </span>
-                          <span style={{ color: '#FDB927', fontWeight: 600 }}>
-                            {TIER_MVP[m.tier] || 0} $MVP
-                          </span>
-                        </div>
-                      </div>
-                      {isSelected && <div className="swap-moment-check">✓</div>}
-                    </div>
-                  );
-                })}
+                {filtered.map(m => (
+                  <MomentCard
+                    key={m.id}
+                    m={m}
+                    isSelected={selected.has(m.id)}
+                    isBuyMode={false}
+                    onToggle={toggleSelect}
+                  />
+                ))}
               </div>
             )}
           </div>
@@ -1103,45 +1114,15 @@ export default function Swap() {
               </div>
             ) : (
               <div className="swap-moment-grid">
-                {filteredTreasury.map(m => {
-                  const isSelected = treasurySelected.has(m.id);
-                  const tierInfo = TIERS.find(t => t.key === m.tier);
-                  return (
-                    <div
-                      key={m.id}
-                      className={`swap-moment-card ${isSelected ? 'selected' : ''}`}
-                      onClick={() => toggleTreasurySelect(m.id)}
-                      style={{ borderColor: isSelected ? (tierInfo?.color || '#4ade80') : undefined }}
-                    >
-                      {m.imageUrl && (
-                        <img
-                          src={m.imageUrl}
-                          alt={m.headline}
-                          className="swap-moment-img"
-                          loading="lazy"
-                        />
-                      )}
-                      <div className="swap-moment-info">
-                        <div className="swap-moment-player">{m.set}</div>
-                        <div className="swap-moment-headline">
-                          {m.seriesNumber ? `Series ${m.seriesNumber}` : ''}
-                        </div>
-                        <div className="swap-moment-meta">
-                          <span style={{ color: tierInfo?.color || '#adb5bd' }}>
-                            {tierInfo?.emoji} {tierInfo?.label || m.tier}
-                          </span>
-                          <span style={{ color: '#9CA3AF', fontSize: '0.75rem' }}>
-                            #{m.serial}
-                          </span>
-                          <span style={{ color: '#4ade80', fontWeight: 600 }}>
-                            {TIER_MVP[m.tier] || 0} $MVP
-                          </span>
-                        </div>
-                      </div>
-                      {isSelected && <div className="swap-moment-check" style={{ background: '#4ade80' }}>✓</div>}
-                    </div>
-                  );
-                })}
+                {filteredTreasury.map(m => (
+                  <MomentCard
+                    key={m.id}
+                    m={m}
+                    isSelected={treasurySelected.has(m.id)}
+                    isBuyMode={true}
+                    onToggle={toggleTreasurySelect}
+                  />
+                ))}
               </div>
             )}
           </div>
@@ -1168,7 +1149,7 @@ export default function Swap() {
               </div>
 
               <div className="swap-rate-info">
-                Common/Fandom = <strong>1.5 $MVP</strong> · Rare = <strong>75 $MVP</strong> · Legendary = <strong>1,500 $MVP</strong>
+                Common/Fandom = <strong>2 $MVP</strong> · Rare = <strong>100 $MVP</strong> · Legendary = <strong>2,000 $MVP</strong>
               </div>
 
               <button

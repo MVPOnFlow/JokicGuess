@@ -1053,12 +1053,20 @@ def register_routes(app):
     #  Swap endpoint: moments → $MVP
     # ──────────────────────────────────────────────────────────
 
-    # Tier → $MVP mapping (75% of the "sending in" rates)
+    # Tier → $MVP mapping for selling moments to treasury
     _SWAP_MVP_RATES = {
         'COMMON': 1.5,
         'FANDOM': 1.5,
         'RARE': 75,
         'LEGENDARY': 1500,
+    }
+
+    # Tier → $MVP mapping for buying moments from treasury (higher price)
+    _BUY_MVP_RATES = {
+        'COMMON': 2,
+        'FANDOM': 2,
+        'RARE': 100,
+        'LEGENDARY': 2000,
     }
 
     @app.route('/api/swap/complete', methods=['POST'])
@@ -1555,7 +1563,7 @@ access(all) fun main(account: Address): [[String]] {
                 continue
 
             tier = row[1] or 'COMMON'
-            mvp_cost = _SWAP_MVP_RATES.get(tier, 0)
+            mvp_cost = _BUY_MVP_RATES.get(tier, 0)
             enriched.append({
                 'id': m['id'],
                 'serial': m['serial'],
@@ -1623,7 +1631,7 @@ access(all) fun main(account: Address): [[String]] {
             tier = _get_moment_tier(mid)
             if tier is None:
                 return jsonify({'error': f'Could not fetch tier for moment {mid}'}), 502
-            rate = _SWAP_MVP_RATES.get(tier, 0)
+            rate = _BUY_MVP_RATES.get(tier, 0)
             if rate == 0:
                 return jsonify({'error': f'Moment {mid} has unsupported tier: {tier}'}), 400
             total_cost += rate
