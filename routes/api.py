@@ -1651,19 +1651,24 @@ access(all) fun main(account: Address): [[String]] {
         if tx_result.get('error_message'):
             return jsonify({'error': f'Transaction failed on-chain: {tx_result["error_message"]}'}), 400
 
-        # Look for PetJokicsHorses.TokensDeposited event → treasury
-        deposit_event_type = 'A.6fd2465f3a22e34c.PetJokicsHorses.TokensDeposited'
+        # Look for FungibleToken.Deposited event with PetJokicsHorses vault → treasury
+        # Cadence 1.0 emits generic FungibleToken.Deposited with a "type" field
+        # identifying the vault, e.g. "A.6fd2465f3a22e34c.PetJokicsHorses.Vault"
+        ft_deposited_type = 'A.f233dcee88fe0abe.FungibleToken.Deposited'
         deposited_amount = 0.0
         for ev in tx_result.get('events', []):
-            if ev.get('type') != deposit_event_type:
+            if ev.get('type') != ft_deposited_type:
                 continue
             try:
                 payload = _json.loads(_b64.b64decode(ev['payload']).decode('utf-8'))
                 fields = payload.get('value', {}).get('fields', [])
+                ev_vault_type = None
                 ev_amount = None
                 ev_to = None
                 for f in fields:
-                    if f.get('name') == 'amount':
+                    if f.get('name') == 'type':
+                        ev_vault_type = f.get('value', {}).get('value', '')
+                    elif f.get('name') == 'amount':
                         ev_amount = float(f['value']['value'])
                     elif f.get('name') == 'to':
                         val = f.get('value', {})
@@ -1671,7 +1676,9 @@ access(all) fun main(account: Address): [[String]] {
                             ev_to = val['value'].get('value', '').removeprefix('0x').lower()
                         elif val.get('value'):
                             ev_to = str(val['value']).removeprefix('0x').lower()
-                if ev_amount and ev_to == treasury_mvp_addr:
+                # Must be a PetJokicsHorses vault deposit to treasury address
+                if (ev_vault_type and 'PetJokicsHorses' in ev_vault_type
+                        and ev_amount and ev_to == treasury_mvp_addr):
                     deposited_amount += ev_amount
             except Exception:
                 continue
