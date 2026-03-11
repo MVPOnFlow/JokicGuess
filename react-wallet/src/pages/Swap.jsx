@@ -46,7 +46,8 @@ access(all) fun main(parent: Address): [Address] {
 
 /* ================================================================
    Cadence: list TopShot moments with on-chain metadata
-   Returns [[id, playID, setName, serialNumber, isLocked, subedition]] as strings.
+   Returns [[id, playID, setID, serialNumber, isLocked, subedition]] as strings.
+   setID = numeric Flow set ID (matches set_flow_id in DB).
    subedition = parallel ID (0 = standard, 16 = club collection, etc.)
    Only Cadence calls — no TopShot API needed.
    ================================================================ */
@@ -59,20 +60,15 @@ access(all) fun main(account: Address): [[String]] {
   let ref = acct.capabilities
     .borrow<&TopShot.Collection>(/public/MomentCollection)!
   let ids = ref.getIDs()
-  var setNames: {UInt32: String} = {}
   var result: [[String]] = []
   for id in ids {
     let nft = ref.borrowMoment(id: id)!
-    let sid = nft.data.setID
-    if setNames[sid] == nil {
-      setNames[sid] = TopShot.getSetName(setID: sid) ?? ""
-    }
     let locked = TopShotLocking.isLocked(nftRef: nft)
     let subedition = TopShot.getMomentsSubedition(nftID: id) ?? 0
     result.append([
       id.toString(),
       nft.data.playID.toString(),
-      setNames[sid]!,
+      nft.data.setID.toString(),
       nft.data.serialNumber.toString(),
       locked ? "1" : "0",
       subedition.toString()
@@ -449,11 +445,11 @@ export default function Swap() {
           args: (arg, t) => [arg(childAddr, t.Address)],
         });
         if (cancelled) return;
-        // raw = [[id, playID, setName, serial, isLocked, subedition], ...] (all strings from Cadence)
+        // raw = [[id, playID, setID, serial, isLocked, subedition], ...] (all strings from Cadence)
         const parsed = (raw || []).map(r => ({
           id: parseInt(r[0], 10),
           playID: parseInt(r[1], 10),
-          setName: r[2],
+          setID: parseInt(r[2], 10),
           serial: parseInt(r[3], 10),
           isLocked: r[4] === '1',
           subedition: parseInt(r[5] || '0', 10),
