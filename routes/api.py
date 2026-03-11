@@ -968,10 +968,13 @@ def register_routes(app):
             play_id = str(m.get('playID', ''))
             set_name = m.get('setName', '')
             serial = m.get('serial', 0)
+            subedition = m.get('subedition', 0)
 
-            # ORDER BY edition_id: prefer standard parallel (+0 suffix)
-            # over club/special parallels (+16, +19, etc.) since we
-            # can't determine the parallel from on-chain NFT data.
+            # Use subedition (parallel ID from on-chain getMomentsSubedition)
+            # to match the correct edition row. The edition_id format is
+            # "{setUUID}+{playUUID}+{parallelID}".
+            # If exact parallel match fails, fall back to standard (+0).
+            edition_suffix = '+' + str(subedition)
             cur.execute(
                 prepare_query(
                     "SELECT edition_id, tier, set_name, series_number, "
@@ -979,10 +982,10 @@ def register_routes(app):
                     "nba_season, jersey_number, image_url, video_url, "
                     "circulation_count, low_ask "
                     "FROM jokic_editions WHERE play_flow_id = ? AND set_name = ? "
-                    "ORDER BY CASE WHEN edition_id LIKE '%+0' THEN 0 ELSE 1 END "
+                    "ORDER BY CASE WHEN edition_id LIKE ? THEN 0 ELSE 1 END "
                     "LIMIT 1"
                 ),
-                (int(play_id), set_name),
+                (int(play_id), set_name, '%' + edition_suffix),
             )
             row = cur.fetchone()
             if not row:

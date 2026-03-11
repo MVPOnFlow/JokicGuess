@@ -46,7 +46,8 @@ access(all) fun main(parent: Address): [Address] {
 
 /* ================================================================
    Cadence: list TopShot moments with on-chain metadata
-   Returns [[id, playID, setName, serialNumber, isLocked]] as strings.
+   Returns [[id, playID, setName, serialNumber, isLocked, subedition]] as strings.
+   subedition = parallel ID (0 = standard, 16 = club collection, etc.)
    Only Cadence calls — no TopShot API needed.
    ================================================================ */
 const CADENCE_LIST_MOMENTS = `
@@ -67,12 +68,14 @@ access(all) fun main(account: Address): [[String]] {
       setNames[sid] = TopShot.getSetName(setID: sid) ?? ""
     }
     let locked = TopShotLocking.isLocked(nftRef: nft)
+    let subedition = TopShot.getMomentsSubedition(nftID: id) ?? 0
     result.append([
       id.toString(),
       nft.data.playID.toString(),
       setNames[sid]!,
       nft.data.serialNumber.toString(),
-      locked ? "1" : "0"
+      locked ? "1" : "0",
+      subedition.toString()
     ])
   }
   return result
@@ -446,13 +449,14 @@ export default function Swap() {
           args: (arg, t) => [arg(childAddr, t.Address)],
         });
         if (cancelled) return;
-        // raw = [[id, playID, setName, serial, isLocked], ...] (all strings from Cadence)
+        // raw = [[id, playID, setName, serial, isLocked, subedition], ...] (all strings from Cadence)
         const parsed = (raw || []).map(r => ({
           id: parseInt(r[0], 10),
           playID: parseInt(r[1], 10),
           setName: r[2],
           serial: parseInt(r[3], 10),
           isLocked: r[4] === '1',
+          subedition: parseInt(r[5] || '0', 10),
         }));
         // Filter out locked moments before enriching
         const unlocked = parsed.filter(m => !m.isLocked);
