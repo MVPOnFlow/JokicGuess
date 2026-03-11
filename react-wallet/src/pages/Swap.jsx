@@ -10,7 +10,7 @@ const TREASURY_DAPPER = '0xf853bd09d46e7db6';
 
 const TIERS = [
   { key: 'COMMON',    label: 'Common',    emoji: '🟢', color: '#4ade80', mvpRate: 1.5  },
-  { key: 'FANDOM',    label: 'Fandom',    emoji: '🩵', color: '#40e0d0', mvpRate: 1.5  },
+  { key: 'FANDOM',    label: 'Fandom',    emoji: '🔹', color: '#40e0d0', mvpRate: 1.5  },
   { key: 'RARE',      label: 'Rare',      emoji: '🔵', color: '#60a5fa', mvpRate: 75   },
   { key: 'LEGENDARY', label: 'Legendary', emoji: '🟡', color: '#fbbf24', mvpRate: 1500 },
 ];
@@ -622,10 +622,26 @@ export default function Swap() {
     return vals;
   }, [mode, moments, treasuryMoments]);
 
-  const parallelLabel = (v) => {
-    if (v === 0) return 'Standard';
-    return `Parallel #${v}`;
+  const PARALLEL_NAMES = {
+    0: 'Standard',
+    1: 'Metallic Silver FE',
+    2: 'Metallic Gold LE',
+    3: 'MGLE',
+    4: 'Lenticular',
+    5: 'Fandom Reserve',
+    6: 'Wild Card',
+    7: 'Hustle and Show',
+    8: 'Cosmic',
+    9: 'Holographic Icon',
+    10: 'Vintage Vibes',
+    11: 'Throwbacks',
+    12: 'Blueprint',
+    13: 'Phantom',
+    14: 'Black and White',
+    15: 'Explosion',
+    16: 'Club Collection',
   };
+  const parallelLabel = (v) => PARALLEL_NAMES[v] || `Parallel #${v}`;
 
   const setOptions = useMemo(() => {
     const src = mode === 'send' ? moments : treasuryMoments;
