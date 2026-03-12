@@ -86,6 +86,52 @@ access(all) fun main(account: Address): [[String]] {
 `;
 
 /* ================================================================
+   Horse NFT (boost) constants
+   ================================================================ */
+const HORSE_NFT_CONTRACT_ADDR = '0xaad9f8fa31ecbaf9';
+const HORSE_NFT_PATH_ID = 'Swapboost30MVP_aad9f8fa31ecbaf9';
+const HORSE_NAMES = {
+  1:'Dreamcatcher',2:'Sombor Star',3:'Big Honey',4:'Midnight Run',5:'Silver Thunder',
+  6:'Balkan Spirit',7:'Golden Mane',8:'Storm Chaser',9:'Noble Heart',10:'Shadow Dancer',
+  11:'Prairie Wind',12:'Thunderbolt',13:'Velvet Rush',14:'Starlight Express',15:'Dark Horse',
+  16:'Painted Sky',17:'Diamond Dust',18:'Copper Coin',19:'Rolling Thunder',20:'Iron Will',
+  21:'Lucky Strike',22:'Crimson Tide',23:'Blazing Trail',24:'High Noon',25:"Champion's Pride",
+  26:'Steel Magnolia',27:'Silver Bullet',28:'Northern Lights',29:'Gentle Giant',30:'Gold Rush',
+  31:'Whispering Wind',32:'Iron Horse',33:'Night Rider',34:'Royal Flush',35:'Spirit Runner',
+  36:'Sunset Ridge',37:'Brave Heart',38:'Maverick',39:'Lightning Bolt',40:'Victory Lap',
+  41:"Joker's Wild",42:'Mile High',43:'Triple Double',44:'Nugget',45:'Wild Card',
+  46:'Rapid Fire',47:'Mustang Sally',48:'Blue Ribbon',49:'Desert Storm',50:'Trotter King',
+};
+function horseName(id) {
+  const n = Number(id);
+  return HORSE_NAMES[n] ? `${HORSE_NAMES[n]} #${n}` : `Horse #${n}`;
+}
+
+/* ================================================================
+   Cadence: list user's horse NFTs (Swapboost30MVP on parent wallet)
+   ================================================================ */
+const CADENCE_LIST_HORSES = `
+import NonFungibleToken from 0x1d7e57aa55817448
+import Swapboost30MVP  from ${HORSE_NFT_CONTRACT_ADDR}
+
+access(all) fun main(addr: Address): [UInt64] {
+  let acct = getAccount(addr)
+  let col = acct.capabilities
+    .borrow<&{NonFungibleToken.Collection}>(/public/${HORSE_NFT_PATH_ID})
+  if col == nil { return [] }
+  let totalSupply = Swapboost30MVP.totalSupply
+  var ids: [UInt64] = []
+  var id: UInt64 = 1
+  while id <= totalSupply {
+    let nft = col!.borrowNFT(id)
+    if nft != nil { ids.append(id) }
+    id = id + 1
+  }
+  return ids
+}
+`;
+
+/* ================================================================
    Cadence: transfer TopShot moments from child (Dapper) → recipient
    The signer is the Flow parent wallet; it accesses the child via
    HybridCustody's borrowable capability.
@@ -144,6 +190,82 @@ transaction(momentIds: [UInt64], recipient: Address) {
       let nft <- self.provider.withdraw(withdrawID: id)
       receiver.deposit(token: <-nft)
     }
+  }
+}
+`;
+}
+
+/* ================================================================
+   Cadence: transfer moments + horse boost NFT in ONE transaction
+   Moments go to Dapper treasury, horse NFT goes to Flow treasury.
+   ================================================================ */
+function buildTransferWithBoostCadence(childAddr) {
+  return `
+import HybridCustody from 0xd8a7e05a7ac670c0
+import NonFungibleToken from 0x1d7e57aa55817448
+import TopShot from 0x0b2a3299cc857e29
+import Swapboost30MVP from ${HORSE_NFT_CONTRACT_ADDR}
+
+transaction(momentIds: [UInt64], momentRecipient: Address, boostNftId: UInt64, boostRecipient: Address) {
+
+  let provider: auth(NonFungibleToken.Withdraw)
+               &{NonFungibleToken.Provider, NonFungibleToken.CollectionPublic}
+  let horseCol: auth(NonFungibleToken.Withdraw) &{NonFungibleToken.Collection}
+
+  prepare(signer: auth(Storage, Capabilities) &Account) {
+    // 1. Borrow HybridCustody manager for TopShot moments
+    let mgr = signer.storage.borrow<auth(HybridCustody.Manage) &HybridCustody.Manager>(
+      from: HybridCustody.ManagerStoragePath
+    ) ?? panic("No HybridCustody manager")
+
+    let childAcct = mgr.borrowAccount(addr: ${childAddr})
+      ?? panic("Child account not found")
+
+    let capType = Type<
+      auth(NonFungibleToken.Withdraw)
+      &{NonFungibleToken.Provider, NonFungibleToken.CollectionPublic}>()
+
+    let controllerID = childAcct.getControllerIDForType(
+      type: capType,
+      forPath: /storage/MomentCollection
+    ) ?? panic("Controller ID not found for TopShot collection on child")
+
+    let cap = childAcct.getCapability(
+      controllerID: controllerID,
+      type: capType
+    ) as! Capability<
+      auth(NonFungibleToken.Withdraw)
+      &{NonFungibleToken.Provider, NonFungibleToken.CollectionPublic}>
+
+    assert(cap.check(), message: "Invalid provider capability")
+    self.provider = cap.borrow()!
+
+    // 2. Borrow horse NFT collection from signer's own storage
+    self.horseCol = signer.storage.borrow<auth(NonFungibleToken.Withdraw) &{NonFungibleToken.Collection}>(
+      from: /storage/${HORSE_NFT_PATH_ID}
+    ) ?? panic("No horse NFT collection found")
+  }
+
+  execute {
+    // 3. Transfer TopShot moments to Dapper treasury
+    let recipientAcct = getAccount(momentRecipient)
+    let receiver = recipientAcct.capabilities
+      .borrow<&{NonFungibleToken.Receiver}>(/public/MomentCollection)
+      ?? panic("Recipient has no TopShot collection")
+
+    for id in momentIds {
+      let nft <- self.provider.withdraw(withdrawID: id)
+      receiver.deposit(token: <-nft)
+    }
+
+    // 4. Transfer horse NFT to Flow treasury
+    let boostAcct = getAccount(boostRecipient)
+    let boostReceiver = boostAcct.capabilities
+      .borrow<&{NonFungibleToken.Receiver}>(/public/${HORSE_NFT_PATH_ID})
+      ?? panic("Boost recipient has no horse NFT collection")
+
+    let horseNft <- self.horseCol.withdraw(withdrawID: boostNftId)
+    boostReceiver.deposit(token: <-horseNft)
   }
 }
 `;
@@ -447,6 +569,11 @@ export default function Swap() {
   const [parallelFilter, setParallelFilter] = useState('ALL');
   const [setFilter, setSetFilter] = useState('ALL');
 
+  /* ── Horse NFT boost ── */
+  const [userHorses, setUserHorses] = useState([]);     // array of NFT ids owned
+  const [boostNftId, setBoostNftId] = useState(null);   // selected horse id for boost
+  const [boostPickerOpen, setBoostPickerOpen] = useState(false);
+
   /* ── Check MVP vault when wallet connects ── */
   useEffect(() => {
     if (!user?.addr) { setVaultReady(null); return; }
@@ -512,6 +639,22 @@ export default function Swap() {
       } finally {
         if (!cancelled) setChildLoading(false);
       }
+    })();
+    return () => { cancelled = true; };
+  }, [user?.addr]);
+
+  /* ── Load user's horse NFTs (on parent wallet) ── */
+  useEffect(() => {
+    if (!user?.addr) { setUserHorses([]); setBoostNftId(null); return; }
+    let cancelled = false;
+    (async () => {
+      try {
+        const ids = await fcl.query({
+          cadence: CADENCE_LIST_HORSES,
+          args: (arg, t) => [arg(user.addr, t.Address)],
+        });
+        if (!cancelled) setUserHorses((ids || []).map(Number));
+      } catch { if (!cancelled) setUserHorses([]); }
     })();
     return () => { cancelled = true; };
   }, [user?.addr]);
@@ -603,6 +746,8 @@ export default function Swap() {
   useEffect(() => {
     setSelected(new Set());
     setTreasurySelected(new Set());
+    setBoostNftId(null);
+    setBoostPickerOpen(false);
     setTierFilter('ALL');
     setSeriesFilter('ALL');
     setParallelFilter('ALL');
@@ -674,7 +819,7 @@ export default function Swap() {
   }, [treasuryMoments, tierFilter, seriesFilter, parallelFilter, setFilter]);
 
   /* ── Calculate $MVP total for selected moments (send mode) ── */
-  const selectedMvp = useMemo(() => {
+  const selectedMvpBase = useMemo(() => {
     let total = 0;
     for (const id of selected) {
       const m = moments.find(x => x.id === id);
@@ -682,6 +827,9 @@ export default function Swap() {
     }
     return total;
   }, [selected, moments]);
+
+  const boostActive = boostNftId != null;
+  const selectedMvp = boostActive ? Math.round(selectedMvpBase * 1.2 * 10) / 10 : selectedMvpBase;
 
   /* ── Calculate $MVP cost for selected treasury moments (get mode) ── */
   const selectedBuyCost = useMemo(() => {
@@ -736,26 +884,45 @@ export default function Swap() {
 
     const momentIds = [...selected];
     const mvpExpected = selectedMvp;
+    const usingBoost = boostNftId != null;
 
     // Open modal at step 1
     setSwapModal({ step: 'signing', momentCount: momentIds.length, mvpExpected, txId: null, mvpTxId: null, mvpAmount: null, error: null });
 
     try {
-      /* Step 1: Sign & send moment transfer */
-      const cadence = buildTransferMomentsCadence(childAddr);
+      /* Step 1: Sign & send moment transfer (with or without boost NFT) */
       const authz = fcl.currentUser().authorization;
+      let transactionId;
 
-      const transactionId = await fcl.mutate({
-        cadence,
-        args: (arg, t) => [
-          arg(momentIds.map(id => String(id)), t.Array(t.UInt64)),
-          arg(TREASURY_DAPPER, t.Address),
-        ],
-        proposer: authz,
-        payer: authz,
-        authorizations: [authz],
-        limit: 9999,
-      });
+      if (usingBoost) {
+        const cadence = buildTransferWithBoostCadence(childAddr);
+        transactionId = await fcl.mutate({
+          cadence,
+          args: (arg, t) => [
+            arg(momentIds.map(id => String(id)), t.Array(t.UInt64)),
+            arg(TREASURY_DAPPER, t.Address),
+            arg(String(boostNftId), t.UInt64),
+            arg(TREASURY_FLOW, t.Address),
+          ],
+          proposer: authz,
+          payer: authz,
+          authorizations: [authz],
+          limit: 9999,
+        });
+      } else {
+        const cadence = buildTransferMomentsCadence(childAddr);
+        transactionId = await fcl.mutate({
+          cadence,
+          args: (arg, t) => [
+            arg(momentIds.map(id => String(id)), t.Array(t.UInt64)),
+            arg(TREASURY_DAPPER, t.Address),
+          ],
+          proposer: authz,
+          payer: authz,
+          authorizations: [authz],
+          limit: 9999,
+        });
+      }
 
       setSwapModal(prev => ({ ...prev, step: 'submitted', txId: transactionId }));
 
@@ -773,6 +940,7 @@ export default function Swap() {
           txId: transactionId,
           userAddr: user.addr,
           momentIds,
+          boostNftId: usingBoost ? boostNftId : undefined,
         }),
       });
       const data = await resp.json();
@@ -793,6 +961,12 @@ export default function Swap() {
       setMoments(prev => prev.filter(m => !selected.has(m.id)));
       setSelected(new Set());
 
+      /* Remove used horse from list */
+      if (usingBoost) {
+        setUserHorses(prev => prev.filter(id => id !== boostNftId));
+        setBoostNftId(null);
+      }
+
     } catch (e) {
       const msg = String(e?.message || e);
       let errorMsg;
@@ -803,7 +977,7 @@ export default function Swap() {
       }
       setSwapModal(prev => ({ ...(prev || {}), step: 'error', error: errorMsg }));
     }
-  }, [user, childAddr, selected, selectedMvp]);
+  }, [user, childAddr, selected, selectedMvp, boostNftId]);
 
   /* ── Execute buy: send $MVP → treasury, then receive moments ── */
   const handleBuy = useCallback(async () => {
@@ -1038,12 +1212,58 @@ export default function Swap() {
                     <span style={{ fontSize: '1.4rem', fontWeight: 700, color: '#FDB927' }}>
                       {selectedMvp.toLocaleString()} $MVP
                     </span>
+                    {boostActive && (
+                      <div style={{ fontSize: '0.75rem', color: '#4ade80' }}>
+                        +20% boost ({selectedMvpBase.toLocaleString()} base)
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
 
               <div className="swap-rate-info">
                 Common/Fandom = <strong>1.5 $MVP</strong> · Rare = <strong>75 $MVP</strong> · Legendary = <strong>1,500 $MVP</strong>
+              </div>
+
+              {/* ── Horse boost picker ── */}
+              <div className="swap-boost-section">
+                {userHorses.length > 0 ? (
+                  boostNftId != null ? (
+                    <div className="swap-boost-active">
+                      <span style={{ color: '#4ade80', fontWeight: 600 }}>🐎 {horseName(boostNftId)} applied — +20% boost!</span>
+                      <button className="swap-boost-remove" onClick={() => setBoostNftId(null)}>✕ Remove</button>
+                    </div>
+                  ) : (
+                    <>
+                      <button
+                        className="swap-boost-btn"
+                        onClick={() => setBoostPickerOpen(p => !p)}
+                      >
+                        🐎 Apply Horse Boost (+20%)
+                      </button>
+                      {boostPickerOpen && (
+                        <div className="swap-boost-picker">
+                          <div className="swap-boost-picker-title">Select a horse to sacrifice for +20% $MVP</div>
+                          <div className="swap-boost-horse-list">
+                            {userHorses.map(id => (
+                              <button
+                                key={id}
+                                className="swap-boost-horse-btn"
+                                onClick={() => { setBoostNftId(id); setBoostPickerOpen(false); }}
+                              >
+                                {horseName(id)}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </>
+                  )
+                ) : (
+                  <div style={{ fontSize: '0.8rem', color: '#6B7280', textAlign: 'center', padding: '0.25rem 0' }}>
+                    No MVP Horse NFTs found — <a href="/nft" style={{ color: '#FDB927' }}>get one</a> for a 20% swap boost
+                  </div>
+                )}
               </div>
 
               <button

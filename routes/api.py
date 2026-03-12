@@ -1092,6 +1092,7 @@ def register_routes(app):
         tx_id = data.get('txId', '').strip()
         user_addr = data.get('userAddr', '').strip()
         moment_ids = data.get('momentIds', [])
+        boost_nft_id = data.get('boostNftId')  # optional horse NFT id
 
         if not tx_id or not user_addr or not moment_ids:
             return jsonify({'error': 'Missing txId, userAddr, or momentIds'}), 400
@@ -1177,6 +1178,40 @@ def register_routes(app):
                          f'not deposited to treasury in tx {tx_id}',
             }), 400
 
+        # --- 1b. Horse NFT boost verification ---
+        boost_verified = False
+        if boost_nft_id is not None:
+            boost_nft_id = int(boost_nft_id)
+            # Verify Swapboost30MVP.Deposit event to the Flow (swap) treasury
+            swap_treasury_clean = FLOW_SWAP_ACCOUNT.removeprefix('0x').lower()
+            horse_deposit_type = 'A.aad9f8fa31ecbaf9.Swapboost30MVP.Deposit'
+            for ev in tx_result.get('events', []):
+                if ev.get('type') != horse_deposit_type:
+                    continue
+                try:
+                    payload = _json.loads(_b64.b64decode(ev['payload']).decode('utf-8'))
+                    fields = payload.get('value', {}).get('fields', [])
+                    ev_id = None
+                    ev_to = None
+                    for f in fields:
+                        if f.get('name') == 'id':
+                            ev_id = int(f['value']['value'])
+                        elif f.get('name') == 'to':
+                            val = f.get('value', {})
+                            if val.get('type') == 'Optional' and val.get('value'):
+                                ev_to = val['value'].get('value', '').removeprefix('0x').lower()
+                            elif val.get('value'):
+                                ev_to = str(val['value']).removeprefix('0x').lower()
+                    if ev_id == boost_nft_id and ev_to == swap_treasury_clean:
+                        boost_verified = True
+                        break
+                except Exception:
+                    continue
+            if not boost_verified:
+                return jsonify({
+                    'error': f'Horse NFT #{boost_nft_id} deposit to treasury not verified in tx {tx_id}',
+                }), 400
+
         # --- 2. Look up tier for each moment (DB first, TopShot fallback) ---
         total_mvp = 0
         tier_counts = {}
@@ -1192,6 +1227,12 @@ def register_routes(app):
 
         if total_mvp <= 0:
             return jsonify({'error': 'No $MVP value for selected moments'}), 400
+
+        # Apply horse NFT boost (20% increase)
+        boost_applied = False
+        if boost_verified:
+            total_mvp = total_mvp * 1.2
+            boost_applied = True
 
         # --- 3. Send $MVP from treasury to user ---
         mvp_tx_id = None
@@ -1222,12 +1263,13 @@ def register_routes(app):
             'mvpAmount': total_mvp,
             'mvpTxId': mvp_tx_id,
             'tierCounts': tier_counts,
+            'boostApplied': boost_applied,
         }
         if note:
             result['note'] = note
 
         # --- 5. Send Discord notification (fire-and-forget) ---
-        _notify_swap_discord(app, user_addr, moment_ids, total_mvp, tier_counts, tx_id, mvp_tx_id)
+        _notify_swap_discord(app, user_addr, moment_ids, total_mvp, tier_counts, tx_id, mvp_tx_id, boost_applied)
 
         return jsonify(result), 200
 
@@ -2058,7 +2100,7 @@ def get_db():
     return get_db_func()
 
 
-def _notify_swap_discord(app, user_addr, moment_ids, total_mvp, tier_counts, tx_id, mvp_tx_id):
+def _notify_swap_discord(app, user_addr, moment_ids, total_mvp, tier_counts, tx_id, mvp_tx_id, boost_applied=False):
     """Fire-and-forget Discord notification for a completed swap."""
     import asyncio as _aio
 
@@ -2090,7 +2132,8 @@ def _notify_swap_discord(app, user_addr, moment_ids, total_mvp, tier_counts, tx_
 
     embed_description = (
         f"{user_display} swapped **{len(moment_ids)}** moment{'s' if len(moment_ids) != 1 else ''} "
-        f"({tier_summary}) for **{total_mvp:,.1f} $MVP**\n\n"
+        f"({tier_summary}) for **{total_mvp:,.1f} $MVP**"
+        f"{' 🐎 **+20% Horse Boost**' if boost_applied else ''}\n\n"
         f"[View tx]({flowdiver_tx}){mvp_tx_link}"
     )
 
