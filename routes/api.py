@@ -1893,7 +1893,307 @@ access(all) fun main(account: Address): [[String]] {
 
         return jsonify(result), 200
 
+    # ─── Raffle endpoints ────────────────────────────────────────
+
+    # Default raffle payout splits (3 winners: 50%, 30%, 15%; 5% stays in treasury)
+    DEFAULT_RAFFLE_PAYOUTS = [0.50, 0.30, 0.15]
+
+    @app.route('/api/raffles', methods=['GET'])
+    def api_list_raffles():
+        """Return all raffles (live + ended) with entry counts."""
+        db = get_db()
+        cursor = db.cursor()
+        now = int(time.time())
+
+        cursor.execute(prepare_query('''
+            SELECT id, name, description, num_winners, end_time, status, created_at, raffle_type
+            FROM raffles
+            ORDER BY end_time DESC
+        '''))
+        rows = cursor.fetchall()
+
+        raffles = []
+        for r in rows:
+            rid, name, description, num_winners, end_time, status, created_at, raffle_type = r
+
+            # Auto-close expired open raffles
+            if status == 'OPEN' and end_time <= now:
+                status = 'DRAWING'
+
+            cursor.execute(prepare_query(
+                'SELECT COALESCE(SUM(num_entries), 0) FROM raffle_entries WHERE raffle_id = ?'
+            ), (rid,))
+            total_entries = cursor.fetchone()[0]
+
+            pool = float(total_entries)  # 1 $MVP per entry
+
+            raffle_obj = {
+                'id': rid,
+                'name': name,
+                'description': description,
+                'num_winners': num_winners,
+                'end_time': end_time,
+                'status': status,
+                'created_at': created_at,
+                'raffle_type': raffle_type or 'DEFAULT',
+                'total_entries': int(total_entries),
+                'pool': pool,
+                'winners': [],
+            }
+
+            # For DEFAULT type, include payout info
+            if (raffle_type or 'DEFAULT') == 'DEFAULT':
+                raffle_obj['payouts'] = [
+                    {'place': i + 1, 'pct': int(p * 100), 'amount': round(pool * p, 2)}
+                    for i, p in enumerate(DEFAULT_RAFFLE_PAYOUTS)
+                ]
+
+            if status in ('DRAWN', 'DRAWING'):
+                cursor.execute(prepare_query('''
+                    SELECT wallet_address, drawn_at, payout_amount, payout_tx_id
+                    FROM raffle_winners WHERE raffle_id = ?
+                    ORDER BY id ASC
+                '''), (rid,))
+                raffle_obj['winners'] = [
+                    {
+                        'wallet': w[0], 'drawn_at': w[1],
+                        'payout_amount': w[2] or 0, 'payout_tx_id': w[3] or '',
+                        'username': map_wallet_to_username(w[0]) if w[0] else '',
+                    }
+                    for w in cursor.fetchall()
+                ]
+
+            raffles.append(raffle_obj)
+
+        return jsonify(raffles)
+
+    @app.route('/api/raffles/<int:raffle_id>/my-entries', methods=['GET'])
+    def api_raffle_my_entries(raffle_id):
+        """Return entry count for a specific wallet in a raffle."""
+        wallet = request.args.get('wallet', '').lower()
+        if not wallet:
+            return jsonify({'entries': 0})
+
+        db = get_db()
+        cursor = db.cursor()
+        cursor.execute(prepare_query(
+            'SELECT COALESCE(SUM(num_entries), 0) FROM raffle_entries WHERE raffle_id = ? AND wallet_address = ?'
+        ), (raffle_id, wallet))
+        total = cursor.fetchone()[0]
+        return jsonify({'entries': int(total)})
+
+    @app.route('/api/raffles/<int:raffle_id>/enter', methods=['POST'])
+    def api_raffle_enter(raffle_id):
+        """Register entries for a raffle after $MVP payment."""
+        data = request.get_json() or {}
+        wallet = (data.get('wallet') or '').lower()
+        num_entries = int(data.get('num_entries', 0))
+        tx_id = data.get('tx_id', '')
+
+        if not wallet or num_entries < 1 or not tx_id:
+            return jsonify({'error': 'Missing wallet, num_entries or tx_id'}), 400
+
+        db = get_db()
+        cursor = db.cursor()
+        now = int(time.time())
+
+        cursor.execute(prepare_query(
+            'SELECT end_time, status FROM raffles WHERE id = ?'
+        ), (raffle_id,))
+        row = cursor.fetchone()
+        if not row:
+            return jsonify({'error': 'Raffle not found'}), 404
+
+        end_time, status = row
+        if status != 'OPEN' or end_time <= now:
+            return jsonify({'error': 'Raffle is no longer accepting entries'}), 403
+
+        # Check for duplicate tx
+        cursor.execute(prepare_query(
+            'SELECT id FROM raffle_entries WHERE tx_id = ?'
+        ), (tx_id,))
+        if cursor.fetchone():
+            return jsonify({'error': 'Transaction already recorded'}), 409
+
+        mvp_amount = float(num_entries)  # 1 $MVP per entry
+
+        cursor.execute(prepare_query('''
+            INSERT INTO raffle_entries (raffle_id, wallet_address, num_entries, mvp_amount, tx_id, created_at)
+            VALUES (?, ?, ?, ?, ?, ?)
+        '''), (raffle_id, wallet, num_entries, mvp_amount, tx_id, now))
+        db.commit()
+
+        return jsonify({'success': True, 'entries_added': num_entries})
+
+    @app.route('/api/raffles/<int:raffle_id>/draw', methods=['POST'])
+    def api_raffle_draw(raffle_id):
+        """Draw winners for an expired raffle. Idempotent — skips if already drawn.
+        For DEFAULT type raffles, also triggers $MVP payouts.
+        """
+        import random as _random
+
+        db = get_db()
+        cursor = db.cursor()
+        now = int(time.time())
+
+        cursor.execute(prepare_query(
+            'SELECT end_time, status, num_winners, raffle_type FROM raffles WHERE id = ?'
+        ), (raffle_id,))
+        row = cursor.fetchone()
+        if not row:
+            return jsonify({'error': 'Raffle not found'}), 404
+
+        end_time, status, num_winners, raffle_type = row
+        raffle_type = raffle_type or 'DEFAULT'
+
+        if status == 'DRAWN':
+            # Already drawn — return existing winners
+            cursor.execute(prepare_query(
+                'SELECT wallet_address, drawn_at, payout_amount, payout_tx_id FROM raffle_winners WHERE raffle_id = ? ORDER BY id ASC'
+            ), (raffle_id,))
+            winners = [{
+                'wallet': w[0], 'drawn_at': w[1],
+                'payout_amount': w[2] or 0, 'payout_tx_id': w[3] or '',
+                'username': map_wallet_to_username(w[0]) if w[0] else '',
+            } for w in cursor.fetchall()]
+            return jsonify({'already_drawn': True, 'winners': winners})
+
+        if end_time > now:
+            return jsonify({'error': 'Raffle has not ended yet'}), 403
+
+        # Build ticket pool: one ticket per entry
+        cursor.execute(prepare_query('''
+            SELECT id, wallet_address, num_entries FROM raffle_entries WHERE raffle_id = ?
+        '''), (raffle_id,))
+        entry_rows = cursor.fetchall()
+
+        tickets = []  # list of (entry_id, wallet)
+        for eid, wallet, n in entry_rows:
+            for _ in range(int(n)):
+                tickets.append((eid, wallet))
+
+        if not tickets:
+            cursor.execute(prepare_query(
+                "UPDATE raffles SET status = 'DRAWN' WHERE id = ?"
+            ), (raffle_id,))
+            db.commit()
+            return jsonify({'winners': [], 'message': 'No entries — raffle closed with no winners'})
+
+        # Calculate pool
+        pool = float(len(tickets))  # 1 $MVP per ticket
+
+        _random.shuffle(tickets)
+        drawn = []
+        used_ticket_indices = set()
+
+        for _ in range(min(num_winners, len(tickets))):
+            # Pick a random unused ticket
+            idx = _random.randrange(len(tickets))
+            attempts = 0
+            while idx in used_ticket_indices and attempts < len(tickets) * 2:
+                idx = _random.randrange(len(tickets))
+                attempts += 1
+            if idx in used_ticket_indices:
+                break  # no more unique tickets
+            used_ticket_indices.add(idx)
+            entry_id, wallet = tickets[idx]
+            drawn.append((wallet, entry_id))
+
+        # Calculate payouts for DEFAULT type
+        payouts = []
+        if raffle_type == 'DEFAULT':
+            for i, (wallet, entry_id) in enumerate(drawn):
+                pct = DEFAULT_RAFFLE_PAYOUTS[i] if i < len(DEFAULT_RAFFLE_PAYOUTS) else 0
+                payouts.append(round(pool * pct, 2))
+        else:
+            payouts = [0] * len(drawn)
+
+        for i, (wallet, entry_id) in enumerate(drawn):
+            cursor.execute(prepare_query('''
+                INSERT INTO raffle_winners (raffle_id, wallet_address, entry_id, drawn_at, payout_amount)
+                VALUES (?, ?, ?, ?, ?)
+            '''), (raffle_id, wallet, entry_id, now, payouts[i]))
+
+        cursor.execute(prepare_query(
+            "UPDATE raffles SET status = 'DRAWN' WHERE id = ?"
+        ), (raffle_id,))
+        db.commit()
+
+        # For DEFAULT type, trigger async payouts
+        if raffle_type == 'DEFAULT':
+            import threading
+            threading.Thread(
+                target=_process_raffle_payouts,
+                args=(raffle_id,),
+                daemon=True,
+            ).start()
+
+        winners = [{'wallet': w, 'entry_id': eid, 'payout_amount': payouts[i]} for i, (w, eid) in enumerate(drawn)]
+        return jsonify({'winners': winners})
+
     return app
+
+
+# ─── Raffle payout helper (module-level) ────────────────────────
+
+def _process_raffle_payouts(raffle_id):
+    """Send $MVP payouts to all raffle winners in a single Flow transaction.
+    Runs in a background thread."""
+    import asyncio
+    from db.init import get_db_connection
+
+    async def _do_payouts():
+        conn, db_type = get_db_connection()
+        cursor = conn.cursor()
+
+        if db_type == 'postgresql':
+            ph = '%s'
+        else:
+            ph = '?'
+
+        cursor.execute(
+            f"SELECT id, wallet_address, payout_amount, payout_tx_id FROM raffle_winners WHERE raffle_id = {ph} ORDER BY id ASC",
+            (raffle_id,),
+        )
+        winners = cursor.fetchall()
+
+        # Collect unpaid winners
+        to_pay = []  # list of (winner_row_id, wallet, amount)
+        for wid, wallet, amount, existing_tx in winners:
+            if existing_tx:
+                continue  # already paid
+            if not amount or amount <= 0:
+                continue
+            to_pay.append((wid, wallet, amount))
+
+        if not to_pay:
+            conn.close()
+            return
+
+        payouts = [(wallet, amount) for _, wallet, amount in to_pay]
+        try:
+            tx_id = await _send_mvp_multi_from_treasury(payouts)
+            # Stamp the same tx_id on every winner row
+            for wid, wallet, amount in to_pay:
+                cursor.execute(
+                    f"UPDATE raffle_winners SET payout_tx_id = {ph} WHERE id = {ph}",
+                    (tx_id, wid),
+                )
+            conn.commit()
+            summary = ', '.join(f'{a} to {w}' for _, w, a in to_pay)
+            print(f"[raffle_payout] Paid raffle #{raffle_id} in 1 tx: {summary} (tx {tx_id})")
+        except Exception as e:
+            print(f"[raffle_payout] Multi-payout failed for raffle #{raffle_id}: {e}")
+
+        conn.close()
+
+    loop = asyncio.new_event_loop()
+    try:
+        loop.run_until_complete(_do_payouts())
+    except Exception as e:
+        print(f"[raffle_payout] loop error: {e}")
+    finally:
+        loop.close()
 
 
 # ─── Swap helpers (module-level) ────────────────────────────────
@@ -1935,6 +2235,103 @@ def _get_moment_tier(moment_id):
         return raw.replace('MOMENT_TIER_', '')
     except Exception:
         return None
+
+
+async def _send_mvp_multi_from_treasury(payouts: list) -> str:
+    """Send $MVP to multiple recipients in a single Flow transaction.
+
+    payouts: list of (recipient_addr: str, amount: float)
+    Returns the Flow transaction ID hex string.
+    """
+    import asyncio
+    from flow_py_sdk import (
+        flow_client, Tx, ProposalKey, InMemorySigner, SignAlgo,
+    )
+    from flow_py_sdk.signer import HashAlgo
+    from flow_py_sdk.cadence import Address, UFix64, Array
+
+    cadence_code = """
+    import FungibleToken from 0xf233dcee88fe0abe
+    import PetJokicsHorses from 0x6fd2465f3a22e34c
+
+    transaction(amounts: [UFix64], recipients: [Address]) {
+      let vaultRef: auth(FungibleToken.Withdraw) &PetJokicsHorses.Vault
+
+      prepare(signer: auth(Storage, BorrowValue) &Account) {
+        self.vaultRef = signer.storage.borrow<auth(FungibleToken.Withdraw) &PetJokicsHorses.Vault>(
+          from: /storage/PetJokicsHorsesVault
+        ) ?? panic("Could not borrow reference to the owner's Vault!")
+      }
+
+      execute {
+        var i = 0
+        while i < amounts.length {
+          let recipientAccount = getAccount(recipients[i])
+          let receiverRef = recipientAccount.capabilities.borrow<&{FungibleToken.Vault}>(
+            /public/PetJokicsHorsesReceiver
+          ) ?? panic("Recipient is missing receiver capability")
+          let sentVault <- self.vaultRef.withdraw(amount: amounts[i])
+          receiverRef.deposit(from: <-sentVault)
+          i = i + 1
+        }
+      }
+    }
+    """
+
+    amounts_cadence = Array([UFix64(int(amt * 100_000_000)) for _, amt in payouts])
+    recipients_cadence = Array([Address.from_hex(addr.removeprefix('0x')) for addr, _ in payouts])
+
+    treasury_addr = Address.from_hex(FLOW_SWAP_ACCOUNT.removeprefix('0x'))
+
+    signer = InMemorySigner(
+        hash_algo=HashAlgo.SHA3_256,
+        sign_algo=SignAlgo.ECDSA_P256,
+        private_key_hex=FLOW_SWAP_PRIVATE_KEY,
+    )
+
+    async with flow_client(
+        host='access.mainnet.nodes.onflow.org',
+        port=9000,
+    ) as client:
+        block = await client.get_latest_block()
+        ref_block_id = block.id
+
+        account = await client.get_account(address=treasury_addr.bytes)
+        seq_number = account.keys[FLOW_SWAP_KEY_INDEX].sequence_number
+
+        tx = (
+            Tx(
+                code=cadence_code,
+                reference_block_id=ref_block_id,
+                payer=treasury_addr,
+                proposal_key=ProposalKey(
+                    key_address=treasury_addr,
+                    key_id=FLOW_SWAP_KEY_INDEX,
+                    key_sequence_number=seq_number,
+                ),
+            )
+            .add_arguments(amounts_cadence, recipients_cadence)
+            .add_authorizers(treasury_addr)
+            .with_gas_limit(9999)
+            .with_envelope_signature(
+                treasury_addr, FLOW_SWAP_KEY_INDEX, signer
+            )
+        )
+
+        response = await client.send_transaction(transaction=tx.to_signed_grpc())
+        tx_id = response.id.hex()
+
+        # Wait for seal (poll up to ~30s)
+        for _ in range(30):
+            result = await client.get_transaction_result(id=response.id)
+            status_val = result.status.value if hasattr(result.status, 'value') else int(result.status)
+            if status_val >= 4:  # SEALED
+                if result.error_message:
+                    raise RuntimeError(f'Transaction failed: {result.error_message}')
+                return tx_id
+            await asyncio.sleep(1)
+
+        return tx_id  # Return even if not yet sealed
 
 
 async def _send_mvp_from_treasury(recipient_addr: str, amount: float) -> str:

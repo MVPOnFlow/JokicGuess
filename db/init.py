@@ -291,6 +291,47 @@ def initialize_database(conn, db_type):
     '''))
     conn.commit()
 
+    # ── Raffles ──
+    cursor.execute(prepare_query('''
+        CREATE TABLE IF NOT EXISTS raffles (
+            id SERIAL PRIMARY KEY,
+            name TEXT NOT NULL,
+            description TEXT NOT NULL DEFAULT '',
+            num_winners INTEGER NOT NULL DEFAULT 1,
+            end_time BIGINT NOT NULL,
+            status TEXT NOT NULL DEFAULT 'OPEN',
+            raffle_type TEXT NOT NULL DEFAULT 'DEFAULT',
+            created_at BIGINT NOT NULL
+        )
+    '''))
+    conn.commit()
+
+    cursor.execute(prepare_query('''
+        CREATE TABLE IF NOT EXISTS raffle_entries (
+            id SERIAL PRIMARY KEY,
+            raffle_id INTEGER NOT NULL,
+            wallet_address TEXT NOT NULL,
+            num_entries INTEGER NOT NULL DEFAULT 1,
+            mvp_amount REAL NOT NULL DEFAULT 0,
+            tx_id TEXT,
+            created_at BIGINT NOT NULL
+        )
+    '''))
+    conn.commit()
+
+    cursor.execute(prepare_query('''
+        CREATE TABLE IF NOT EXISTS raffle_winners (
+            id SERIAL PRIMARY KEY,
+            raffle_id INTEGER NOT NULL,
+            wallet_address TEXT NOT NULL,
+            entry_id INTEGER NOT NULL,
+            drawn_at BIGINT NOT NULL,
+            payout_amount REAL DEFAULT 0,
+            payout_tx_id TEXT
+        )
+    '''))
+    conn.commit()
+
     # ── One-time seed: populate jokic_editions if empty ──
     try:
         cursor.execute(prepare_query("SELECT COUNT(*) FROM jokic_editions"))
