@@ -97,7 +97,7 @@ export default function Layout() {
                 <NavDropdown.Item as={NavLink} to="/swap">🔄 Swap</NavDropdown.Item>
                 <NavDropdown.Item as={NavLink} to="/nft">🐎 Horse NFT</NavDropdown.Item>
                 <NavDropdown.Item
-                  href="https://swap.kittypunch.xyz/swap?tokens=0x0000000000000000000000000000000000000000-0x4dcdd1b9a5103fa5f13cc4c3b758e05ffaccb4dd"
+                  href="https://app.increment.fi/swap?in=A.1654653399040a61.FlowToken&out=A.6fd2465f3a22e34c.PetJokicsHorses"
                   target="_blank"
                   rel="noopener noreferrer"
                 >💰 Buy $MVP</NavDropdown.Item>
