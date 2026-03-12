@@ -6,7 +6,7 @@ function TDWatch() {
   // Top 3 all-time triple-double leaders
   const tdLeaders = [
     { rank: 1, name: 'Russell Westbrook', count: 207, active: true },
-    { rank: 2, name: 'Nikola Jokić', count: 187, active: true, isJokic: true },
+    { rank: 2, name: 'Nikola Jokić', count: 189, active: true, isJokic: true },
     { rank: 3, name: 'Oscar Robertson', count: 181, active: false }
   ];
 
@@ -65,7 +65,7 @@ function TDWatch() {
     { timestamp: 1735444800, opponent: 'Magic', isHome: false, played: true, tripleDouble: true, stats: { points: 34, rebounds: 21, assists: 12 }  },
     { timestamp: 1735617600, opponent: 'Heat', isHome: false, played: true, tripleDouble: false, stats: null },
     
-    // January 2025
+    // January 2026
     { timestamp: 1735790400, opponent: 'Raptors', isHome: false, played: true, tripleDouble: false, stats: null },
     { timestamp: 1735963200, opponent: 'Cavaliers', isHome: false, played: true, tripleDouble: false, stats: null },
     { timestamp: 1736049600, opponent: 'Nets', isHome: false, played: true, tripleDouble: false, stats: null },
@@ -85,7 +85,7 @@ function TDWatch() {
     { timestamp: 1738296000, opponent: 'Nets', isHome: true, played: true, tripleDouble: false, stats: null },
     { timestamp: 1738382400, opponent: 'Clippers', isHome: true, played: true, tripleDouble: false, stats: { points: 31, rebounds: 12, assists: 5 } },
     
-    // February 2025
+    // February 2026
     { timestamp: 1738555200, opponent: 'Thunder', isHome: true, played: true, tripleDouble: false, stats: { points: 17, rebounds: 8, assists: 7 } },
     { timestamp: 1738728000, opponent: 'Pistons', isHome: false, played: true, tripleDouble: false, stats: { points: 24, rebounds: 15, assists: 4 } },
     { timestamp: 1738814400, opponent: 'Knicks', isHome: false, played: true, tripleDouble: true, stats: { points: 30, rebounds: 14, assists: 10 } },
@@ -98,13 +98,13 @@ function TDWatch() {
     { timestamp: 1740628800, opponent: 'Celtics', isHome: true, played: true, tripleDouble: true, stats: { points: 32, rebounds: 14, assists: 10 } },
     { timestamp: 1740801600, opponent: 'Thunder', isHome: false, played: true, tripleDouble: true, stats: { points: 23, rebounds: 17, assists: 15 } },
     
-    // March 2025
+    // March 2026
     { timestamp: 1740888000, opponent: 'Timberwolves', isHome: true, played: true, tripleDouble: false, stats: { points: 35, rebounds: 13, assists: 9 } },
     { timestamp: 1741060800, opponent: 'Jazz', isHome: false, played: true, tripleDouble: false, stats: { points: 22, rebounds: 12, assists: 5 } },
-    { timestamp: 1741320000, opponent: 'Lakers', isHome: true, played: false, tripleDouble: false, stats: { points: 28, rebounds: 12, assists: 13 } },
-    { timestamp: 1741406400, opponent: 'Knicks', isHome: true, played: false, tripleDouble: false, stats: { points: 38, rebounds: 8, assists: 5 }},
-    { timestamp: 1741665600, opponent: 'Thunder', isHome: false, played: false, tripleDouble: false, stats: null },
-    { timestamp: 1741838400, opponent: 'Rockets', isHome: true, played: false, tripleDouble: false, stats: null },
+    { timestamp: 1741320000, opponent: 'Lakers', isHome: true, played: true, tripleDouble: false, stats: { points: 28, rebounds: 12, assists: 13 } },
+    { timestamp: 1741406400, opponent: 'Knicks', isHome: true, played: true, tripleDouble: false, stats: { points: 38, rebounds: 8, assists: 5 }},
+    { timestamp: 1741665600, opponent: 'Thunder', isHome: false, played: true, tripleDouble: true, stats: { points: 32, rebounds: 14, assists: 13 } },
+    { timestamp: 1741838400, opponent: 'Rockets', isHome: true, played: true, tripleDouble: true, stats: { points: 16, rebounds: 12, assists: 13 } },
     { timestamp: 1741924800, opponent: 'Spurs', isHome: false, played: false, tripleDouble: false, stats: null },
     { timestamp: 1742184000, opponent: 'Lakers', isHome: false, played: false, tripleDouble: false, stats: null },
     { timestamp: 1742443200, opponent: '76ers', isHome: true, played: false, tripleDouble: false, stats: null },
@@ -115,7 +115,7 @@ function TDWatch() {
     { timestamp: 1743307200, opponent: 'Jazz', isHome: true, played: false, tripleDouble: false, stats: null },
     { timestamp: 1743480000, opponent: 'Warriors', isHome: true, played: false, tripleDouble: false, stats: null },
     
-    // April 2025
+    // April 2026
     { timestamp: 1743739200, opponent: 'Jazz', isHome: false, played: false, tripleDouble: false, stats: null },
     { timestamp: 1743912000, opponent: 'Spurs', isHome: true, played: false, tripleDouble: false, stats: null },
     { timestamp: 1744171200, opponent: 'Trail Blazers', isHome: true, played: false, tripleDouble: false, stats: null },
