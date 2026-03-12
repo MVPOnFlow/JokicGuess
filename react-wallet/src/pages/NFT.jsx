@@ -441,13 +441,17 @@ export default function NFT() {
                   )}
                   <div className="nft-card-body">
                     <div className="nft-card-title">{horseName(nft.id)}</div>
-                    <div className="nft-card-desc">20% boost on entire transaction</div>
+                    <div className="nft-card-desc">One-time 20% swap boost</div>
                     <div className="nft-card-id">ID #{nft.id}</div>
 
                     {/* Owner info (All NFTs view) */}
                     {viewMode === 'all' && (
                       <div className="nft-card-owner">
-                        {nft.username ? (
+                        {nft.owner?.toLowerCase() === 'cc4b6fa5550a4610' || nft.owner?.toLowerCase() === '0xcc4b6fa5550a4610' ? (
+                          <span className="nft-owner-username" title={nft.owner}>
+                            Treasury
+                          </span>
+                        ) : nft.username ? (
                           <span className="nft-owner-username" title={nft.owner}>
                             {nft.username}
                           </span>

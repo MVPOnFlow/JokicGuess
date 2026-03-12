@@ -1398,11 +1398,44 @@ import MetadataViews from 0x1d7e57aa55817448
 import Swapboost30MVP from 0xaad9f8fa31ecbaf9
 import HybridCustody from 0xd8a7e05a7ac670c0
 
-access(all) fun main(dapperChildren: [Address]): [[String]] {
+access(all) fun main(dapperChildren: [Address], directAddresses: [Address]): [[String]] {
   let totalSupply = Swapboost30MVP.totalSupply
   var result: [[String]] = []
   var checked: {Address: Bool} = {}
 
+  // Check direct addresses first (e.g. treasury wallets)
+  for addr in directAddresses {
+    if checked[addr] != nil { continue }
+    checked[addr] = true
+
+    let acct = getAccount(addr)
+    let col = acct.capabilities
+      .borrow<&{NonFungibleToken.Collection}>(
+        /public/Swapboost30MVP_aad9f8fa31ecbaf9
+      )
+    if col == nil { continue }
+
+    var id: UInt64 = 1
+    while id <= totalSupply {
+      let nft = col!.borrowNFT(id)
+      if nft != nil {
+        var name = ""
+        var thumb = ""
+        if let display = nft!.resolveView(Type<MetadataViews.Display>()) {
+          let d = display as! MetadataViews.Display
+          name = d.name
+          thumb = d.thumbnail.uri()
+        }
+        result.append([
+          id.toString(), name, thumb,
+          addr.toString(), addr.toString()
+        ])
+      }
+      id = id + 1
+    }
+  }
+
+  // Then discover via HybridCustody parents of Dapper children
   for child in dapperChildren {
     let childAcct = getAuthAccount<auth(Storage) &Account>(child)
     let ownedAcct = childAcct.storage
@@ -1449,12 +1482,16 @@ access(all) fun main(dapperChildren: [Address]): [[String]] {
         import json as _json
 
         args_val = [{"type": "Address", "value": a} for a in dapper_children]
+        direct_val = [{"type": "Address", "value": f"0x{FLOW_SWAP_ACCOUNT.removeprefix('0x')}"}]
         body = {
             "script": _b64.b64encode(cadence.encode()).decode(),
             "arguments": [
                 _b64.b64encode(
                     _json.dumps({"type": "Array", "value": args_val}).encode()
-                ).decode()
+                ).decode(),
+                _b64.b64encode(
+                    _json.dumps({"type": "Array", "value": direct_val}).encode()
+                ).decode(),
             ],
         }
 
