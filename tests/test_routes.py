@@ -346,3 +346,148 @@ class TestSwapComplete:
         assert data['mvpAmount'] == 3  # 1.5 COMMON × 2
         assert data['mvpTxId'] is None
         assert 'note' in data
+        assert data['boostApplied'] is False
+
+    # ── Horse NFT boost tests ─────────────────────────────────────
+
+    def _horse_deposit_event(self, nft_id, recipient='cc4b6fa5550a4610'):
+        """Build a mock Swapboost30MVP.Deposit event."""
+        import base64 as _b64
+        import json as _json
+
+        payload = {
+            'type': 'Event',
+            'value': {
+                'id': 'A.aad9f8fa31ecbaf9.Swapboost30MVP.Deposit',
+                'fields': [
+                    {'name': 'id', 'value': {'type': 'UInt64', 'value': str(nft_id)}},
+                    {'name': 'to', 'value': {
+                        'type': 'Optional',
+                        'value': {'type': 'Address', 'value': f'0x{recipient}'},
+                    }},
+                ],
+            },
+        }
+        return {
+            'type': 'A.aad9f8fa31ecbaf9.Swapboost30MVP.Deposit',
+            'transaction_id': 'abc123',
+            'payload': _b64.b64encode(_json.dumps(payload).encode()).decode(),
+        }
+
+    @patch('routes.api._get_moment_tier')
+    @patch('routes.api.FLOW_SWAP_PRIVATE_KEY', '')
+    @patch('routes.api.http_requests')
+    @patch('routes.api.get_db')
+    def test_boost_applies_20pct(self, mock_get_db, mock_http,
+                                  mock_tier, client):
+        """Valid swap with horse boost → 200, mvpAmount is 1.2× base."""
+        mock_db = Mock()
+        mock_cursor = Mock()
+        mock_db.cursor.return_value = mock_cursor
+        mock_get_db.return_value = mock_db
+        mock_cursor.fetchone.return_value = None
+
+        sealed = self._flow_sealed_response([42, 43])
+        # Add horse NFT deposit event to the swap treasury
+        sealed['events'].append(self._horse_deposit_event(7))
+
+        flow_resp = Mock()
+        flow_resp.status_code = 200
+        flow_resp.json.return_value = sealed
+        mock_http.get.return_value = flow_resp
+
+        mock_tier.return_value = 'COMMON'
+
+        resp = client.post('/api/swap/complete',
+                           data=json.dumps({'txId': 'tx_boost', 'userAddr': '0xabc',
+                                            'momentIds': [42, 43],
+                                            'boostNftId': 7}),
+                           content_type='application/json')
+        data = resp.get_json()
+        assert resp.status_code == 200
+        # 1.5 COMMON × 2 = 3.0, boosted × 1.2 = 3.6
+        assert data['mvpAmount'] == pytest.approx(3.6)
+        assert data['boostApplied'] is True
+
+    @patch('routes.api.http_requests')
+    @patch('routes.api.get_db')
+    def test_boost_wrong_recipient_rejected(self, mock_get_db, mock_http, client):
+        """Horse NFT deposited to wrong address → 400."""
+        mock_db = Mock()
+        mock_cursor = Mock()
+        mock_db.cursor.return_value = mock_cursor
+        mock_get_db.return_value = mock_db
+        mock_cursor.fetchone.return_value = None
+
+        sealed = self._flow_sealed_response([42])
+        # Horse goes to wrong address (Dapper treasury instead of Flow swap)
+        sealed['events'].append(self._horse_deposit_event(7, 'f853bd09d46e7db6'))
+
+        flow_resp = Mock()
+        flow_resp.status_code = 200
+        flow_resp.json.return_value = sealed
+        mock_http.get.return_value = flow_resp
+
+        resp = client.post('/api/swap/complete',
+                           data=json.dumps({'txId': 'tx_bad', 'userAddr': '0xabc',
+                                            'momentIds': [42],
+                                            'boostNftId': 7}),
+                           content_type='application/json')
+        assert resp.status_code == 400
+        assert 'not verified' in resp.get_json()['error'].lower()
+
+    @patch('routes.api.http_requests')
+    @patch('routes.api.get_db')
+    def test_boost_wrong_nft_id_rejected(self, mock_get_db, mock_http, client):
+        """Horse NFT id mismatch → 400."""
+        mock_db = Mock()
+        mock_cursor = Mock()
+        mock_db.cursor.return_value = mock_cursor
+        mock_get_db.return_value = mock_db
+        mock_cursor.fetchone.return_value = None
+
+        sealed = self._flow_sealed_response([42])
+        # Horse #5 deposited, but user claims boost with #7
+        sealed['events'].append(self._horse_deposit_event(5))
+
+        flow_resp = Mock()
+        flow_resp.status_code = 200
+        flow_resp.json.return_value = sealed
+        mock_http.get.return_value = flow_resp
+
+        resp = client.post('/api/swap/complete',
+                           data=json.dumps({'txId': 'tx_wrong', 'userAddr': '0xabc',
+                                            'momentIds': [42],
+                                            'boostNftId': 7}),
+                           content_type='application/json')
+        assert resp.status_code == 400
+        assert '#7' in resp.get_json()['error']
+
+    @patch('routes.api._get_moment_tier')
+    @patch('routes.api.FLOW_SWAP_PRIVATE_KEY', '')
+    @patch('routes.api.http_requests')
+    @patch('routes.api.get_db')
+    def test_no_boost_field_ignored(self, mock_get_db, mock_http,
+                                     mock_tier, client):
+        """Swap without boostNftId → no boost applied (backward compat)."""
+        mock_db = Mock()
+        mock_cursor = Mock()
+        mock_db.cursor.return_value = mock_cursor
+        mock_get_db.return_value = mock_db
+        mock_cursor.fetchone.return_value = None
+
+        flow_resp = Mock()
+        flow_resp.status_code = 200
+        flow_resp.json.return_value = self._flow_sealed_response([42])
+        mock_http.get.return_value = flow_resp
+
+        mock_tier.return_value = 'RARE'
+
+        resp = client.post('/api/swap/complete',
+                           data=json.dumps({'txId': 'tx_noboost', 'userAddr': '0xabc',
+                                            'momentIds': [42]}),
+                           content_type='application/json')
+        data = resp.get_json()
+        assert resp.status_code == 200
+        assert data['mvpAmount'] == 75  # RARE rate, no boost
+        assert data['boostApplied'] is False
