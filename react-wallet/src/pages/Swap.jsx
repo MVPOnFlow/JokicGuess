@@ -1243,7 +1243,7 @@ export default function Swap() {
                       </button>
                       {boostPickerOpen && (
                         <div className="swap-boost-picker">
-                          <div className="swap-boost-picker-title">Select a horse to sacrifice for +20% $MVP</div>
+                          <div className="swap-boost-picker-title">Select a horse to send back for +20% $MVP</div>
                           <div className="swap-boost-horse-list">
                             {userHorses.map(id => (
                               <button
@@ -1261,7 +1261,7 @@ export default function Swap() {
                   )
                 ) : (
                   <div style={{ fontSize: '0.8rem', color: '#6B7280', textAlign: 'center', padding: '0.25rem 0' }}>
-                    No MVP Horse NFTs found — <a href="/nft" style={{ color: '#FDB927' }}>get one</a> for a 20% swap boost
+                    No MVP Horse NFTs found — <a href="/nft" style={{ color: '#FDB927' }}>get one</a> to send back for a one-time 20% swap boost
                   </div>
                 )}
               </div>

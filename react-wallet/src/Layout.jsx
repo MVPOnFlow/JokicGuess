@@ -95,7 +95,7 @@ export default function Layout() {
 
               <NavDropdown title="💱 Exchange" className="nav-dropdown-themed">
                 <NavDropdown.Item as={NavLink} to="/swap">🔄 Swap</NavDropdown.Item>
-                <NavDropdown.Item as={NavLink} to="/nft">� Horses</NavDropdown.Item>
+                <NavDropdown.Item as={NavLink} to="/nft">🐎 Horse NFT</NavDropdown.Item>
                 <NavDropdown.Item
                   href="https://swap.kittypunch.xyz/swap?tokens=0x0000000000000000000000000000000000000000-0x4dcdd1b9a5103fa5f13cc4c3b758e05ffaccb4dd"
                   target="_blank"

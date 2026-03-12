@@ -300,7 +300,7 @@ export default function NFT() {
       <div className="nft-container">
         <div className="nft-hero">
           <h1>🐎 Jokic's Horse Stable</h1>
-          <p>Each horse grants a <strong>20% $MVP boost</strong> on your entire swap transaction</p>
+          <p>Send a horse back to the treasury during a swap for a one-time <strong>20% $MVP boost</strong></p>
         </div>
         <div className="nft-connect-prompt">
           <h3>Connect Your Wallet</h3>
@@ -318,7 +318,7 @@ export default function NFT() {
       {/* Hero */}
       <div className="nft-hero">
         <h1>🐎 Jokic's Horse Stable</h1>
-        <p>Each horse grants a <strong>20% $MVP boost</strong> on your entire swap transaction</p>
+        <p>Send a horse back to the treasury during a swap for a one-time <strong>20% $MVP boost</strong></p>
       </div>
 
       {/* Toggle + Status */}
