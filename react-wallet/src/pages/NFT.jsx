@@ -66,6 +66,13 @@ const HORSE_NAMES = {
   50: 'Trotter King',
 };
 
+/** Special serial numbers with labels */
+const SPECIAL_SERIALS = {
+  1:  { label: '#1 Serial',       emoji: '👑', cls: 'serial-one' },
+  15: { label: 'Jersey #15',      emoji: '🏀', cls: 'serial-jersey' },
+  50: { label: 'Perfect Serial',  emoji: '💎', cls: 'serial-perfect' },
+};
+
 /** Get display name for an NFT by id */
 function horseName(id) {
   const num = Number(id);
@@ -409,7 +416,9 @@ export default function NFT() {
           )}
 
           <div className="nft-grid">
-            {(viewMode === 'mine' ? myNfts : allNfts).map((nft) => (
+            {(viewMode === 'mine' ? myNfts : allNfts).map((nft) => {
+              const special = SPECIAL_SERIALS[Number(nft.id)];
+              return (
               <a
                 key={nft.id}
                 href={`https://www.flowty.io/asset/${CONTRACT_ADDR}/${CONTRACT_NAME}/NFT/${nft.id}`}
@@ -417,7 +426,16 @@ export default function NFT() {
                 rel="noopener noreferrer"
                 style={{ textDecoration: 'none' }}
               >
-                <div className={`nft-card${nft.owner === user.addr ? ' nft-card-mine' : ''}`}>
+                <div className={[
+                  'nft-card',
+                  nft.owner === user.addr ? 'nft-card-mine' : '',
+                  special ? `nft-card-special ${special.cls}` : '',
+                ].filter(Boolean).join(' ')}>
+                  {special && (
+                    <div className="nft-special-ribbon">
+                      <span>{special.emoji} {special.label}</span>
+                    </div>
+                  )}
                   {nft.thumbnail ? (
                     <img
                       className="nft-card-img"
@@ -468,7 +486,8 @@ export default function NFT() {
                   </div>
                 </div>
               </a>
-            ))}
+              );
+            })}
           </div>
 
           <div className="text-center mt-3">

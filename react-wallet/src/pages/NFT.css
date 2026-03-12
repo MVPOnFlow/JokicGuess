@@ -243,6 +243,90 @@
   border-color: rgba(253, 185, 39, 0.35);
 }
 
+/* ── Special serial cards ── */
+.nft-card-special {
+  position: relative;
+  border-width: 2px;
+}
+
+.nft-card-special:hover {
+  transform: translateY(-5px) scale(1.02);
+}
+
+/* #1 Serial — gold crown glow */
+.nft-card-special.serial-one {
+  border-color: #FDB927;
+  box-shadow:
+    0 0 12px rgba(253, 185, 39, 0.35),
+    0 4px 20px rgba(253, 185, 39, 0.2);
+}
+
+.nft-card-special.serial-one:hover {
+  box-shadow:
+    0 0 20px rgba(253, 185, 39, 0.5),
+    0 6px 28px rgba(253, 185, 39, 0.35);
+}
+
+/* Jersey #15 — purple Nuggets accent */
+.nft-card-special.serial-jersey {
+  border-color: #8B5CF6;
+  box-shadow:
+    0 0 12px rgba(139, 92, 246, 0.3),
+    0 4px 20px rgba(139, 92, 246, 0.18);
+}
+
+.nft-card-special.serial-jersey:hover {
+  box-shadow:
+    0 0 20px rgba(139, 92, 246, 0.45),
+    0 6px 28px rgba(139, 92, 246, 0.3);
+}
+
+/* Perfect Serial #50 — diamond / cyan glow */
+.nft-card-special.serial-perfect {
+  border-color: #22D3EE;
+  box-shadow:
+    0 0 12px rgba(34, 211, 238, 0.3),
+    0 4px 20px rgba(34, 211, 238, 0.18);
+}
+
+.nft-card-special.serial-perfect:hover {
+  box-shadow:
+    0 0 20px rgba(34, 211, 238, 0.45),
+    0 6px 28px rgba(34, 211, 238, 0.3);
+}
+
+/* ── Special ribbon / badge at top of card ── */
+.nft-special-ribbon {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 2;
+  text-align: center;
+  padding: 0.3rem 0.5rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+
+.serial-one .nft-special-ribbon {
+  background: linear-gradient(135deg, rgba(253, 185, 39, 0.85), rgba(245, 158, 11, 0.85));
+  color: #0E2240;
+}
+
+.serial-jersey .nft-special-ribbon {
+  background: linear-gradient(135deg, rgba(139, 92, 246, 0.85), rgba(109, 40, 217, 0.85));
+  color: #fff;
+}
+
+.serial-perfect .nft-special-ribbon {
+  background: linear-gradient(135deg, rgba(34, 211, 238, 0.85), rgba(6, 182, 212, 0.85));
+  color: #0E2240;
+}
+
 /* ── Empty state ── */
 .nft-empty {
   text-align: center;
