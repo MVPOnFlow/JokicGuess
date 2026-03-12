@@ -1182,17 +1182,22 @@ def register_routes(app):
         boost_verified = False
         if boost_nft_id is not None:
             boost_nft_id = int(boost_nft_id)
-            # Verify Swapboost30MVP.Deposit event to the Flow (swap) treasury
+            # Swapboost30MVP uses Flowty UniversalCollection, so the on-chain
+            # event is the standard NonFungibleToken.Deposited (not a custom
+            # Swapboost30MVP.Deposit).  We match on the event type string and
+            # additionally verify the embedded nftType contains our contract.
             swap_treasury_clean = FLOW_SWAP_ACCOUNT.removeprefix('0x').lower()
-            horse_deposit_type = 'A.aad9f8fa31ecbaf9.Swapboost30MVP.Deposit'
+            nft_deposited_type = 'A.1d7e57aa55817448.NonFungibleToken.Deposited'
+            horse_nft_type_fragment = 'Swapboost30MVP.NFT'
             for ev in tx_result.get('events', []):
-                if ev.get('type') != horse_deposit_type:
+                if ev.get('type') != nft_deposited_type:
                     continue
                 try:
                     payload = _json.loads(_b64.b64decode(ev['payload']).decode('utf-8'))
                     fields = payload.get('value', {}).get('fields', [])
                     ev_id = None
                     ev_to = None
+                    ev_nft_type = None
                     for f in fields:
                         if f.get('name') == 'id':
                             ev_id = int(f['value']['value'])
@@ -1202,7 +1207,12 @@ def register_routes(app):
                                 ev_to = val['value'].get('value', '').removeprefix('0x').lower()
                             elif val.get('value'):
                                 ev_to = str(val['value']).removeprefix('0x').lower()
-                    if ev_id == boost_nft_id and ev_to == swap_treasury_clean:
+                        elif f.get('name') == 'type':
+                            ev_nft_type = str(f['value'].get('value', ''))
+                    if (ev_id == boost_nft_id
+                            and ev_to == swap_treasury_clean
+                            and ev_nft_type
+                            and horse_nft_type_fragment in ev_nft_type):
                         boost_verified = True
                         break
                 except Exception:

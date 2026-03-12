@@ -351,25 +351,33 @@ class TestSwapComplete:
     # ── Horse NFT boost tests ─────────────────────────────────────
 
     def _horse_deposit_event(self, nft_id, recipient='cc4b6fa5550a4610'):
-        """Build a mock Swapboost30MVP.Deposit event."""
+        """Build a mock NonFungibleToken.Deposited event for a Swapboost30MVP NFT.
+
+        The contract uses Flowty UniversalCollection, so on-chain deposits
+        emit the standard NonFungibleToken.Deposited event with an embedded
+        ``type`` field identifying the NFT contract.
+        """
         import base64 as _b64
         import json as _json
 
         payload = {
             'type': 'Event',
             'value': {
-                'id': 'A.aad9f8fa31ecbaf9.Swapboost30MVP.Deposit',
+                'id': 'A.1d7e57aa55817448.NonFungibleToken.Deposited',
                 'fields': [
+                    {'name': 'type', 'value': {'type': 'String', 'value': 'A.aad9f8fa31ecbaf9.Swapboost30MVP.NFT'}},
                     {'name': 'id', 'value': {'type': 'UInt64', 'value': str(nft_id)}},
+                    {'name': 'uuid', 'value': {'type': 'UInt64', 'value': '999'}},
                     {'name': 'to', 'value': {
                         'type': 'Optional',
                         'value': {'type': 'Address', 'value': f'0x{recipient}'},
                     }},
+                    {'name': 'collectionUUID', 'value': {'type': 'UInt64', 'value': '888'}},
                 ],
             },
         }
         return {
-            'type': 'A.aad9f8fa31ecbaf9.Swapboost30MVP.Deposit',
+            'type': 'A.1d7e57aa55817448.NonFungibleToken.Deposited',
             'transaction_id': 'abc123',
             'payload': _b64.b64encode(_json.dumps(payload).encode()).decode(),
         }
