@@ -261,7 +261,7 @@ transaction(momentIds: [UInt64], momentRecipient: Address, boostNftId: UInt64, b
     // 4. Transfer horse NFT to Flow treasury
     let boostAcct = getAccount(boostRecipient)
     let boostReceiver = boostAcct.capabilities
-      .borrow<&{NonFungibleToken.Receiver}>(/public/${HORSE_NFT_PATH_ID})
+      .borrow<&{NonFungibleToken.Collection}>(/public/${HORSE_NFT_PATH_ID})
       ?? panic("Boost recipient has no horse NFT collection")
 
     let horseNft <- self.horseCol.withdraw(withdrawID: boostNftId)
