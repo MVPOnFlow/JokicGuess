@@ -129,6 +129,41 @@ class TestTreasuryAPI:
         assert data['backed_supply'] == expected_backed
 
 
+class TestTreasuryEditionsAPI:
+    """Test treasury editions API endpoint."""
+
+    @patch('routes.api.get_dapper_id_from_flow_wallet')
+    @patch('routes.api.get_jokic_editions')
+    def test_treasury_editions_returns_owned(self, mock_editions, mock_dapper, client):
+        """Endpoint filters to editions with userOwnedCount > 0."""
+        mock_dapper.return_value = 'auth0|fake'
+        mock_editions.return_value = {
+            'editions': [
+                {'id': '1', 'tier': 'COMMON', 'userOwnedCount': 5, 'setName': 'Base Set'},
+                {'id': '2', 'tier': 'RARE', 'userOwnedCount': 0, 'setName': 'Rare Set'},
+                {'id': '3', 'tier': 'RARE', 'userOwnedCount': 2, 'setName': 'Rare Set'},
+            ],
+            'totalCount': 3,
+            'tierBreakdown': {},
+        }
+        response = client.get('/api/treasury/editions')
+        assert response.status_code == 200
+        data = json.loads(response.data)
+        assert data['totalEditions'] == 2
+        assert data['totalMoments'] == 7
+        # Sorted descending by owned count
+        assert data['editions'][0]['id'] == '1'
+        assert data['editions'][1]['id'] == '3'
+        assert data['tierBreakdown'] == {'COMMON': 5, 'RARE': 2}
+
+    @patch('routes.api.get_dapper_id_from_flow_wallet')
+    def test_treasury_editions_no_dapper_id(self, mock_dapper, client):
+        """Returns 500 if dapper ID cannot be resolved."""
+        mock_dapper.return_value = ''
+        response = client.get('/api/treasury/editions')
+        assert response.status_code == 500
+
+
 class TestFastbreakAPI:
     """Test FastBreak API endpoints."""
 

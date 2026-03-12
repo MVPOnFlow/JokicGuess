@@ -551,6 +551,35 @@ def register_routes(app):
         except Exception as e:
             return jsonify({"error": str(e)}), 500
 
+    @app.route("/api/treasury/editions")
+    def treasury_editions():
+        """Get all Jokic editions owned by the treasury wallet.
+
+        Returns editions where userOwnedCount > 0, sorted by owned count
+        descending.  Uses the same get_jokic_editions helper as /api/museum
+        but passes the treasury Dapper ID so the TopShot API populates
+        userOwnedCount.
+        """
+        try:
+            dapper_id = get_dapper_id_from_flow_wallet(FLOW_ACCOUNT)
+            if not dapper_id:
+                return jsonify({"error": "Could not resolve treasury dapper ID"}), 500
+            result = get_jokic_editions(dapper_id=dapper_id)
+            owned = [e for e in result.get("editions", []) if e.get("userOwnedCount", 0) > 0]
+            owned.sort(key=lambda e: e["userOwnedCount"], reverse=True)
+            # Rebuild tier breakdown for owned only
+            tier_counts = {}
+            for ed in owned:
+                tier_counts[ed["tier"]] = tier_counts.get(ed["tier"], 0) + ed["userOwnedCount"]
+            return jsonify({
+                "totalEditions": len(owned),
+                "totalMoments": sum(e["userOwnedCount"] for e in owned),
+                "editions": owned,
+                "tierBreakdown": tier_counts,
+            })
+        except Exception as e:
+            return jsonify({"error": str(e)}), 500
+
     # ── Showcase helpers ────────────────────────────────────────────
     _TS_HEADERS = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "

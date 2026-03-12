@@ -866,7 +866,15 @@ def get_username_from_dapper_wallet_flow(flow_address: str) -> str:
 
     return None
 
+# Known wallet → TopShot username overrides (skip GraphQL chain)
+_KNOWN_WALLET_USERNAMES = {
+    "0xf853bd09d46e7db6": "PetJokicsHorses",  # Treasury Dapper wallet
+}
+
+
 def get_ts_username_from_flow_wallet(flow_address):
+    if flow_address in _KNOWN_WALLET_USERNAMES:
+        return _KNOWN_WALLET_USERNAMES[flow_address]
     return get_username_from_dapper_wallet_flow(asyncio.run(get_linked_child_account(flow_address)))
 
 def get_flow_wallet_from_ts_username(username):
