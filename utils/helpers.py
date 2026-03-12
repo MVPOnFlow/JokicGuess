@@ -6,6 +6,8 @@ import sqlite3
 import psycopg2
 import random
 import json
+import time
+import threading
 import requests
 from flow_py_sdk import flow_client, Script
 from flow_py_sdk.cadence import Address
@@ -871,11 +873,40 @@ _KNOWN_WALLET_USERNAMES = {
     "0xf853bd09d46e7db6": "PetJokicsHorses",  # Treasury Dapper wallet
 }
 
+# In-memory cache: flow_address → (username_or_None, expiry_epoch)
+_username_cache = {}
+_username_cache_lock = threading.Lock()
+_USERNAME_CACHE_TTL = 3600       # successful lookups: 1 hour
+_USERNAME_CACHE_NEG_TTL = 120    # failed lookups: 2 minutes (retry sooner)
+
 
 def get_ts_username_from_flow_wallet(flow_address):
     if flow_address in _KNOWN_WALLET_USERNAMES:
         return _KNOWN_WALLET_USERNAMES[flow_address]
-    return get_username_from_dapper_wallet_flow(asyncio.run(get_linked_child_account(flow_address)))
+
+    now = time.time()
+    with _username_cache_lock:
+        cached = _username_cache.get(flow_address)
+        if cached is not None:
+            value, expiry = cached
+            if now < expiry:
+                return value  # may be None (negative cache)
+
+    # Cache miss or expired — do the live lookup
+    try:
+        child_addr = asyncio.run(get_linked_child_account(flow_address))
+        # Check the static map before hitting the GraphQL API
+        username = WALLET_USERNAME_MAP.get(child_addr) if child_addr else None
+        if not username:
+            username = get_username_from_dapper_wallet_flow(child_addr)
+    except Exception:
+        username = None
+
+    ttl = _USERNAME_CACHE_TTL if username else _USERNAME_CACHE_NEG_TTL
+    with _username_cache_lock:
+        _username_cache[flow_address] = (username, now + ttl)
+
+    return username
 
 def get_flow_wallet_from_ts_username(username):
     return asyncio.run(get_linked_parent_account(get_flow_address_by_username(username)))
