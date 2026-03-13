@@ -865,3 +865,29 @@
   color: #FDB927;
   font-weight: 700;
 }
+
+.swap-lb-raffle {
+  color: #c084fc;
+  font-weight: 700;
+}
+
+/* ── Cross-page CTA link (hero) ── */
+.swap-cta-link {
+  display: inline-block;
+  margin-top: 0.75rem;
+  padding: 0.5rem 1.25rem;
+  background: linear-gradient(135deg, #c084fc22, #FDB92722);
+  border: 1px solid #c084fc55;
+  border-radius: 8px;
+  color: #c084fc;
+  font-size: 0.9rem;
+  font-weight: 600;
+  text-decoration: none;
+  transition: all 0.2s;
+}
+.swap-cta-link:hover {
+  background: linear-gradient(135deg, #c084fc33, #FDB92733);
+  border-color: #c084fc;
+  color: #e9d5ff;
+  transform: translateY(-1px);
+}

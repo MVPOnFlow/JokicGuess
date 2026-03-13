@@ -19,13 +19,35 @@ from config import (
     SWAPFEST_BOOST1_CUTOFF, SWAPFEST_BOOST2_CUTOFF,
     TREASURY_DATA, FLOW_ACCOUNT,
     FLOW_SWAP_ACCOUNT, FLOW_SWAP_PRIVATE_KEY, FLOW_SWAP_KEY_INDEX,
-    HORSE_NAMES
+    HORSE_NAMES, REWARD_POOL
 )
 
 
 def register_routes(app):
     """Register all Flask routes."""
-    
+
+    # ── One-time DB migrations (run on first request) ─────────────
+    _migrations_done = [False]
+
+    @app.before_request
+    def _run_migrations():
+        if _migrations_done[0]:
+            return
+        _migrations_done[0] = True
+        try:
+            db = get_db()
+            cur = db.cursor()
+            try:
+                cur.execute(prepare_query(
+                    "ALTER TABLE completed_swaps ADD COLUMN points INTEGER NOT NULL DEFAULT 0"
+                ))
+                db.commit()
+                print("\u2705 Migration: added points column to completed_swaps")
+            except Exception:
+                pass  # column already exists
+        except Exception:
+            pass  # table may not exist yet
+
     @app.route('/', defaults={'path': ''})
     @app.route('/<path:path>')
     def serve_react(path):
@@ -120,6 +142,16 @@ def register_routes(app):
         treasury_data["surplus"] = surplus
         
         return jsonify(treasury_data)
+
+    @app.route("/api/rewards")
+    def api_rewards():
+        """Return the reward pool configuration."""
+        total_items = sum(r["quantity"] for r in REWARD_POOL)
+
+        return jsonify({
+            "reward_pool": REWARD_POOL,
+            "total_items": total_items,
+        })
 
     @app.route("/api/fastbreak/contests", methods=["GET"])
     def api_list_fastbreak_contests():
@@ -1091,6 +1123,14 @@ def register_routes(app):
         'LEGENDARY': 1500,
     }
 
+    # Tier → raffle-point mapping (NFT boost does NOT affect points)
+    _SWAP_POINT_RATES = {
+        'COMMON': 1,
+        'FANDOM': 1,
+        'RARE': 50,
+        'LEGENDARY': 1000,
+    }
+
     # Tier → $MVP mapping for buying moments from treasury (higher price)
     _BUY_MVP_RATES = {
         'COMMON': 2,
@@ -1253,6 +1293,7 @@ def register_routes(app):
 
         # --- 2. Look up tier for each moment (DB first, TopShot fallback) ---
         total_mvp = 0
+        total_points = 0
         tier_counts = {}
         for mid in moment_ids:
             tier = _get_moment_tier(mid)
@@ -1262,6 +1303,7 @@ def register_routes(app):
             if rate == 0:
                 return jsonify({'error': f'Moment {mid} has unsupported tier: {tier}'}), 400
             total_mvp += rate
+            total_points += _SWAP_POINT_RATES.get(tier, 1)
             tier_counts[tier] = tier_counts.get(tier, 0) + 1
 
         if total_mvp <= 0:
@@ -1289,12 +1331,12 @@ def register_routes(app):
         cur.execute(
             prepare_query(
                 "INSERT INTO completed_swaps "
-                "(tx_id, user_addr, moment_ids, mvp_amount, mvp_tx_id, completed_at) "
-                "VALUES (?, ?, ?, ?, ?, ?) "
+                "(tx_id, user_addr, moment_ids, mvp_amount, mvp_tx_id, completed_at, points) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?) "
                 "ON CONFLICT DO NOTHING"
             ),
             (tx_id, user_addr, ','.join(str(m) for m in moment_ids),
-             total_mvp, mvp_tx_id, int(time.time())),
+             total_mvp, mvp_tx_id, int(time.time()), total_points),
         )
         db.commit()
 
@@ -1303,6 +1345,7 @@ def register_routes(app):
             'mvpTxId': mvp_tx_id,
             'tierCounts': tier_counts,
             'boostApplied': boost_applied,
+            'points': total_points,
         }
         if note:
             result['note'] = note
@@ -1313,6 +1356,45 @@ def register_routes(app):
         return jsonify(result), 200
 
     # ─── Swap leaderboard ────────────────────────────────────────
+
+    _points_backfill_done = [False]  # mutable flag
+
+    def _backfill_swap_points():
+        """One-time backfill: compute points for old completed_swaps rows
+        that were inserted before the points column existed."""
+        if _points_backfill_done[0]:
+            return
+        _points_backfill_done[0] = True
+
+        try:
+            db = get_db()
+            cur = db.cursor()
+            cur.execute(prepare_query(
+                "SELECT tx_id, moment_ids FROM completed_swaps "
+                "WHERE points = 0 AND mvp_amount > 0"
+            ))
+            rows = cur.fetchall()
+            if not rows:
+                return
+            for tx_id_row, mids_str in rows:
+                pts = 0
+                for mid in mids_str.split(','):
+                    mid = mid.strip()
+                    if not mid:
+                        continue
+                    tier = _get_moment_tier(int(mid))
+                    pts += _SWAP_POINT_RATES.get(tier, 1) if tier else 1
+                cur.execute(
+                    prepare_query(
+                        "UPDATE completed_swaps SET points = ? WHERE tx_id = ?"
+                    ),
+                    (pts, tx_id_row),
+                )
+            db.commit()
+            print(f"✅ Backfilled points for {len(rows)} completed_swaps rows")
+        except Exception as e:
+            print(f"⚠️  Points backfill error: {e}")
+
     @app.route('/api/swap/leaderboard')
     def api_swap_leaderboard():
         """Monthly swap leaderboard — $MVP earned per wallet per month.
@@ -1320,6 +1402,7 @@ def register_routes(app):
         Optional query params:
           ?month=YYYY-MM   — filter to a specific month (default: current month)
         """
+        _backfill_swap_points()
         db = get_db()
         cur = db.cursor()
 
@@ -1345,12 +1428,13 @@ def register_routes(app):
         end_ts = int(month_end.timestamp())
 
         cur.execute(prepare_query('''
-            SELECT user_addr, SUM(mvp_amount) as total_mvp, COUNT(*) as swap_count
+            SELECT user_addr, SUM(mvp_amount) as total_mvp, COUNT(*) as swap_count,
+                   SUM(points) as total_points
             FROM completed_swaps
             WHERE completed_at >= ? AND completed_at < ?
               AND mvp_amount > 0
             GROUP BY user_addr
-            ORDER BY total_mvp DESC
+            ORDER BY total_points DESC
         '''), (start_ts, end_ts))
         rows = cur.fetchall()
 
@@ -1382,12 +1466,13 @@ def register_routes(app):
 
         leaderboard = []
         for rank, row in enumerate(rows, 1):
-            addr, total_mvp, swap_count = row
+            addr, total_mvp, swap_count, total_points = row
             entry = {
                 'rank': rank,
                 'address': addr,
                 'totalMvp': total_mvp,
                 'swapCount': swap_count,
+                'points': total_points or 0,
             }
             if addr in username_map:
                 entry['topshotUsername'] = username_map[addr]
@@ -1868,12 +1953,12 @@ access(all) fun main(account: Address): [[String]] {
         cur.execute(
             prepare_query(
                 "INSERT INTO completed_swaps "
-                "(tx_id, user_addr, moment_ids, mvp_amount, mvp_tx_id, completed_at) "
-                "VALUES (?, ?, ?, ?, ?, ?) "
+                "(tx_id, user_addr, moment_ids, mvp_amount, mvp_tx_id, completed_at, points) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?) "
                 "ON CONFLICT DO NOTHING"
             ),
             (tx_id, user_addr, ','.join(str(m) for m in moment_ids),
-             -total_cost, moments_tx_id, int(time.time())),
+             -total_cost, moments_tx_id, int(time.time()), 0),
         )
         db.commit()
 

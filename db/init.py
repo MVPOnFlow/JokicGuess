@@ -286,10 +286,20 @@ def initialize_database(conn, db_type):
             moment_ids TEXT NOT NULL,
             mvp_amount REAL NOT NULL,
             mvp_tx_id TEXT,
-            completed_at BIGINT NOT NULL
+            completed_at BIGINT NOT NULL,
+            points INTEGER NOT NULL DEFAULT 0
         )
     '''))
     conn.commit()
+
+    # Migration: add points column if it doesn't exist yet
+    try:
+        cursor.execute(prepare_query(
+            "ALTER TABLE completed_swaps ADD COLUMN points INTEGER NOT NULL DEFAULT 0"
+        ))
+        conn.commit()
+    except Exception:
+        pass  # column already exists
 
     # ── One-time seed: populate jokic_editions if empty ──
     try:

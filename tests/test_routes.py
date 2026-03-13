@@ -382,6 +382,7 @@ class TestSwapComplete:
         assert data['mvpTxId'] is None
         assert 'note' in data
         assert data['boostApplied'] is False
+        assert data['points'] == 2  # 1 point per COMMON × 2
 
     # ── Horse NFT boost tests ─────────────────────────────────────
 
@@ -451,6 +452,7 @@ class TestSwapComplete:
         # 1.5 COMMON × 2 = 3.0, boosted × 1.2 = 3.6
         assert data['mvpAmount'] == pytest.approx(3.6)
         assert data['boostApplied'] is True
+        assert data['points'] == 2  # boost does NOT affect points
 
     @patch('routes.api.http_requests')
     @patch('routes.api.get_db')

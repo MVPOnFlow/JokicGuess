@@ -106,6 +106,7 @@ export default function Layout() {
 
               <NavDropdown title="🎮 Play" className="nav-dropdown-themed">
                 <NavDropdown.Item as={NavLink} to="/fastbreak">⚡ Fastbreak</NavDropdown.Item>
+                <NavDropdown.Item as={NavLink} to="/rewards">🎁 Rewards</NavDropdown.Item>
               </NavDropdown>
             </Nav>
 

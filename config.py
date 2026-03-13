@@ -94,6 +94,30 @@ HORSE_NAMES = {
     50: "Trotter King",
 }
 
+# ── Reward Pool ──────────────────────────────────────────────────────
+# Each entry: {"name": str, "quantity": int, "tier": str, "type": str}
+#   tier  – visual badge: "common", "fandom", "rare", "legendary", "special"
+#   type  – "pack" | "nft" | "petting" | "wildcard"
+REWARD_POOL = [
+    # ── Sealed TopShot Packs ──────────────────────────────────
+    {"name": "Chase Cooper Flagg and Kon Knueppel Rookies",           "quantity": 1, "tier": "common",    "type": "pack"},
+    {"name": "Bam Adebayo Top Shot This",                             "quantity": 1, "tier": "fandom",    "type": "pack"},
+    {"name": "Fast Break 25-26' Classic Run 5 – 11 Wins Pack",       "quantity": 1, "tier": "common",    "type": "pack"},
+    {"name": "Fast Break 25-26' Classic Run 5 – 7 Wins Pack",        "quantity": 1, "tier": "common",    "type": "pack"},
+    {"name": "Fast Break 25-26' Classic Run 5 – 4 Wins Pack",        "quantity": 1, "tier": "common",    "type": "pack"},
+    {"name": "Rookie Debut Standard Pack",                            "quantity": 1, "tier": "common",    "type": "pack"},
+    {"name": "Collector Series: Grail Chase",                         "quantity": 2, "tier": "common",    "type": "pack"},
+    {"name": "Fast Break 25-26' Classic Run 2 – 4 Wins Pack",        "quantity": 1, "tier": "common",    "type": "pack"},
+    {"name": "Rookie Debut: Chance Hit",                              "quantity": 3, "tier": "common",    "type": "pack"},
+    {"name": "NBA Stars: The National Exclusive Chase Pack",          "quantity": 3, "tier": "common",    "type": "pack"},
+    {"name": "Run It Back: Origins August",                           "quantity": 1, "tier": "rare",      "type": "pack"},
+    {"name": "Gabe Vincent 2023 NBA Finals",                          "quantity": 1, "tier": "common",    "type": "pack"},
+    # ── Non-pack Rewards ──────────────────────────────────────
+    {"name": "$MVP Horse NFT",                                        "quantity": 3, "tier": "legendary", "type": "nft"},
+    {"name": "Pet your horse 10 times",                               "quantity": 5, "tier": "special",   "type": "petting"},
+    {"name": "Jolly Joker NFT",                                       "quantity": 1, "tier": "legendary", "type": "nft"},
+]
+
 # Treasury data
 TREASURY_DATA = {
     "tokens_in_wild": 11807,
