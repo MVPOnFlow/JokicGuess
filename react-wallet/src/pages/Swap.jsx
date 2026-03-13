@@ -48,23 +48,40 @@ access(all) fun main(parent: Address): [Address] {
 `;
 
 /* ================================================================
-   Cadence: list TopShot moments with on-chain metadata
-   Returns [[id, playID, setName, serialNumber, isLocked, subedition]] as strings.
-   subedition = parallel ID (0 = standard, 16 = club collection, etc.)
-   Only Cadence calls — no TopShot API needed.
+   Cadence: get total moment count (cheap — no per-moment reads)
    ================================================================ */
-const CADENCE_LIST_MOMENTS = `
+const CADENCE_MOMENT_COUNT = `
+import TopShot from 0x0b2a3299cc857e29
+
+access(all) fun main(account: Address): Int {
+  let acct = getAccount(account)
+  let ref = acct.capabilities
+    .borrow<&TopShot.Collection>(/public/MomentCollection)!
+  return ref.getIDs().length
+}
+`;
+
+/* ================================================================
+   Cadence: list TopShot moments with on-chain metadata — PAGINATED.
+   Takes offset + limit so large collections don't hit Flow's 20 MB
+   storage-interaction cap (getMomentsSubedition loads a huge slab).
+   Returns [[id, playID, setName, serialNumber, isLocked, subedition]].
+   ================================================================ */
+const CADENCE_LIST_MOMENTS_PAGE = `
 import TopShot from 0x0b2a3299cc857e29
 import TopShotLocking from 0x0b2a3299cc857e29
 
-access(all) fun main(account: Address): [[String]] {
+access(all) fun main(account: Address, offset: Int, limit: Int): [[String]] {
   let acct = getAccount(account)
   let ref = acct.capabilities
     .borrow<&TopShot.Collection>(/public/MomentCollection)!
   let ids = ref.getIDs()
+  let end = offset + limit > ids.length ? ids.length : offset + limit
   var setNames: {UInt32: String} = {}
   var result: [[String]] = []
-  for id in ids {
+  var i = offset
+  while i < end {
+    let id = ids[i]
     let nft = ref.borrowMoment(id: id)!
     let sid = nft.data.setID
     if setNames[sid] == nil {
@@ -80,10 +97,14 @@ access(all) fun main(account: Address): [[String]] {
       locked ? "1" : "0",
       subedition.toString()
     ])
+    i = i + 1
   }
   return result
 }
 `;
+
+/** Page size for moment listing — 500 stays well within Flow's 20 MB limit. */
+const MOMENTS_PAGE_SIZE = 500;
 
 /* ================================================================
    Horse NFT (boost) constants
@@ -659,29 +680,52 @@ export default function Swap() {
     return () => { cancelled = true; };
   }, [user?.addr]);
 
-  /* ── Load moments from child account ── */
+  /* ── Load moments from child account (paginated) ── */
   useEffect(() => {
     if (!childAddr) { setMoments([]); return; }
     let cancelled = false;
     (async () => {
       setMomentsLoading(true);
       try {
-        const raw = await fcl.query({
-          cadence: CADENCE_LIST_MOMENTS,
+        // 1. Get total moment count (cheap query)
+        const total = await fcl.query({
+          cadence: CADENCE_MOMENT_COUNT,
           args: (arg, t) => [arg(childAddr, t.Address)],
         });
         if (cancelled) return;
-        // raw = [[id, playID, setName, serial, isLocked, subedition], ...] (all strings from Cadence)
-        const parsed = (raw || []).map(r => ({
-          id: parseInt(r[0], 10),
-          playID: parseInt(r[1], 10),
-          setName: r[2],
-          serial: parseInt(r[3], 10),
-          isLocked: r[4] === '1',
-          subedition: parseInt(r[5] || '0', 10),
-        }));
-        // Filter out locked moments before enriching
-        const unlocked = parsed.filter(m => !m.isLocked);
+        const count = parseInt(total, 10) || 0;
+        if (count === 0) {
+          setMoments([]);
+          setMomentsLoading(false);
+          return;
+        }
+
+        // 2. Fetch moments in pages to stay within Flow's storage-interaction limit
+        const allParsed = [];
+        for (let offset = 0; offset < count; offset += MOMENTS_PAGE_SIZE) {
+          if (cancelled) return;
+          const raw = await fcl.query({
+            cadence: CADENCE_LIST_MOMENTS_PAGE,
+            args: (arg, t) => [
+              arg(childAddr, t.Address),
+              arg(String(offset), t.Int),
+              arg(String(MOMENTS_PAGE_SIZE), t.Int),
+            ],
+          });
+          if (cancelled) return;
+          const page = (raw || []).map(r => ({
+            id: parseInt(r[0], 10),
+            playID: parseInt(r[1], 10),
+            setName: r[2],
+            serial: parseInt(r[3], 10),
+            isLocked: r[4] === '1',
+            subedition: parseInt(r[5] || '0', 10),
+          }));
+          allParsed.push(...page);
+        }
+
+        // 3. Filter out locked moments before enriching
+        const unlocked = allParsed.filter(m => !m.isLocked);
         const enriched = await enrichMoments(unlocked);
         if (!cancelled) {
           // Merge subedition from Cadence data back into enriched moments
