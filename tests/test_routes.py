@@ -59,7 +59,7 @@ class TestLeaderboardAPI:
             ('0xwallet2', 50.0, '2025-10-24 13:00:00'),
         ]
         
-        with patch('routes.api.map_wallet_to_username', return_value='TestUser'):
+        with patch('routes.api.get_ts_username_from_flow_wallet', return_value='TestUser'):
             response = client.get('/api/leaderboard')
         
         assert response.status_code == 200
@@ -83,7 +83,7 @@ class TestLeaderboardAPI:
             ('0xwallet2', 50.0, '2025-10-24 13:00:00'),
         ]
         
-        with patch('routes.api.map_wallet_to_username', return_value='TestUser'):
+        with patch('routes.api.get_ts_username_from_flow_wallet', return_value='TestUser'):
             response = client.get('/api/leaderboard')
         
         data = json.loads(response.data)

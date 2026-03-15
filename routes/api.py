@@ -93,10 +93,24 @@ def register_routes(app):
             except AttributeError:
                 return str(ts) if ts is not None else None
 
+        # Resolve TopShot usernames in parallel (parent wallet → dapper → username)
+        addrs = [r[0] for r in rows]
+        username_map = {}
+        if addrs:
+            def _lookup(addr):
+                try:
+                    return addr, get_ts_username_from_flow_wallet(addr)
+                except Exception:
+                    return addr, None
+            with ThreadPoolExecutor(max_workers=min(len(addrs), 10)) as pool:
+                for addr, uname in pool.map(lambda a: _lookup(a), addrs):
+                    if uname:
+                        username_map[addr] = uname
+
         # Map wallets to usernames + attach last_scored_at
         leaderboard_data = [
             {
-                "username": map_wallet_to_username(from_address),
+                "username": username_map.get(from_address, from_address),
                 "points": total_points,
                 "last_scored_at": _to_iso(last_scored_at),
             }
@@ -1501,10 +1515,10 @@ def register_routes(app):
         if _nft_holders_cache["data"] and now - _nft_holders_cache["ts"] < 300:
             return jsonify(_nft_holders_cache["data"])
 
-        from utils.helpers import WALLET_USERNAME_MAP
+        from utils.helpers import DAPPER_WALLET_USERNAME_MAP
 
-        dapper_children = list(WALLET_USERNAME_MAP.keys())
-        child_to_username = {k.lower(): v for k, v in WALLET_USERNAME_MAP.items()}
+        dapper_children = list(DAPPER_WALLET_USERNAME_MAP.keys())
+        child_to_username = {k.lower(): v for k, v in DAPPER_WALLET_USERNAME_MAP.items()}
 
         cadence = r"""
 import NonFungibleToken from 0x1d7e57aa55817448

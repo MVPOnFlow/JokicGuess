@@ -356,7 +356,7 @@ def save_gift(txn_id, moment_id, from_address, points, timestamp):
     conn.commit()
 
 
-WALLET_USERNAME_MAP = {
+DAPPER_WALLET_USERNAME_MAP = {
     '0xc246d05ba775362e': 'KnotBean',
     '0xbf3286046c76cf86': 'wildrick',
     '0x6877b9930f77d002': 'lframpton',
@@ -420,7 +420,8 @@ WALLET_USERNAME_MAP = {
     '0xca87efe2e0da6297': 'Agent00',
     '0xd6641d89e6372ee1': 'leet3',
     '0x58bdc3d07e83ba18': 'Libruary',
-    '0x7d8f08954f51d0a7': 'Dharma_Gardener'
+    '0x7d8f08954f51d0a7': 'Dharma_Gardener',
+    '0xaf78a4360000fe85': 'RRX69',
 }
 
 def map_wallet_to_username(wallet_address: str) -> str:
@@ -428,7 +429,7 @@ def map_wallet_to_username(wallet_address: str) -> str:
     Maps a Dapper wallet address to a username if known.
     Otherwise, returns the wallet itself.
     """
-    return WALLET_USERNAME_MAP.get(wallet_address.lower(), wallet_address)
+    return DAPPER_WALLET_USERNAME_MAP.get(wallet_address.lower(), wallet_address)
 
 
 def ordinal(n):
@@ -895,13 +896,10 @@ def get_ts_username_from_flow_wallet(flow_address):
     # Cache miss or expired — do the live lookup
     try:
         child_addr = asyncio.run(get_linked_child_account(flow_address))
-        # The lookup address is the child (Dapper) wallet when available,
-        # otherwise the flow_address itself may already be the Dapper wallet.
-        lookup_addr = child_addr or flow_address
         # Check the static map before hitting the GraphQL API
-        username = WALLET_USERNAME_MAP.get(lookup_addr)
+        username = DAPPER_WALLET_USERNAME_MAP.get(child_addr) if child_addr else None
         if not username:
-            username = get_username_from_dapper_wallet_flow(lookup_addr)
+            username = get_username_from_dapper_wallet_flow(child_addr)
     except Exception:
         username = None
 
