@@ -4,15 +4,6 @@ import SwapLeaderboard from './SwapLeaderboard';
 import './Swap.css';
 import './Rewards.css';
 
-/* ── tier badge colours ─────────────────────────────────────── */
-const TIER_COLORS = {
-  common:    { bg: '#4ade8015', border: '#4ade80', text: '#4ade80', label: 'Common' },
-  fandom:    { bg: '#40e0d015', border: '#40e0d0', text: '#40e0d0', label: 'Fandom' },
-  rare:      { bg: '#60a5fa15', border: '#60a5fa', text: '#60a5fa', label: 'Rare' },
-  legendary: { bg: '#fbbf2418', border: '#fbbf24', text: '#fbbf24', label: 'Legendary' },
-  special:   { bg: '#c084fc15', border: '#c084fc', text: '#c084fc', label: 'Special' },
-};
-
 const TYPE_EMOJI = { pack: '📦', nft: '🐎', petting: '🤚', wildcard: '🃏' };
 
 const STEPS = [
@@ -22,21 +13,21 @@ const STEPS = [
   { icon: '🎰', title: 'Random Reward',    desc: 'A random prize is drawn and awarded to a weighted random winner.' },
 ];
 
-function TierBadge({ tier }) {
-  const c = TIER_COLORS[tier] || TIER_COLORS.common;
-  return (
-    <span
-      className="tier-badge"
-      style={{ background: c.bg, border: `1px solid ${c.border}`, color: c.text }}
-    >
-      {c.label}
-    </span>
-  );
-}
-
 export default function Rewards() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [copied, setCopied] = useState(false);
+
+  const copyForWheel = () => {
+    if (!data) return;
+    const lines = data.reward_pool.flatMap(r =>
+      Array.from({ length: r.quantity }, () => r.name)
+    );
+    navigator.clipboard.writeText(lines.join('\n')).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  };
 
   useEffect(() => {
     fetch('/api/rewards')
@@ -113,24 +104,29 @@ export default function Rewards() {
         </div>
         <p className="rewards-section-subtitle">
           {total_items} items across {uniqueRewards} unique rewards available for raffle draws.
+          <button className="rpt-copy-btn" onClick={copyForWheel}>
+            {copied ? '✅ Copied!' : '📋 Copy for Wheel of Names'}
+          </button>
         </p>
 
-        <div className="rewards-pool-grid">
-          {reward_pool.map((item, i) => (
-            <div className="reward-item" key={i}>
-              <div className="reward-item-icon">
-                {TYPE_EMOJI[item.type] || '🎁'}
-              </div>
-              <div className="reward-item-info">
-                <div className="reward-item-name" title={item.name}>{item.name}</div>
-                <div className="reward-item-meta">
-                  <TierBadge tier={item.tier} />
-                  <span className="reward-item-qty">×{item.quantity}</span>
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
+        <table className="rewards-pool-table">
+          <thead>
+            <tr>
+              <th style={{ width: 40 }}></th>
+              <th>Reward</th>
+              <th style={{ width: 60, textAlign: 'center' }}>Qty</th>
+            </tr>
+          </thead>
+          <tbody>
+            {reward_pool.map((item, i) => (
+              <tr key={i}>
+                <td className="rpt-icon">{TYPE_EMOJI[item.type] || '🎁'}</td>
+                <td className="rpt-name">{item.name}</td>
+                <td className="rpt-qty">×{item.quantity}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
 
       {/* ── Monthly Swap Leaderboard ─────────────────────── */}

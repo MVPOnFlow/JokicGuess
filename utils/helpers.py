@@ -895,10 +895,13 @@ def get_ts_username_from_flow_wallet(flow_address):
     # Cache miss or expired — do the live lookup
     try:
         child_addr = asyncio.run(get_linked_child_account(flow_address))
+        # The lookup address is the child (Dapper) wallet when available,
+        # otherwise the flow_address itself may already be the Dapper wallet.
+        lookup_addr = child_addr or flow_address
         # Check the static map before hitting the GraphQL API
-        username = WALLET_USERNAME_MAP.get(child_addr) if child_addr else None
+        username = WALLET_USERNAME_MAP.get(lookup_addr)
         if not username:
-            username = get_username_from_dapper_wallet_flow(child_addr)
+            username = get_username_from_dapper_wallet_flow(lookup_addr)
     except Exception:
         username = None
 
