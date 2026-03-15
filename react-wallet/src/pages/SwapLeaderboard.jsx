@@ -39,7 +39,8 @@ export default function SwapLeaderboard() {
   const formatLastSwap = (epoch) => {
     if (!epoch) return '';
     const d = new Date(epoch * 1000);
-    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+      + ' ' + d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
   };
 
   return (
