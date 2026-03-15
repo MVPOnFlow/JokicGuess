@@ -736,7 +736,8 @@ async def get_linked_child_account(address_hex: str):
             return (str(result.value[0]))
         else:
             return ""
-    except:
+    except Exception as exc:
+        print(f"⚠️  get_linked_child_account({address_hex}) failed: {type(exc).__name__}: {exc}")
         return ""
 
 def has_linked_child_account(address_hex: str):
@@ -874,38 +875,22 @@ _KNOWN_WALLET_USERNAMES = {
     "0xf853bd09d46e7db6": "PetJokicsHorses",  # Treasury Dapper wallet
 }
 
-# In-memory cache: flow_address → (username_or_None, expiry_epoch)
-_username_cache = {}
-_username_cache_lock = threading.Lock()
-_USERNAME_CACHE_TTL = 3600       # successful lookups: 1 hour
-_USERNAME_CACHE_NEG_TTL = 120    # failed lookups: 2 minutes (retry sooner)
-
 
 def get_ts_username_from_flow_wallet(flow_address):
     if flow_address in _KNOWN_WALLET_USERNAMES:
         return _KNOWN_WALLET_USERNAMES[flow_address]
 
-    now = time.time()
-    with _username_cache_lock:
-        cached = _username_cache.get(flow_address)
-        if cached is not None:
-            value, expiry = cached
-            if now < expiry:
-                return value  # may be None (negative cache)
-
-    # Cache miss or expired — do the live lookup
     try:
         child_addr = asyncio.run(get_linked_child_account(flow_address))
+        print(f"🔍 [{flow_address}] child_addr={repr(child_addr)}")
         # Check the static map before hitting the GraphQL API
         username = DAPPER_WALLET_USERNAME_MAP.get(child_addr) if child_addr else None
-        if not username:
+        if not username and child_addr:
             username = get_username_from_dapper_wallet_flow(child_addr)
-    except Exception:
+        print(f"🔍 [{flow_address}] resolved username={repr(username)}")
+    except Exception as exc:
+        print(f"⚠️  [{flow_address}] username lookup failed: {type(exc).__name__}: {exc}")
         username = None
-
-    ttl = _USERNAME_CACHE_TTL if username else _USERNAME_CACHE_NEG_TTL
-    with _username_cache_lock:
-        _username_cache[flow_address] = (username, now + ttl)
 
     return username
 
