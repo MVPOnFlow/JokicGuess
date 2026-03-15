@@ -103,7 +103,6 @@ REWARD_POOL = [
     {"name": "Chase Cooper Flagg and Kon Knueppel Rookies",           "quantity": 1, "tier": "common",    "type": "pack"},
     {"name": "Bam Adebayo Top Shot This",                             "quantity": 1, "tier": "fandom",    "type": "pack"},
     {"name": "Fast Break 25-26' Classic Run 5 – 11 Wins Pack",       "quantity": 1, "tier": "common",    "type": "pack"},
-    {"name": "Fast Break 25-26' Classic Run 5 – 7 Wins Pack",        "quantity": 1, "tier": "common",    "type": "pack"},
     {"name": "Fast Break 25-26' Classic Run 5 – 4 Wins Pack",        "quantity": 1, "tier": "common",    "type": "pack"},
     {"name": "Rookie Debut Standard Pack",                            "quantity": 1, "tier": "common",    "type": "pack"},
     {"name": "Collector Series: Grail Chase",                         "quantity": 2, "tier": "common",    "type": "pack"},
