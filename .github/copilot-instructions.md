@@ -6,6 +6,25 @@
 - The project supports both local SQLite and Heroku PostgreSQL (see `db/init.py`, `db/connection.py`, `utils/helpers.py`).
 - Frontend is a React Single Page App under `react-wallet/`, built with Vite and styled with Bootstrap.
 
+## Page Instruction Files Index
+Each UI page has its own instruction file in `.github/instructions/` with a full product spec, API details, and implementation notes.
+
+| Page | Route | Instruction File |
+|---|---|---|
+| Home | `/` | `.github/instructions/home.instructions.md` |
+| Swapfest | `/swapfest` | `.github/instructions/swapfest.instructions.md` |
+| Treasury | `/treasury` | `.github/instructions/treasury.instructions.md` |
+| Vote | `/vote` | `.github/instructions/vote.instructions.md` |
+| Fastbreak | `/fastbreak` | `.github/instructions/fastbreak.instructions.md` |
+| Horse Stats | `/horsestats` | `.github/instructions/horsestats.instructions.md` |
+| TD Watch | `/tdwatch` | `.github/instructions/tdwatch.instructions.md` |
+| Museum | `/museum` | `.github/instructions/museum.instructions.md` |
+| Swap | `/swap` | `.github/instructions/swap.instructions.md` |
+| NFT | `/nft` | `.github/instructions/nft.instructions.md` |
+| Rewards | `/rewards` | `.github/instructions/rewards.instructions.md` |
+| Swap Leaderboard | _(embedded component)_ | `.github/instructions/swap-leaderboard.instructions.md` |
+| Blog | `/blog`, `/blog/*` | `.github/instructions/blog.instructions.md` |
+
 ## Key Components & Data Flow
 - **Application entrypoint (`jokicguess.py`)**
   - Initializes Flask, DB connection (`get_db_connection`, `initialize_database`), and the Discord bot.
@@ -28,12 +47,13 @@
   - `db/connection.py` exposes `get_db()` for Flask request-scoped DB access.
   - `populate_nuggets_schedule.sql` seeds the `nuggets_schedule` table used by TD Watch / bot commands.
 - **Frontend (`react-wallet/`)**
-  - React SPA with pages under `react-wallet/src/pages/`:
-    - `Home.jsx` – tokenomics and treasury overview (fetches `/api/treasury`).
-    - `Swapfest.jsx` – Swapfest leaderboard and event info (fetches `/api/leaderboard`).
-    - `Fastbreak.jsx`, `HorseStats.jsx`, `TDWatch.jsx`, `Treasury.jsx`, `Vote.jsx` etc. for other features.
-  - Uses Bootstrap 5 and custom CSS (`App.css`, `TDWatch.css`) for styling.
+  - React SPA with pages under `react-wallet/src/pages/`. See the **Page Instruction Files Index** above for per-page details.
+  - Uses Bootstrap 5 and custom CSS (`App.css`, `TDWatch.css`, `Swap.css`, `NFT.css`, `Museum.css`, `Rewards.css`, `Blog.css`) for styling.
   - In production, built via Vite into `react-build/`, which Flask serves as static files.
+- **Layout (`react-wallet/src/Layout.jsx`)**
+  - Shared shell wrapping all pages. Renders the top navbar, wallet connect/disconnect button, `$MVP` balance, and footer.
+  - Nav structure: three dropdown groups — **Fandom** (Museum, TD Watch, Blog, Vote), **Exchange** (Swap, Treasury, Horse NFT, Buy $MVP), **Play** (Fastbreak, Rewards).
+  - Subscribes to `fcl.currentUser()` for wallet state; queries Flow blockchain every 30s for user's `$MVP` balance.
 - **Templates (`templates/`)**
   - Jinja2 HTML templates for legacy / server-rendered pages (e.g., `home.html`, `base.html`, `leaderboard.html`).
   - Static assets live under `static/images/` and the React build under `react-build/`.
@@ -62,8 +82,14 @@
 - **Flow blockchain**: Interactions use `flow_py_sdk` and helpers in `utils/helpers.py` and `swapfest.py`.
 - **React asset serving**: All unknown routes fallback to `react-build/index.html` for SPA routing.
 - **Tokenomics and event images**: Use `/images/Tokenomics.svg` and `/images/25-8-15-9-25.png` for visual explanations.
-- **TD Watch – schedule**: Jokic Nuggets schedule and triple-double tracking live in both the DB (`nuggets_schedule`) and front-end (`TDWatch.jsx`) as hardcoded schedules that should be synced from Nikola Jokić's Basketball Reference game log: https://www.basketball-reference.com/players/j/jokicni01/gamelog/2026.
-- **TD Watch – triple-double leaders**: When updating all-time triple-double leaders (names or totals) in `TDWatch.jsx` or related UI, always pull the latest numbers from Basketball Reference: https://www.basketball-reference.com/leaders/trp_dbl_career.html rather than relying on model memory.
+
+## Username Resolution Pipeline
+- **Static map**: `DAPPER_WALLET_USERNAME_MAP` in `utils/helpers.py` — ~65 known Dapper wallet → TopShot username pairs.
+- **Full pipeline** (`get_ts_username_from_flow_wallet`): Parent Flow wallet → `get_linked_child_account()` (Cadence HybridCustody) → Dapper child wallet → static map or `get_username_from_dapper_wallet_flow()` (TopShot GraphQL).
+- **Caching**: Success-only in-memory cache with 24hr TTL (`_username_cache`). Failures are never cached.
+- **gRPC throttling**: `_grpc_lock` with 0.35s delay between Cadence calls to avoid `RESOURCE_EXHAUSTED` errors from Flow access nodes.
+- **ThreadPoolExecutor**: Capped at 3 workers for leaderboard endpoints to limit concurrent gRPC calls.
+- **Connection management**: Both `get_linked_child_account` and `get_linked_parent_account` use `async with flow_client(...) as client:` to prevent channel leaks.
 
 ## Integration Points
 - **Discord**: Bot logic and user mapping in database.
@@ -76,21 +102,6 @@
 - Long-running jobs (e.g., Swapfest loops) are kicked off from the Discord bot `on_ready` event.
 - React assets must be built into `react-build/` for production.
 - Environment variables control DB, Discord bot, and Flow credentials (see `config.py`).
-
-## Museum (3D Gallery – `Museum.jsx`)
-- **Stack**: React Three Fiber (`@react-three/fiber`), drei (`@react-three/drei`), raw THREE.js, nipplejs (mobile joystick).
-- **Scene constants** (top of file): `CW` (corridor width 14), `CH` (corridor height 5.5), `TV_SZ`, `TV_Y`, `TV_GAP`, `EYE_Y`, `SPEED`, `LIGHT_SPACING`, `CARPET_SPACING`, `CARPET_RADIUS`, `MOUNT_RANGE`, `MAX_VIDEOS`.
-- **Component hierarchy**: `Museum` (data + entrance screen) → Canvas containing `Corridor`, `FloorCarpets`, `CameraLights`, `Movement`, `NearbyItems` → `WallTV` / `SeasonBanner`.
-- **Performance rules** (important — do NOT break these):
-  - Environment meshes (`Corridor`, `FloorCarpets`, decorative elements) **must** use `meshBasicMaterial` — no per-pixel lighting cost — except for the floor (`meshStandardMaterial` for specular response).
-  - Emissive fixtures (ceiling lights, WallTV picture lights) use `meshBasicMaterial` — keep them cheap.
-  - Share geometry instances (e.g. `_carpetGeo`, `_medallionGeo`) created once at module scope.
-  - `NearbyItems` culls `WallTV`/`SeasonBanner` by camera distance (`MOUNT_RANGE = 50`). Only nearby items are mounted.
-  - Video textures are capped at `MAX_VIDEOS = 4` simultaneous elements; loaded/disposed by distance.
-  - Canvas uses `frameloop="demand"` with a `RenderLoop` component calling `invalidate()`.
-- **Tone mapping**: ACES Filmic (`THREE.ACESFilmicToneMapping`) for cinematic color response. Ambient light is intentionally low (~0.35) with fog pushed back (30–100) for atmospheric depth.
-- **Textures**: Floor (512²), wall (512²), and ceiling (256²) textures are procedurally generated via `<canvas>` + `CanvasTexture` inside `useMemo`. No image files needed for the base surfaces.
-- **Showcase museum**: Navigate via `/museum?showcaseId=<uuid>`. Fetches from `/api/showcase/<binder_id>` instead of `/api/museum`. Skips wallet/ownership UI.
 
 ## NBA TopShot Data Scraping
 - **Parallel fetching**: Use `concurrent.futures.ThreadPoolExecutor` (max 10 workers) to enrich moments in parallel.
@@ -109,10 +120,35 @@
 - **Test files**: `tests/test_*.py` — one per module. Test fixtures use factory functions (e.g. `_make_binder_moment()`, `_make_rich_moment()`).
 - **Mocking HTTP**: Use `unittest.mock.patch('requests.get')` for TopShot scraping tests; return mock responses with `__NEXT_DATA__` JSON embedded in HTML.
 
+## API Endpoint Summary
+| Endpoint | Method | Used by |
+|---|---|---|
+| `/api/treasury` | GET | Home |
+| `/api/leaderboard` | GET | Swapfest |
+| `/api/treasury/editions` | GET | Treasury |
+| `/api/fastbreak/contests` | GET | Fastbreak |
+| `/api/fastbreak/contest/{id}/prediction-leaderboard` | GET | Fastbreak |
+| `/api/fastbreak/contest/{id}/entries` | POST | Fastbreak |
+| `/api/fastbreak_racing_usernames` | GET | Fastbreak, HorseStats |
+| `/api/fastbreak_racing_stats` | GET | HorseStats |
+| `/api/fastbreak_racing_stats/{username}` | GET | Fastbreak, HorseStats |
+| `/api/has_lineup` | GET | Fastbreak |
+| `/api/museum` | GET | Museum |
+| `/api/showcase/{binder_id}` | GET | Museum |
+| `/api/moment-lookup` | POST | Swap |
+| `/api/treasury/moments` | GET | Swap |
+| `/api/swap/complete` | POST | Swap |
+| `/api/swap/buy` | POST | Swap |
+| `/api/nft/holders` | GET | NFT |
+| `/api/rewards` | GET | Rewards |
+| `/api/swap/leaderboard` | GET | SwapLeaderboard |
+| `/api/blog/comments/{articleId}` | GET | Blog articles |
+| `/api/blog/comments` | POST | Blog articles |
+
 ## References
 - Backend: `jokicguess.py`, `routes/api.py`, `swapfest.py`, `db/init.py`, `db/connection.py`, `utils/helpers.py`, `bot/*.py`
-- Frontend: `react-wallet/src/pages/`, `react-wallet/src/App.jsx`, `react-build/`
-- Museum: `react-wallet/src/pages/Museum.jsx`, `react-wallet/src/pages/Museum.css`
+- Frontend: `react-wallet/src/pages/`, `react-wallet/src/App.jsx`, `react-wallet/src/Layout.jsx`, `react-build/`
+- Per-page specs: `.github/instructions/*.instructions.md`
 - Tests: `tests/test_museum.py`, `tests/test_routes.py`, `tests/conftest.py`
 
 ---
