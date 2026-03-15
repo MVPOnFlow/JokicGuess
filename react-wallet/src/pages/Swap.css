@@ -885,6 +885,26 @@
   font-style: italic;
 }
 
+.swap-lb-footnote .rpt-copy-btn {
+  display: inline-block;
+  margin-left: 0.75rem;
+  padding: 0.25rem 0.65rem;
+  background: transparent;
+  border: 1px solid rgba(253, 185, 39, 0.35);
+  border-radius: 6px;
+  color: #FDB927;
+  font-size: 0.75rem;
+  font-weight: 600;
+  font-style: normal;
+  cursor: pointer;
+  transition: all 0.2s;
+  vertical-align: middle;
+}
+.swap-lb-footnote .rpt-copy-btn:hover {
+  background: rgba(253, 185, 39, 0.1);
+  border-color: #FDB927;
+}
+
 /* ── Cross-page CTA link (hero) ── */
 .swap-cta-link {
   display: inline-block;

@@ -7,6 +7,20 @@ export default function SwapLeaderboard() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [selectedMonth, setSelectedMonth] = useState('');
+  const [copiedLb, setCopiedLb] = useState(false);
+
+  const copyLeaderboardForWheel = () => {
+    if (!data?.leaderboard?.length) return;
+    const lines = data.leaderboard.flatMap(row => {
+      const name = row.topshotUsername || row.address;
+      const pts = row.points || 0;
+      return Array.from({ length: pts }, () => name);
+    });
+    navigator.clipboard.writeText(lines.join('\n')).then(() => {
+      setCopiedLb(true);
+      setTimeout(() => setCopiedLb(false), 2000);
+    });
+  };
 
   const fetchLeaderboard = useCallback((month) => {
     setLoading(true);
@@ -113,7 +127,12 @@ export default function SwapLeaderboard() {
               ))}
             </tbody>
           </table>
-          <p className="swap-lb-footnote">* Ties broken by earliest last swap date</p>
+          <p className="swap-lb-footnote">
+            * Ties broken by earliest last swap date
+            <button className="rpt-copy-btn" onClick={copyLeaderboardForWheel}>
+              {copiedLb ? '✅ Copied!' : '📋 Copy for Wheel of Names'}
+            </button>
+          </p>
         </div>
       )}
     </div>
