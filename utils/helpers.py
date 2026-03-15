@@ -687,12 +687,6 @@ def update_fastbreaks_table():
 
 
 async def get_linked_child_account(address_hex: str):
-    # Create a synchronous Flow client (do NOT await)
-    client = flow_client(
-        host="access.mainnet.nodes.onflow.org",
-        port=9000
-    )
-
     cadence = """
     import HybridCustody from 0xd8a7e05a7ac670c0
     import TopShot from 0x0b2a3299cc857e29
@@ -731,11 +725,15 @@ async def get_linked_child_account(address_hex: str):
     addr = Address.from_hex(address_hex.removeprefix("0x"))
     script = Script(code=cadence, arguments=[addr])
     try:
-        result = await client.execute_script(script)
-        if result.value:
-            return (str(result.value[0]))
-        else:
-            return ""
+        async with flow_client(
+            host="access.mainnet.nodes.onflow.org",
+            port=9000
+        ) as client:
+            result = await client.execute_script(script)
+            if result.value:
+                return (str(result.value[0]))
+            else:
+                return ""
     except Exception as exc:
         print(f"⚠️  get_linked_child_account({address_hex}) failed: {type(exc).__name__}: {exc}")
         return ""
@@ -746,12 +744,6 @@ def has_linked_child_account(address_hex: str):
     return False
 
 async def get_linked_parent_account(address_hex: str):
-    # Create a synchronous Flow client (do NOT await)
-    client = flow_client(
-        host="access.mainnet.nodes.onflow.org",
-        port=9000
-    )
-
     cadence = """
     import HybridCustody from 0xd8a7e05a7ac670c0
 
@@ -781,11 +773,15 @@ async def get_linked_parent_account(address_hex: str):
     addr = Address.from_hex(address_hex.removeprefix("0x"))
     script = Script(code=cadence, arguments=[addr])
     try:
-        result = await client.execute_script(script)
-        for kv_pair in result.value.__dict__['value']:
-            if kv_pair.__dict__['value']:
-                return str(kv_pair.__dict__['key'])
-    except:
+        async with flow_client(
+            host="access.mainnet.nodes.onflow.org",
+            port=9000
+        ) as client:
+            result = await client.execute_script(script)
+            for kv_pair in result.value.__dict__['value']:
+                if kv_pair.__dict__['value']:
+                    return str(kv_pair.__dict__['key'])
+    except Exception:
         return ""
 
 
