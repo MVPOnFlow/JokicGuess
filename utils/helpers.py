@@ -875,13 +875,32 @@ _KNOWN_WALLET_USERNAMES = {
     "0xf853bd09d46e7db6": "PetJokicsHorses",  # Treasury Dapper wallet
 }
 
+# ── Success-only username cache (never caches failures → retries next time) ──
+_username_cache: dict[str, tuple[str, float]] = {}   # flow_addr → (username, expiry)
+_USERNAME_CACHE_TTL = 86400  # 24 hours – parent→child mapping is very stable
+
+# ── gRPC throttle: limit concurrency to avoid Flow RESOURCE_EXHAUSTED ──
+_grpc_lock = threading.Lock()
+_GRPC_DELAY = 0.35  # seconds between successive Cadence calls
+
 
 def get_ts_username_from_flow_wallet(flow_address):
     if flow_address in _KNOWN_WALLET_USERNAMES:
         return _KNOWN_WALLET_USERNAMES[flow_address]
 
+    # Check cache (success entries only)
+    now = time.time()
+    cached = _username_cache.get(flow_address)
+    if cached is not None:
+        value, expiry = cached
+        if now < expiry:
+            return value
+
     try:
-        child_addr = asyncio.run(get_linked_child_account(flow_address))
+        # Throttle gRPC calls to avoid RESOURCE_EXHAUSTED on the Flow access node
+        with _grpc_lock:
+            child_addr = asyncio.run(get_linked_child_account(flow_address))
+            time.sleep(_GRPC_DELAY)
         print(f"🔍 [{flow_address}] child_addr={repr(child_addr)}")
         # Check the static map before hitting the GraphQL API
         username = DAPPER_WALLET_USERNAME_MAP.get(child_addr) if child_addr else None
@@ -891,6 +910,10 @@ def get_ts_username_from_flow_wallet(flow_address):
     except Exception as exc:
         print(f"⚠️  [{flow_address}] username lookup failed: {type(exc).__name__}: {exc}")
         username = None
+
+    # Cache only successful lookups – failures will be retried next request
+    if username:
+        _username_cache[flow_address] = (username, now + _USERNAME_CACHE_TTL)
 
     return username
 
