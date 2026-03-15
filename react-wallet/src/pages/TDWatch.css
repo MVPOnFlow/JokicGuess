@@ -96,6 +96,52 @@
   background-color: #273549;
 }
 
+/* Collapsible month toggle */
+.td-month-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  padding: 0.6rem 1rem;
+  border: none;
+  border-bottom: 1px solid #273549;
+  background: #162233;
+  color: #E5E7EB;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.15s;
+}
+.td-month-toggle:hover {
+  background: #1e3048;
+}
+.td-month-toggle.open {
+  background: #1a2d42;
+}
+.td-month-arrow {
+  color: #FDB927;
+  font-size: 0.85rem;
+  width: 1rem;
+  text-align: center;
+  flex-shrink: 0;
+}
+.td-month-name {
+  flex: 1;
+}
+.td-month-summary {
+  font-size: 0.78rem;
+  color: #9CA3AF;
+  font-weight: 400;
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+.td-month-badge {
+  font-size: 0.7rem !important;
+  vertical-align: middle;
+}
+
 /* Accordion Nuggets theme */
 .td-watch-container .accordion-item {
   background-color: #1C2A3A;

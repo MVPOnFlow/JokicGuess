@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Container, Row, Col, Card, Table, Badge, Alert } from 'react-bootstrap';
 import { Link } from 'react-router-dom';
 import './TDWatch.css';
@@ -8,20 +9,6 @@ function TDWatch() {
     { rank: 1, name: 'Russell Westbrook', count: 207, active: true },
     { rank: 2, name: 'Nikola Jokić', count: 189, active: true, isJokic: true },
     { rank: 3, name: 'Oscar Robertson', count: 181, active: false }
-  ];
-
-  // Hardcoded reward pool (manually update when inventory changes)
-  const rewardPool = [
-    { name: "Collector Series: Grail Chase", amount: 2 },
-    { name: "RARE Run It Back Origins August Pack", amount: 1 },
-    { name: "Rookie Debut: Chance Hit", amount: 3 },
-    { name: "Rookie Debut Standard Pack", amount: 1 },
-    { name: "MVP Horse NFT", amount: 1 },
-    { name: "Pet Your Horse 10 Times", amount: 2 },
-    { name: "Jolly Joker NFT", amount: 1 },
-    { name: "FastBreak 25-26 Classic Run 2 - 4 Win Pack", amount: 1 },
-    { name: "NBA Stars: National Exclusive Chase Pack", amount: 3 },
-    { name: "Holo Icon: Chance Hit", amount: 1 }
   ];
 
   // Hardcoded Nuggets schedule (manually update after games)
@@ -143,6 +130,9 @@ function TDWatch() {
   // Get current month key for default open accordion
   const currentDate = new Date();
   const currentMonthKey = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}`;
+
+  const [expandedMonths, setExpandedMonths] = useState({ [currentMonthKey]: true });
+  const toggleMonth = (key) => setExpandedMonths(prev => ({ ...prev, [key]: !prev[key] }));
 
   const formatGameDate = (timestamp) => {
     const date = new Date(timestamp * 1000);
@@ -271,46 +261,68 @@ function TDWatch() {
               <h5 className="mb-0 text-white">Nuggets Schedule & TD Tracker</h5>
             </Card.Header>
             <Card.Body className="p-0">
-              <Table responsive hover className="mb-0 td-schedule-table">
-                <thead>
-                  <tr>
-                    <th>Date (MT)</th>
-                    <th>Opponent</th>
-                    <th className="text-center">Triple-Double?</th>
-                    <th className="text-center">Stats</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {allGames.map((game, idx) => (
-                    <tr key={idx} className={game.tripleDouble ? 'table-success' : ''}>
-                      <td className="small fw-semibold">
-                        {formatGameDate(game.timestamp)}
-                      </td>
-                      <td className="small">
-                        {game.isHome ? 'vs' : '@'} {game.opponent}
-                      </td>
-                      <td className="text-center">
-                        {game.played ? (
-                          game.tripleDouble ? (
-                            <Badge bg="success" pill>✓ TD</Badge>
-                          ) : (
-                            <Badge bg="secondary" pill>-</Badge>
-                          )
-                        ) : (
-                          <Badge bg="light" text="dark" pill>-</Badge>
-                        )}
-                      </td>
-                      <td className="text-center small text-muted">
-                        {game.stats ? (
-                          <>{game.stats.points}p / {game.stats.rebounds}r / {game.stats.assists}a</>
-                        ) : (
-                          '-'
-                        )}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </Table>
+              {Object.entries(gamesByMonth).map(([monthKey, { name, games }]) => {
+                const isOpen = !!expandedMonths[monthKey];
+                const tds = games.filter(g => g.tripleDouble).length;
+                const played = games.filter(g => g.played).length;
+                return (
+                  <div key={monthKey}>
+                    <button
+                      type="button"
+                      className={`td-month-toggle${isOpen ? ' open' : ''}`}
+                      onClick={() => toggleMonth(monthKey)}
+                    >
+                      <span className="td-month-arrow">{isOpen ? '▾' : '▸'}</span>
+                      <span className="td-month-name">{name}</span>
+                      <span className="td-month-summary">
+                        {played} game{played !== 1 ? 's' : ''}{tds > 0 && <>{' · '}<Badge bg="success" pill className="td-month-badge">{tds} TD</Badge></>}
+                      </span>
+                    </button>
+                    {isOpen && (
+                      <Table responsive hover className="mb-0 td-schedule-table">
+                        <thead>
+                          <tr>
+                            <th>Date (MT)</th>
+                            <th>Opponent</th>
+                            <th className="text-center">Triple-Double?</th>
+                            <th className="text-center">Stats</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {games.map((game, idx) => (
+                            <tr key={idx} className={game.tripleDouble ? 'table-success' : ''}>
+                              <td className="small fw-semibold">
+                                {formatGameDate(game.timestamp)}
+                              </td>
+                              <td className="small">
+                                {game.isHome ? 'vs' : '@'} {game.opponent}
+                              </td>
+                              <td className="text-center">
+                                {game.played ? (
+                                  game.tripleDouble ? (
+                                    <Badge bg="success" pill>✓ TD</Badge>
+                                  ) : (
+                                    <Badge bg="secondary" pill>-</Badge>
+                                  )
+                                ) : (
+                                  <Badge bg="light" text="dark" pill>-</Badge>
+                                )}
+                              </td>
+                              <td className="text-center small text-muted">
+                                {game.stats ? (
+                                  <>{game.stats.points}p / {game.stats.rebounds}r / {game.stats.assists}a</>
+                                ) : (
+                                  '-'
+                                )}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </Table>
+                    )}
+                  </div>
+                );
+              })}
             </Card.Body>
           </Card>
         </Col>
