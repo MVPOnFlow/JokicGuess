@@ -1429,12 +1429,12 @@ def register_routes(app):
 
         cur.execute(prepare_query('''
             SELECT user_addr, SUM(mvp_amount) as total_mvp, COUNT(*) as swap_count,
-                   SUM(points) as total_points
+                   SUM(points) as total_points, MAX(completed_at) as last_swap_at
             FROM completed_swaps
             WHERE completed_at >= ? AND completed_at < ?
               AND mvp_amount > 0
             GROUP BY user_addr
-            ORDER BY total_points DESC
+            ORDER BY total_points DESC, last_swap_at ASC
         '''), (start_ts, end_ts))
         rows = cur.fetchall()
 
@@ -1466,13 +1466,14 @@ def register_routes(app):
 
         leaderboard = []
         for rank, row in enumerate(rows, 1):
-            addr, total_mvp, swap_count, total_points = row
+            addr, total_mvp, swap_count, total_points, last_swap_at = row
             entry = {
                 'rank': rank,
                 'address': addr,
                 'totalMvp': total_mvp,
                 'swapCount': swap_count,
                 'points': total_points or 0,
+                'lastSwapAt': last_swap_at,
             }
             if addr in username_map:
                 entry['topshotUsername'] = username_map[addr]

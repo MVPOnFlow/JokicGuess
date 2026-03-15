@@ -871,6 +871,20 @@
   font-weight: 700;
 }
 
+.swap-lb-last-swap {
+  color: #6B7280;
+  font-size: 0.8rem;
+  white-space: nowrap;
+}
+
+.swap-lb-footnote {
+  color: #6B7280;
+  font-size: 0.72rem;
+  text-align: right;
+  margin: 0.5rem 0.25rem 0 0;
+  font-style: italic;
+}
+
 /* ── Cross-page CTA link (hero) ── */
 .swap-cta-link {
   display: inline-block;

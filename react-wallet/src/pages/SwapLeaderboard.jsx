@@ -36,6 +36,12 @@ export default function SwapLeaderboard() {
 
   const shortAddr = (addr) => addr ? `${addr.slice(0, 6)}…${addr.slice(-4)}` : '';
 
+  const formatLastSwap = (epoch) => {
+    if (!epoch) return '';
+    const d = new Date(epoch * 1000);
+    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  };
+
   return (
     <div className="swap-leaderboard-card">
       <div className="swap-lb-header">
@@ -67,6 +73,7 @@ export default function SwapLeaderboard() {
                 <th>Swaps</th>
                 <th>$MVP Earned</th>
                 <th>⭐ Points</th>
+                <th>Last Swap</th>
               </tr>
             </thead>
             <tbody>
@@ -100,10 +107,12 @@ export default function SwapLeaderboard() {
                   <td>{row.swapCount}</td>
                   <td className="swap-lb-mvp">{row.totalMvp.toLocaleString(undefined, { maximumFractionDigits: 1 })}</td>
                   <td className="swap-lb-raffle">{(row.points || 0).toLocaleString()}</td>
+                  <td className="swap-lb-last-swap">{formatLastSwap(row.lastSwapAt)}</td>
                 </tr>
               ))}
             </tbody>
           </table>
+          <p className="swap-lb-footnote">* Ties broken by earliest last swap date</p>
         </div>
       )}
     </div>
