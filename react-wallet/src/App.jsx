@@ -33,6 +33,7 @@ function App() {
           <Route path="museum" element={<Museum />} />
           <Route path="swap" element={<Swap />} />
           <Route path="nft" element={<NFT />} />
+          <Route path="pettingzoo" element={<NFT />} />
           <Route path="rewards" element={<Rewards />} />
           <Route path="blog" element={<BlogList />} />
           <Route path="blog/okc-game-feb-01-2026" element={<OKCGameFeb012026 />} />

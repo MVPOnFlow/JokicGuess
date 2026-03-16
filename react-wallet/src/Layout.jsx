@@ -96,7 +96,7 @@ export default function Layout() {
               <NavDropdown title="💱 Exchange" className="nav-dropdown-themed">
                 <NavDropdown.Item as={NavLink} to="/swap">🔄 Swap</NavDropdown.Item>
                 <NavDropdown.Item as={NavLink} to="/treasury">🏦 Treasury</NavDropdown.Item>
-                <NavDropdown.Item as={NavLink} to="/nft">🐎 Horse NFT</NavDropdown.Item>
+                <NavDropdown.Item as={NavLink} to="/rewards">🎁 Rewards</NavDropdown.Item>
                 <NavDropdown.Item
                   href="https://app.increment.fi/swap?in=A.1654653399040a61.FlowToken&out=A.6fd2465f3a22e34c.PetJokicsHorses"
                   target="_blank"
@@ -106,7 +106,7 @@ export default function Layout() {
 
               <NavDropdown title="🎮 Play" className="nav-dropdown-themed">
                 <NavDropdown.Item as={NavLink} to="/fastbreak">⚡ Fastbreak</NavDropdown.Item>
-                <NavDropdown.Item as={NavLink} to="/rewards">🎁 Rewards</NavDropdown.Item>
+                <NavDropdown.Item as={NavLink} to="/pettingzoo">🐎 Petting Zoo</NavDropdown.Item>
               </NavDropdown>
             </Nav>
 
