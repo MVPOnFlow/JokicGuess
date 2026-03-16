@@ -11,6 +11,8 @@ const PATH_ID        = `${CONTRACT_NAME}_aad9f8fa31ecbaf9`;
 const IPFS_GATEWAY   = 'https://ipfs.io/ipfs/';
 const FLOWTY_COLLECTION_URL =
   `https://www.flowty.io/collection/${CONTRACT_ADDR}/${CONTRACT_NAME}`;
+const FLOWTY_BUY_URL =
+  'https://www.flowty.io/collection/0xaad9f8fa31ecbaf9/Swapboost30MVP?sort=%7B%22direction%22%3A%22asc%22%2C%22listingKind%22%3A%22storefront%22%2C%22path%22%3A%22usdValue%22%7D';
 
 /* Horse names – mirrors config.py HORSE_NAMES */
 const HORSE_NAMES = {
@@ -308,6 +310,9 @@ export default function NFT() {
         <div className="nft-hero">
           <h1>🐎 Jokic's Horse Stable</h1>
           <p>Send a horse back to the treasury during a swap for a one-time <strong>20% $MVP boost</strong></p>
+          <a href={FLOWTY_BUY_URL} target="_blank" rel="noopener noreferrer" className="nft-btn nft-btn-primary mt-2">
+            🛒 Buy a Horse
+          </a>
         </div>
         <div className="nft-connect-prompt">
           <h3>Connect Your Wallet</h3>
@@ -326,6 +331,9 @@ export default function NFT() {
       <div className="nft-hero">
         <h1>🐎 Jokic's Horse Stable</h1>
         <p>Send a horse back to the treasury during a swap for a one-time <strong>20% $MVP boost</strong></p>
+        <a href={FLOWTY_BUY_URL} target="_blank" rel="noopener noreferrer" className="nft-btn nft-btn-primary mt-2">
+          🛒 Buy a Horse
+        </a>
       </div>
 
       {/* Toggle + Status */}
