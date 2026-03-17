@@ -1502,10 +1502,10 @@ def register_routes(app):
         if _nft_holders_cache["data"] and now - _nft_holders_cache["ts"] < 300:
             return jsonify(_nft_holders_cache["data"])
 
-        from utils.helpers import WALLET_USERNAME_MAP
+        from utils.helpers import DAPPER_WALLET_USERNAME_MAP
 
-        dapper_children = list(WALLET_USERNAME_MAP.keys())
-        child_to_username = {k.lower(): v for k, v in WALLET_USERNAME_MAP.items()}
+        dapper_children = list(DAPPER_WALLET_USERNAME_MAP.keys())
+        child_to_username = {k.lower(): v for k, v in DAPPER_WALLET_USERNAME_MAP.items()}
 
         cadence = r"""
 import NonFungibleToken from 0x1d7e57aa55817448
