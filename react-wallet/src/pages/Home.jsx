@@ -1,218 +1,120 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 
-export default function Home() {
-  const [treasury, setTreasury] = useState(null);
+const FEATURES = [
+  { emoji: '🏛️', title: 'Museum',       desc: 'Browse every Jokic moment on the platform',                to: '/museum' },
+  { emoji: '🎁', title: 'Swap Rewards', desc: 'Swap $MVP and moments and earn community rewards',         to: '/rewards' },
+  { emoji: '📊', title: 'TD Watch',     desc: "Track Jokic's triple-double pace all season",              to: '/tdwatch' },
+  { emoji: '🗳️', title: 'Vote',         desc: 'Weigh in on community decisions',                          to: '/vote' },
+  { emoji: '📝', title: 'Blog',         desc: 'Fan stories and project updates',                          to: '/blog' },
+  { emoji: '🏇', title: 'Fastbreak',    desc: 'Predict fastbreak winners and earn prizes',                to: '/fastbreak' },
+];
 
-  useEffect(() => {
-    fetch('https://mvponflow.cc/api/treasury')
-      .then(res => res.json())
-      .then(data => setTreasury(data));
-  }, []);
+export default function Home() {
+  const [chartOpen, setChartOpen] = useState(false);
+
   return (
     <>
-      <div className="hero">
-        <h1 style={{ color: '#FDB927' }}>🏀 MVP on Flow - Pet Jokic's Horses 🐎</h1>
-        <p>
-          MVP on Flow, also known as <strong>Pet Jokic's horses</strong>, is a <strong>fan-powered project</strong> celebrating Nikola Jokic and his NBA TopShot moments on the Flow blockchain.
+      {/* ── Hero ── */}
+      <div className="hero hero-home">
+        <img src="/images/Logo.jpg" alt="MVP on Flow" className="hero-logo" />
+        <h1 style={{ color: '#FDB927' }}>The Jokic Fan Economy on Flow</h1>
+        <p className="hero-subtitle">
+          Collect, swap, and earn <strong>$MVP</strong> tokens backed by Nikola Jokic's NBA TopShot moments.
         </p>
-        <p>
-          Join our Discord community for Jokic-themed fun, prediction contests, raffles, giveaways, and more!
-        </p>
-        <p>
-          Earn and use <strong>$MVP</strong> tokens in community games, swap them for Jokic moments, trade them on Flow exchanges or stake them to earn rewards. Whether you're a collector or a fan, there's something for everyone.
-        </p>
-        <div className="d-flex gap-3 justify-content-center flex-wrap">
+        <div className="d-flex gap-3 justify-content-center flex-wrap mt-3">
+          <Link to="/museum" className="btn btn-swap">🏛️ Explore the Museum</Link>
+          <Link to="/swap" className="btn btn-swap">🔄 Start Swapping</Link>
           <a
             href="https://discord.gg/3p3ff9PHqW"
             target="_blank"
             rel="noopener noreferrer"
             className="btn btn-discord"
           >
-            <i className="bi bi-discord"></i> Join Our Discord
+            <i className="bi bi-discord"></i> Join Discord
           </a>
-          <Link to="/swap" className="btn btn-swap">
-            🔄 Swap Moments
-          </Link>
         </div>
       </div>
 
-      {/* ── Tokenomics ── */}
+      {/* ── How It Works ── */}
       <div className="card shadow mb-4">
         <div className="card-body">
-          <h2 className="card-title text-center mb-3">💰 $MVP Tokenomics</h2>
-          <p className="card-text text-center mb-4">
-            Earn, trade and redeem <strong>$MVP</strong> tokens in the Jokic fan economy
-          </p>
-
-          {/* Exchange rates */}
-          <h5 className="text-center mb-3" style={{ color: '#FDB927' }}>
-            $MVP → Moment (Redeem)
-          </h5>
-          <div className="row g-3 mb-3">
+          <h2 className="card-title text-center mb-4">How It Works</h2>
+          <div className="row g-4 text-center">
             {[
-              { tier: 'Common',   emoji: '🟢', rate: 2,    color: '#4ade80' },
-              { tier: 'Rare',     emoji: '🔵', rate: 100,  color: '#60a5fa' },
-              { tier: 'TSD',      emoji: '🟣', rate: 500,  color: '#c084fc' },
-              { tier: 'Legendary',emoji: '🟡', rate: 2000, color: '#fbbf24' },
-            ].map(t => (
-              <div className="col-6 col-md-3" key={t.tier}>
-                <div className="text-center p-3 rounded" style={{
-                  background: 'rgba(255,255,255,0.04)',
-                  border: `1px solid ${t.color}40`,
-                }}>
-                  <div style={{ fontSize: '1.8rem' }}>{t.emoji}</div>
-                  <div className="fw-bold mt-1" style={{ color: t.color }}>{t.tier}</div>
-                  <div className="mt-1" style={{ fontSize: '1.4rem', fontWeight: 700, color: '#FDB927' }}>
-                    {t.rate.toLocaleString()} $MVP
-                  </div>
-                </div>
+              { step: '1', emoji: '🏛️', title: 'Collect',  text: 'Browse & collect Jokic TopShot moments in the Museum', to: '/museum' },
+              { step: '2', emoji: '🐎', title: 'Earn',     text: "Pet Jokic's horses, win contests & earn $MVP tokens",  to: '/fastbreak' },
+              { step: '3', emoji: '🔄', title: 'Swap',     text: 'Redeem $MVP for moments or trade on Flow DEXs',        to: '/swap' },
+            ].map(s => (
+              <div className="col-md-4" key={s.step}>
+                <Link to={s.to} className="hiw-card">
+                  <div className="hiw-step">{s.step}</div>
+                  <div className="hiw-emoji">{s.emoji}</div>
+                  <h5 className="hiw-title">{s.title}</h5>
+                  <p className="hiw-text">{s.text}</p>
+                </Link>
               </div>
             ))}
           </div>
+        </div>
+      </div>
 
-          <h5 className="text-center mb-3" style={{ color: '#4ade80' }}>
-            Moment → $MVP (Sell to Treasury – 75%)
-          </h5>
-          <div className="row g-3 mb-4">
-            {[
-              { tier: 'Common',   emoji: '🟢', rate: 1.5,  color: '#4ade80' },
-              { tier: 'Rare',     emoji: '🔵', rate: 75,   color: '#60a5fa' },
-              { tier: 'TSD',      emoji: '🟣', rate: 375,  color: '#c084fc' },
-              { tier: 'Legendary',emoji: '🟡', rate: 1500, color: '#fbbf24' },
-            ].map(t => (
-              <div className="col-6 col-md-3" key={t.tier}>
-                <div className="text-center p-3 rounded" style={{
-                  background: 'rgba(255,255,255,0.04)',
-                  border: `1px solid ${t.color}40`,
-                }}>
-                  <div style={{ fontSize: '1.8rem' }}>{t.emoji}</div>
-                  <div className="fw-bold mt-1" style={{ color: t.color }}>{t.tier}</div>
-                  <div className="mt-1" style={{ fontSize: '1.4rem', fontWeight: 700, color: '#4ade80' }}>
-                    {t.rate.toLocaleString()} $MVP
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-
-          {/* Earn & Spend */}
+      {/* ── Feature Grid ── */}
+      <div className="card shadow mb-4">
+        <div className="card-body">
+          <h2 className="card-title text-center mb-4">Explore</h2>
           <div className="row g-3">
-            <div className="col-md-6">
-              <div className="p-3 rounded h-100" style={{
-                background: 'rgba(74,222,128,0.06)',
-                border: '1px solid rgba(74,222,128,0.25)',
-              }}>
-                <h6 className="fw-bold mb-2" style={{ color: '#4ade80' }}>
-                  📥 Earn $MVP
-                </h6>
-                <ul className="mb-0 ps-3" style={{ color: '#CBD5E1', lineHeight: 1.8 }}>
-                  <li>Pet Jokic's horses 🐎</li>
-                  <li>Prediction contests &amp; raffles</li>
-                  <li>Swap Jokic moments to treasury</li>
-                  <li>Community giveaways</li>
-                </ul>
+            {FEATURES.map(f => (
+              <div className="col-6 col-md-4" key={f.to}>
+                <Link to={f.to} className="feature-card">
+                  <span className="feature-emoji">{f.emoji}</span>
+                  <strong className="feature-title">{f.title}</strong>
+                  <span className="feature-desc">{f.desc}</span>
+                </Link>
               </div>
-            </div>
-            <div className="col-md-6">
-              <div className="p-3 rounded h-100" style={{
-                background: 'rgba(251,191,36,0.06)',
-                border: '1px solid rgba(251,191,36,0.25)',
-              }}>
-                <h6 className="fw-bold mb-2" style={{ color: '#fbbf24' }}>
-                  📤 Use $MVP
-                </h6>
-                <ul className="mb-0 ps-3" style={{ color: '#CBD5E1', lineHeight: 1.8 }}>
-                  <li>Redeem for Jokic TopShot moments</li>
-                  <li>Trade on Flow DEXs (KittyPunch)</li>
-                  <li>Enter exclusive contests</li>
-                  <li>Stake for community rewards</li>
-                </ul>
-              </div>
-            </div>
+            ))}
           </div>
         </div>
       </div>
 
-      {treasury && (
-        <div className="card shadow mb-4">
-          <div className="card-body">
-            <h2 className="mb-3 text-center">🏦 $MVP Treasury Overview</h2>
-            <p className="text-center mb-2">
-              See the current state of the treasury and the $MVP token economy.
-            </p>
-            <p className="text-center mb-4">
-              Last Updated: {treasury.last_updated}
-            </p>
-
-            <div className="row">
-              <div className="col-md-6 mb-3">
-                <div className="card treasury-card h-100">
-                  <div className="card-body">
-                    <h5 className="fw-bold mb-3">🔢 Tokens in the Wild</h5>
-                    <p className="display-6">{treasury.tokens_in_wild}</p>
-                    <p>
-                      Total $MVP tokens released into circulation, not owned by the treasury.
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="col-md-6 mb-3">
-                <div className="card treasury-card h-100">
-                  <div className="card-body">
-                    <h5 className="fw-bold mb-3">📦 Treasury Holdings</h5>
-                    <ul className="list-group list-group-flush">
-                      <li className="list-group-item">Common Moments: <strong>{treasury.common_count}</strong></li>
-                      <li className="list-group-item">Rare Moments: <strong>{treasury.rare_count}</strong></li>
-                      <li className="list-group-item">Top Shot Debut: <strong>{treasury.tsd_count}</strong></li>
-                      <li className="list-group-item">Legendary Moments: <strong>{treasury.lego_count}</strong></li>
-                    </ul>
-                  </div>
-                </div>
-              </div>
-
-              <div className="col-md-6 mb-3">
-                <div className="card treasury-card h-100">
-                  <div className="card-body">
-                    <h5 className="fw-bold mb-3">💰 Backed Supply</h5>
-                    <p className="display-6">{treasury.backed_supply}</p>
-                    <p>
-                      Calculated as:<br />
-                      2x Common + 100x Rare + 500x TSD + 2000x Legendary
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="col-md-6 mb-3">
-                <div className="card treasury-card h-100">
-                  <div className="card-body">
-                    <h5 className="fw-bold mb-3">✨ Treasury Surplus</h5>
-                    <p className="display-6">{treasury.surplus}</p>
-                    <p>
-                      Backed Supply minus Tokens in the Wild.
-                    </p>
-                  </div>
-                </div>
-              </div>
+      {/* ── $MVP Chart (collapsed) ── */}
+      <div className="card shadow mb-4">
+        <div
+          className="card-body py-3 d-flex align-items-center justify-content-between"
+          style={{ cursor: 'pointer' }}
+          onClick={() => setChartOpen(o => !o)}
+        >
+          <h2 className="card-title mb-0" style={{ borderBottom: 'none', paddingBottom: 0 }}>
+            📊 $MVP Token Chart
+          </h2>
+          <span style={{ fontSize: '1.4rem', color: '#FDB927' }}>{chartOpen ? '▲' : '▼'}</span>
+        </div>
+        {chartOpen && (
+          <div className="card-body pt-0">
+            <style dangerouslySetInnerHTML={{__html: `
+              #dexscreener-embed{position:relative;width:100%;padding-bottom:125%;}
+              @media(min-width:1400px){#dexscreener-embed{padding-bottom:65%;}}
+              #dexscreener-embed iframe{position:absolute;width:100%;height:100%;top:0;left:0;border:0;}
+            `}} />
+            <div id="dexscreener-embed">
+              <iframe src="https://dexscreener.com/flowevm/0xa4BaC0A22b689565ddA7C9d5320333ac63531971?embed=1&loadChartSettings=0&chartLeftToolbar=0&chartDefaultOnMobile=1&chartTheme=dark&theme=dark&chartStyle=0&chartType=usd&interval=15"></iframe>
             </div>
           </div>
-        </div>
-      )}
+        )}
+      </div>
 
-      <div className="card shadow mb-4">
-        <div className="card-body">
-          <h2 className="card-title text-center mb-3">📊 $MVP Token Chart on Flow EVM</h2>
-          <style dangerouslySetInnerHTML={{__html: `
-            #dexscreener-embed{position:relative;width:100%;padding-bottom:125%;}
-            @media(min-width:1400px){#dexscreener-embed{padding-bottom:65%;}}
-            #dexscreener-embed iframe{position:absolute;width:100%;height:100%;top:0;left:0;border:0;}
-          `}} />
-          <div id="dexscreener-embed">
-            <iframe src="https://dexscreener.com/flowevm/0xa4BaC0A22b689565ddA7C9d5320333ac63531971?embed=1&loadChartSettings=0&chartLeftToolbar=0&chartDefaultOnMobile=1&chartTheme=dark&theme=dark&chartStyle=0&chartType=usd&interval=15"></iframe>
-          </div>
-        </div>
+      {/* ── Discord CTA Banner ── */}
+      <div className="discord-banner">
+        <h3>🏀 Join the Jokic Fan Community</h3>
+        <p>Prediction contests, moment giveaways, and daily Jokic talk.</p>
+        <a
+          href="https://discord.gg/3p3ff9PHqW"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="btn btn-discord btn-lg"
+        >
+          <i className="bi bi-discord"></i> Join Our Discord
+        </a>
       </div>
     </>
   );
