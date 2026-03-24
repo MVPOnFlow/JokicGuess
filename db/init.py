@@ -299,7 +299,7 @@ def initialize_database(conn, db_type):
         ))
         conn.commit()
     except Exception:
-        pass  # column already exists
+        conn.rollback()  # PostgreSQL requires rollback after failed statement
 
     # ── Fastbreak Bracket tables ──
     serial_pk = 'INTEGER PRIMARY KEY AUTOINCREMENT' if db_type == 'sqlite' else 'SERIAL PRIMARY KEY'
@@ -374,7 +374,7 @@ def initialize_database(conn, db_type):
         ))
         conn.commit()
     except Exception:
-        pass  # column already exists
+        conn.rollback()  # PostgreSQL requires rollback after failed statement
 
     # ── One-time seed: populate jokic_editions if empty ──
     try:
