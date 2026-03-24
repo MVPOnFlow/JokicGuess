@@ -145,12 +145,19 @@ Each UI page has its own instruction file in `.github/instructions/` with a full
 | `/api/swap/leaderboard` | GET | SwapLeaderboard |
 | `/api/blog/comments/{articleId}` | GET | Blog articles |
 | `/api/blog/comments` | POST | Blog articles |
+| `/api/bracket/tournaments` | GET | Fastbreak Bracket |
+| `/api/bracket/tournaments` | POST | Fastbreak Bracket (admin create) |
+| `/api/bracket/tournament/{id}` | GET | Fastbreak Bracket |
+| `/api/bracket/tournament/{id}/signup` | POST | Fastbreak Bracket |
+| `/api/bracket/tournament/{id}/generate` | POST | Fastbreak Bracket (admin) |
+| `/api/bracket/tournament/{id}/advance` | POST | Fastbreak Bracket (admin) |
+| `/api/bracket/check-wallet` | GET | Fastbreak Bracket |
 
 ## References
-- Backend: `jokicguess.py`, `routes/api.py`, `swapfest.py`, `db/init.py`, `db/connection.py`, `utils/helpers.py`, `bot/*.py`
+- Backend: `jokicguess.py`, `routes/api.py`, `swapfest.py`, `db/init.py`, `db/connection.py`, `utils/helpers.py`, `bot/*.py`, `bot/bracket_poller.py`
 - Frontend: `react-wallet/src/pages/`, `react-wallet/src/App.jsx`, `react-wallet/src/Layout.jsx`, `react-build/`
 - Per-page specs: `.github/instructions/*.instructions.md`
-- Tests: `tests/test_museum.py`, `tests/test_routes.py`, `tests/conftest.py`
+- Tests: `tests/test_museum.py`, `tests/test_routes.py`, `tests/test_bracket.py`, `tests/conftest.py`
 
 ---
 _If any section is unclear or missing, please provide feedback to improve these instructions._
