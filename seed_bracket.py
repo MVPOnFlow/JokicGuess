@@ -155,7 +155,7 @@ PLAYERS = [
 ]
 
 close_ts_active = 1742860800  # already past — signup closed
-t2 = ins_tournament(2, 'Fastbreak Bracket #0 — Preseason Cup', 3, '$MVP', close_ts_active, 'ACTIVE', 3)
+t2 = ins_tournament(2, 'Fastbreak Bracket #0 — Preseason Cup', 3, '$MVP', close_ts_active, 'ACTIVE', 4)
 print(f'[T{t2}] Active tournament created')
 
 w = {p[1]: p[0] for p in PLAYERS}  # username → wallet
@@ -227,14 +227,16 @@ for p1_name, p2_name in ROUND2_PAIRINGS:
     r2_results.append((p1_name, p2_name, s1, s2, winner_name, rk1, rk2, ln1, ln2))
     print(f'  {p1_name:18s} {s1 or "-":>5}  vs  {s2 or "-":<5} {p2_name:18s} → {winner_name}')
 
-# Round 3 (semifinals) — one COMPLETE matchup, one PENDING
+# Round 3 (semifinals) — both use the same fastbreak day
 r2_winners = [r[4] for r in r2_results]
-SEMI_COMPLETE = (r2_winners[0], r2_winners[1])
-SEMI_PENDING = (r2_winners[2], r2_winners[3])
+SEMI1 = (r2_winners[0], r2_winners[1])
+SEMI2 = (r2_winners[2], r2_winners[3])
 
-print(f'\nFetching Semifinal 1 scores from {fb_round3[1][:10]}...')
-d1 = fetch_score(SEMI_COMPLETE[0], fb_round3[0])
-d2 = fetch_score(SEMI_COMPLETE[1], fb_round3[0])
+print(f'\nFetching Semifinal scores from {fb_round3[1][:10]}...')
+
+# Semifinal 1
+d1 = fetch_score(SEMI1[0], fb_round3[0])
+d2 = fetch_score(SEMI1[1], fb_round3[0])
 s1 = d1.get('points')
 s2 = d2.get('points')
 semi1_rk1 = d1.get('rank')
@@ -242,24 +244,43 @@ semi1_rk2 = d2.get('rank')
 semi1_ln1 = d1.get('players')
 semi1_ln2 = d2.get('players')
 if s1 is not None and s2 is not None:
-    semi1_winner = SEMI_COMPLETE[0] if s1 >= s2 else SEMI_COMPLETE[1]
+    semi1_winner = SEMI1[0] if s1 >= s2 else SEMI1[1]
 elif s1 is not None:
-    semi1_winner = SEMI_COMPLETE[0]
+    semi1_winner = SEMI1[0]
 elif s2 is not None:
-    semi1_winner = SEMI_COMPLETE[1]
+    semi1_winner = SEMI1[1]
 else:
-    semi1_winner = SEMI_COMPLETE[0]
-print(f'  {SEMI_COMPLETE[0]:18s} {s1 or "-":>5}  vs  {s2 or "-":<5} {SEMI_COMPLETE[1]:18s} → {semi1_winner}')
+    semi1_winner = SEMI1[0]
+print(f'  {SEMI1[0]:18s} {s1 or "-":>5}  vs  {s2 or "-":<5} {SEMI1[1]:18s} → {semi1_winner}')
 semi1_scores = (s1, s2)
+semi1_loser = SEMI1[0] if semi1_winner != SEMI1[0] else SEMI1[1]
 
-print(f'  {SEMI_PENDING[0]:18s}   -    vs    -   {SEMI_PENDING[1]:18s} → PENDING')
+# Semifinal 2
+d1 = fetch_score(SEMI2[0], fb_round3[0])
+d2 = fetch_score(SEMI2[1], fb_round3[0])
+s1 = d1.get('points')
+s2 = d2.get('points')
+semi2_rk1 = d1.get('rank')
+semi2_rk2 = d2.get('rank')
+semi2_ln1 = d1.get('players')
+semi2_ln2 = d2.get('players')
+if s1 is not None and s2 is not None:
+    semi2_winner = SEMI2[0] if s1 >= s2 else SEMI2[1]
+elif s1 is not None:
+    semi2_winner = SEMI2[0]
+elif s2 is not None:
+    semi2_winner = SEMI2[1]
+else:
+    semi2_winner = SEMI2[0]
+print(f'  {SEMI2[0]:18s} {s1 or "-":>5}  vs  {s2 or "-":<5} {SEMI2[1]:18s} → {semi2_winner}')
+semi2_scores = (s1, s2)
+semi2_loser = SEMI2[0] if semi2_winner != SEMI2[0] else SEMI2[1]
 
 
 # ── Determine elimination rounds ────────────────────────────────────
 all_usernames = {p[1] for p in PLAYERS}
 r1_losers = {(r[0] if r[4] != r[0] else r[1]) for r in r1_results}
 r2_losers = {(r[0] if r[4] != r[0] else r[1]) for r in r2_results}
-semi1_loser = SEMI_COMPLETE[0] if semi1_winner != SEMI_COMPLETE[0] else SEMI_COMPLETE[1]
 
 elim = {}
 for u in r1_losers:
@@ -267,6 +288,7 @@ for u in r1_losers:
 for u in r2_losers:
     elim[u] = 2
 elim[semi1_loser] = 3
+elim[semi2_loser] = 3
 
 
 # ── Insert participants ──────────────────────────────────────────────
@@ -295,21 +317,24 @@ for idx, (p1, p2, s1, s2, win, rk1, rk2, ln1, ln2) in enumerate(r2_results):
 
 # Round 3 — Semifinal 1 (COMPLETE)
 ins_matchup(mid, t2, 3, 0,
-            w[SEMI_COMPLETE[0]], w[SEMI_COMPLETE[1]],
+            w[SEMI1[0]], w[SEMI1[1]],
             semi1_scores[0], semi1_scores[1],
             w[semi1_winner], fb_round3[0], 'COMPLETE',
             r1=semi1_rk1, r2=semi1_rk2, l1=semi1_ln1, l2=semi1_ln2)
 mid += 1
 
-# Round 3 — Semifinal 2 (PENDING — today's fastbreak)
+# Round 3 — Semifinal 2 (COMPLETE)
 ins_matchup(mid, t2, 3, 1,
-            w[SEMI_PENDING[0]], w[SEMI_PENDING[1]],
-            None, None, None, fb_round3[0], 'PENDING')
+            w[SEMI2[0]], w[SEMI2[1]],
+            semi2_scores[0], semi2_scores[1],
+            w[semi2_winner], fb_round3[0], 'COMPLETE',
+            r1=semi2_rk1, r2=semi2_rk2, l1=semi2_ln1, l2=semi2_ln2)
 mid += 1
 
-# Round 4 — Finals (PENDING, only 1 finalist known)
+# Round 4 — Finals (PENDING, both finalists known)
 ins_matchup(mid, t2, 4, 0,
-            w[semi1_winner], None, None, None, None, None, 'PENDING')
+            w[semi1_winner], w[semi2_winner],
+            None, None, None, None, 'PENDING')
 mid += 1
 
 conn.commit()
