@@ -302,9 +302,10 @@ def initialize_database(conn, db_type):
         pass  # column already exists
 
     # ── Fastbreak Bracket tables ──
-    cursor.execute(prepare_query('''
+    serial_pk = 'INTEGER PRIMARY KEY AUTOINCREMENT' if db_type == 'sqlite' else 'SERIAL PRIMARY KEY'
+    cursor.execute(prepare_query(f'''
         CREATE TABLE IF NOT EXISTS bracket_tournaments (
-            id SERIAL PRIMARY KEY,
+            id {serial_pk},
             name TEXT NOT NULL,
             fee_amount NUMERIC NOT NULL DEFAULT 5,
             fee_currency TEXT NOT NULL DEFAULT '$MVP',
@@ -317,9 +318,9 @@ def initialize_database(conn, db_type):
     '''))
     conn.commit()
 
-    cursor.execute(prepare_query('''
+    cursor.execute(prepare_query(f'''
         CREATE TABLE IF NOT EXISTS bracket_participants (
-            id SERIAL PRIMARY KEY,
+            id {serial_pk},
             tournament_id INTEGER NOT NULL,
             wallet_address TEXT NOT NULL,
             ts_username TEXT,
@@ -331,9 +332,9 @@ def initialize_database(conn, db_type):
     '''))
     conn.commit()
 
-    cursor.execute(prepare_query('''
+    cursor.execute(prepare_query(f'''
         CREATE TABLE IF NOT EXISTS bracket_matchups (
-            id SERIAL PRIMARY KEY,
+            id {serial_pk},
             tournament_id INTEGER NOT NULL,
             round_number INTEGER NOT NULL,
             match_index INTEGER NOT NULL,
@@ -352,9 +353,9 @@ def initialize_database(conn, db_type):
     '''))
     conn.commit()
 
-    cursor.execute(prepare_query('''
+    cursor.execute(prepare_query(f'''
         CREATE TABLE IF NOT EXISTS bracket_rounds (
-            id SERIAL PRIMARY KEY,
+            id {serial_pk},
             tournament_id INTEGER NOT NULL,
             round_number INTEGER NOT NULL,
             fastbreak_id TEXT NOT NULL,
