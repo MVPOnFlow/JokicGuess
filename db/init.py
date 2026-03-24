@@ -352,6 +352,18 @@ def initialize_database(conn, db_type):
     '''))
     conn.commit()
 
+    cursor.execute(prepare_query('''
+        CREATE TABLE IF NOT EXISTS bracket_rounds (
+            id SERIAL PRIMARY KEY,
+            tournament_id INTEGER NOT NULL,
+            round_number INTEGER NOT NULL,
+            fastbreak_id TEXT NOT NULL,
+            game_date TEXT NOT NULL,
+            UNIQUE (tournament_id, round_number)
+        )
+    '''))
+    conn.commit()
+
     # ── One-time seed: populate jokic_editions if empty ──
     try:
         cursor.execute(prepare_query("SELECT COUNT(*) FROM jokic_editions"))

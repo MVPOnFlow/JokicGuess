@@ -69,40 +69,69 @@ class TestListBracketTournaments:
 class TestCreateBracketTournament:
     """POST /api/bracket/tournaments"""
 
+    @patch('routes.api.extract_fastbreak_runs')
     @patch('db.init.get_db_connection')
-    def test_create_tournament(self, mock_conn_fn, client):
-        """Successfully create a new tournament."""
+    def test_create_tournament(self, mock_conn_fn, mock_fb_runs, client):
+        """Successfully create a new tournament with start_date."""
         mock_conn = Mock()
         mock_cursor = Mock()
         mock_conn.cursor.return_value = mock_cursor
         mock_cursor.fetchone.return_value = (42,)
         mock_conn_fn.return_value = (mock_conn, 'sqlite')
 
+        # Mock fastbreak runs with 6 upcoming Classic days
+        mock_fb_runs.return_value = [{
+            'runName': 'Classic',
+            'fastBreaks': [
+                {'id': f'fb{i}', 'gameDate': f'2026-04-{10+i:02d}T00:00:00Z',
+                 'gamesStartAt': f'2026-04-{10+i:02d}T23:00:00Z', 'status': 'FAST_BREAK_SCHEDULED'}
+                for i in range(7)
+            ]
+        }]
+
         resp = client.post('/api/bracket/tournaments', json={
             'name': 'My Bracket',
             'fee_amount': 10,
             'fee_currency': '$MVP',
-            'signup_close_ts': 9999999999,
+            'start_date': '2026-04-10',
         })
         assert resp.status_code == 201
         data = json.loads(resp.data)
         assert data['id'] == 42
         assert data['name'] == 'My Bracket'
         assert data['status'] == 'SIGNUP'
-        mock_conn.commit.assert_called_once()
+        assert data['rounds_mapped'] == 6
+        # commit called twice: once for tournament insert, once for bracket_rounds
+        assert mock_conn.commit.call_count == 2
         mock_conn.close.assert_called_once()
 
     def test_create_missing_name(self, client):
         """Missing name should return 400."""
         resp = client.post('/api/bracket/tournaments', json={
-            'signup_close_ts': 9999999999,
+            'start_date': '2026-04-10',
         })
         assert resp.status_code == 400
 
-    def test_create_missing_close_ts(self, client):
-        """Missing signup_close_ts should return 400."""
+    def test_create_missing_start_date(self, client):
+        """Missing start_date should return 400."""
         resp = client.post('/api/bracket/tournaments', json={
-            'name': 'No TS',
+            'name': 'No Date',
+        })
+        assert resp.status_code == 400
+
+    @patch('routes.api.extract_fastbreak_runs')
+    def test_create_no_classic_fbs(self, mock_fb_runs, client):
+        """No Classic FBs found from start_date should return 400."""
+        mock_fb_runs.return_value = [{
+            'runName': 'Classic',
+            'fastBreaks': [
+                {'id': 'old', 'gameDate': '2020-01-01T00:00:00Z',
+                 'gamesStartAt': '2020-01-01T23:00:00Z', 'status': 'FAST_BREAK_FINISHED'}
+            ]
+        }]
+        resp = client.post('/api/bracket/tournaments', json={
+            'name': 'Future Only',
+            'start_date': '2030-01-01',
         })
         assert resp.status_code == 400
 
@@ -131,9 +160,12 @@ class TestGetBracketTournament:
         matchup_rows = [
             (1, 1, 0, '0xaaa', '0xbbb', None, None, None, None, None, None, None, None, 'PENDING'),
         ]
+        round_schedule_rows = [
+            (1, 'fb-abc', '2026-04-10'),
+        ]
 
         cursor.fetchone.return_value = tournament_row
-        cursor.fetchall.side_effect = [participant_rows, matchup_rows]
+        cursor.fetchall.side_effect = [participant_rows, matchup_rows, round_schedule_rows]
 
         resp = client.get('/api/bracket/tournament/1')
         assert resp.status_code == 200
@@ -141,6 +173,7 @@ class TestGetBracketTournament:
         assert data['name'] == 'Test Cup'
         assert len(data['participants']) == 2
         assert data['total_rounds'] == 1
+        assert '1' in data['round_schedule'] or 1 in data['round_schedule']
 
 
 class TestBracketSignup:
@@ -266,9 +299,10 @@ class TestBracketAdvance:
         db, cursor = _mock_db()
         mock_get_conn.return_value = (db, 'sqlite')
 
-        # Tournament status
+        # Tournament status, then bracket_rounds lookup
         cursor.fetchone.side_effect = [
             ('ACTIVE', 1),            # tournament status + current_round
+            ('fb123',),               # bracket_rounds fastbreak_id for round 1
         ]
         # Pending matchups for round 1
         # Then wallet-to-username map
@@ -285,11 +319,7 @@ class TestBracketAdvance:
             else {'rank': 10, 'points': 180, 'players': ['Luka Doncic', 'Ja Morant']}
         )
 
-        resp = client.post(
-            '/api/bracket/tournament/1/advance',
-            data=json.dumps({'fastbreak_id': 'fb123'}),
-            content_type='application/json',
-        )
+        resp = client.post('/api/bracket/tournament/1/advance')
         assert resp.status_code == 200
         data = json.loads(resp.data)
         assert data['success'] is True
@@ -297,16 +327,19 @@ class TestBracketAdvance:
         assert data['status'] == 'COMPLETE'
 
     @patch('db.init.get_db_connection')
-    def test_advance_missing_fastbreak_id(self, mock_get_conn, client):
+    def test_advance_no_round_mapping(self, mock_get_conn, client):
+        """Advance should fail if no bracket_rounds mapping exists."""
         db, cursor = _mock_db()
         mock_get_conn.return_value = (db, 'sqlite')
 
-        resp = client.post(
-            '/api/bracket/tournament/1/advance',
-            data=json.dumps({}),
-            content_type='application/json',
-        )
+        cursor.fetchone.side_effect = [
+            ('ACTIVE', 1),   # tournament status + current_round
+            None,            # bracket_rounds lookup returns nothing
+        ]
+
+        resp = client.post('/api/bracket/tournament/1/advance')
         assert resp.status_code == 400
+        assert 'No fastbreak mapped' in json.loads(resp.data)['error']
 
     @patch('db.init.get_db_connection')
     def test_advance_not_active(self, mock_get_conn, client):
@@ -315,9 +348,5 @@ class TestBracketAdvance:
 
         cursor.fetchone.return_value = ('SIGNUP', 0)
 
-        resp = client.post(
-            '/api/bracket/tournament/1/advance',
-            data=json.dumps({'fastbreak_id': 'fb123'}),
-            content_type='application/json',
-        )
+        resp = client.post('/api/bracket/tournament/1/advance')
         assert resp.status_code == 400

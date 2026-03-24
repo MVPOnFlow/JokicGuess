@@ -19,6 +19,7 @@ initialize_database(conn, db_type)
 # Drop existing data so this script is idempotent
 cursor.execute("DELETE FROM bracket_matchups")
 cursor.execute("DELETE FROM bracket_participants")
+cursor.execute("DELETE FROM bracket_rounds")
 cursor.execute("DELETE FROM bracket_tournaments")
 conn.commit()
 
@@ -83,6 +84,22 @@ def ins_matchup(mid, tid, rnd, idx, p1, p2, s1, s2, winner, fb_id, status,
         )
 
 
+def ins_bracket_round(rid, tid, round_number, fastbreak_id, game_date):
+    """Insert a bracket_rounds row mapping a round to a fastbreak day."""
+    if db_type == 'postgresql':
+        cursor.execute(
+            "INSERT INTO bracket_rounds (tournament_id, round_number, fastbreak_id, game_date)"
+            f" VALUES ({ph},{ph},{ph},{ph})",
+            (tid, round_number, fastbreak_id, game_date),
+        )
+    else:
+        cursor.execute(
+            "INSERT INTO bracket_rounds (id, tournament_id, round_number, fastbreak_id, game_date)"
+            f" VALUES ({ph},{ph},{ph},{ph},{ph})",
+            (rid, tid, round_number, fastbreak_id, game_date),
+        )
+
+
 def fetch_score(username, fb_id):
     """Fetch a user's real Fastbreak data. Returns dict with rank, points, players or empty dict."""
     try:
@@ -93,11 +110,12 @@ def fetch_score(username, fb_id):
 
 
 # ======================================================================
-# Step 1 — Discover recent finished Classic fastbreaks
+# Step 1 — Discover recent Classic fastbreaks (finished + upcoming)
 # ======================================================================
 print('Fetching recent fastbreak runs from TopShot API...')
 runs = extract_fastbreak_runs()
-finished_classic = []
+all_classic = []          # (id, gameDate_str, status)
+finished_classic = []     # (id, gameDate)
 for run in runs:
     rn = run.get('runName', '')
     if not rn or rn.endswith('Pro'):
@@ -105,13 +123,19 @@ for run in runs:
     if 'Classic' not in rn:
         continue
     for fb in (run.get('fastBreaks') or []):
-        if fb and fb.get('status') == 'FAST_BREAK_FINISHED':
+        if not fb:
+            continue
+        gd = (fb.get('gameDate') or '')[:10]
+        all_classic.append((fb['id'], gd, fb.get('status', '')))
+        if fb.get('status') == 'FAST_BREAK_FINISHED':
             finished_classic.append((fb['id'], fb['gameDate']))
 
+all_classic.sort(key=lambda x: x[1])
 finished_classic.sort(key=lambda x: x[1], reverse=True)
 print(f'  Found {len(finished_classic)} finished Classic fastbreaks')
+print(f'  Found {len(all_classic)} total Classic fastbreaks (all statuses)')
 
-# We need 3 finished fastbreaks for rounds 1-3
+# We need 3 finished fastbreaks for T2 rounds 1-3
 # Use the 3rd, 2nd, and 1st most recent (chronological order for the bracket)
 fb_round1 = finished_classic[2]  # 3rd most recent
 fb_round2 = finished_classic[1]  # 2nd most recent
@@ -124,10 +148,28 @@ print(f'  Round 3 FB: {fb_round3[1][:10]} ({fb_round3[0][:8]}...)')
 
 # ======================================================================
 # Tournament 1 — SIGNUP (upcoming)
+# Assign next 6 Classic fastbreak days as rounds 1-6
 # ======================================================================
+# Find upcoming (non-finished) classic FBs for T1 round schedule
+upcoming_classic = [(fid, gd) for (fid, gd, st) in all_classic
+                    if st != 'FAST_BREAK_FINISHED']
+upcoming_classic.sort(key=lambda x: x[1])
+t1_fbs = upcoming_classic[:6]
+if not t1_fbs:
+    # Fallback: use the last 6 finished dates
+    t1_fbs = [(fid, gd[:10]) for (fid, gd) in reversed(finished_classic[:6])]
+
 close_ts_signup = 1774915140  # Mar 27 2026 23:59 UTC
 t1 = ins_tournament(1, 'Fastbreak Bracket #1 — March Madness', 5, '$MVP', close_ts_signup, 'SIGNUP', 0)
 print(f'\n[T{t1}] Signup tournament created')
+
+# Insert bracket_rounds for T1
+br_id = 1
+for rnd_num, (fid, gd) in enumerate(t1_fbs, start=1):
+    ins_bracket_round(br_id, t1, rnd_num, fid, gd)
+    br_id += 1
+    print(f'  Round {rnd_num} → {gd} ({fid[:8]}...)')
+conn.commit()
 
 
 # ======================================================================
@@ -157,6 +199,24 @@ PLAYERS = [
 close_ts_active = 1742860800  # already past — signup closed
 t2 = ins_tournament(2, 'Fastbreak Bracket #0 — Preseason Cup', 3, '$MVP', close_ts_active, 'ACTIVE', 4)
 print(f'[T{t2}] Active tournament created')
+
+# Insert bracket_rounds for T2 (4 rounds for 16 players)
+# Rounds 1-3 use the 3 finished FBs; round 4 (finals) uses the next upcoming
+t2_round_fbs = [
+    (fb_round1[0], fb_round1[1][:10]),
+    (fb_round2[0], fb_round2[1][:10]),
+    (fb_round3[0], fb_round3[1][:10]),
+]
+# For round 4, use the first upcoming FB (or the one after fb_round3 if available)
+if t1_fbs:
+    t2_round_fbs.append((t1_fbs[0][0], t1_fbs[0][1]))
+else:
+    t2_round_fbs.append((fb_round3[0], fb_round3[1][:10]))  # fallback: reuse R3 date
+for rnd_num, (fid, gd) in enumerate(t2_round_fbs, start=1):
+    ins_bracket_round(br_id, t2, rnd_num, fid, gd)
+    br_id += 1
+    print(f'  T2 Round {rnd_num} → {gd} ({fid[:8]}...)')
+conn.commit()
 
 w = {p[1]: p[0] for p in PLAYERS}  # username → wallet
 

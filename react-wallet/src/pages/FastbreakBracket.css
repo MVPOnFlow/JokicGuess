@@ -184,9 +184,16 @@
   font-size: 0.95rem;
   margin-bottom: 12px;
   display: flex;
+  flex-direction: column;
   justify-content: center;
   align-items: center;
-  gap: 8px;
+  gap: 2px;
+}
+.bracket-round-date {
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: #9CA3AF;
+  letter-spacing: 0.02em;
 }
 .bracket-current-badge {
   background: #fdb927;

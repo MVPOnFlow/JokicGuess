@@ -12,7 +12,7 @@ from utils.helpers import (
     prepare_query, map_wallet_to_username, 
     get_rank_and_lineup_for_user, get_flow_wallet_from_ts_username,
     get_ts_username_from_flow_wallet, get_jokic_editions,
-    get_dapper_id_from_flow_wallet
+    get_dapper_id_from_flow_wallet, extract_fastbreak_runs
 )
 from config import (
     SWAPFEST_START_TIME, SWAPFEST_END_TIME,
@@ -575,16 +575,83 @@ def register_routes(app):
 
     @app.route("/api/bracket/tournaments", methods=["GET", "POST"])
     def api_list_bracket_tournaments():
-        """GET: list tournaments.  POST: create a new tournament (admin)."""
+        """GET: list tournaments.  POST: create a new tournament (admin).
+
+        POST body:
+            name          – tournament name (required)
+            start_date    – YYYY-MM-DD of the first Classic Fastbreak day (required)
+            fee_amount    – entry fee (default 5)
+            fee_currency  – e.g. '$MVP' (default)
+
+        The server calls the TopShot API to discover the next 6 Classic
+        Fastbreak days starting on *start_date* and pre-assigns them to
+        rounds 1-6.  ``signup_close_ts`` is derived from the first
+        Fastbreak's ``gamesStartAt`` (or midnight UTC of start_date as
+        fallback).  Max 6 rounds → max 64 players.
+        """
         if request.method == "POST":
             data = request.get_json(force=True)
             name = (data.get("name") or "").strip()
             fee_amount = float(data.get("fee_amount", 5))
             fee_currency = (data.get("fee_currency") or "$MVP").strip()
-            signup_close_ts = data.get("signup_close_ts")
-            if not name or not signup_close_ts:
-                return jsonify({"error": "name and signup_close_ts are required"}), 400
-            signup_close_ts = int(signup_close_ts)
+            start_date = (data.get("start_date") or "").strip()
+
+            if not name or not start_date:
+                return jsonify({"error": "name and start_date are required"}), 400
+
+            # ── Fetch upcoming Classic fastbreak days from TopShot ──
+            try:
+                runs = extract_fastbreak_runs()
+            except Exception as e:
+                return jsonify({"error": f"Failed to fetch fastbreak runs: {e}"}), 502
+
+            classic_fbs = []
+            for run in runs:
+                rn = run.get('runName', '')
+                if not rn or rn.endswith('Pro'):
+                    continue
+                if 'Classic' not in rn:
+                    continue
+                for fb in (run.get('fastBreaks') or []):
+                    if not fb:
+                        continue
+                    gd = (fb.get('gameDate') or '')[:10]
+                    if gd >= start_date:
+                        classic_fbs.append({
+                            'id': fb['id'],
+                            'gameDate': gd,
+                            'gamesStartAt': fb.get('gamesStartAt'),
+                            'status': fb.get('status'),
+                        })
+
+            # Sort by date and take first 6
+            classic_fbs.sort(key=lambda x: x['gameDate'])
+            # Deduplicate by gameDate (take first per date)
+            seen_dates = set()
+            unique_fbs = []
+            for fb in classic_fbs:
+                if fb['gameDate'] not in seen_dates:
+                    seen_dates.add(fb['gameDate'])
+                    unique_fbs.append(fb)
+            classic_fbs = unique_fbs[:6]
+
+            if not classic_fbs:
+                return jsonify({"error": "No Classic Fastbreak days found from the given start_date"}), 400
+
+            # Derive signup_close_ts from the first FB's gamesStartAt
+            import datetime as _dt
+            first_fb = classic_fbs[0]
+            if first_fb.get('gamesStartAt'):
+                try:
+                    gsa = _dt.datetime.fromisoformat(first_fb['gamesStartAt'].replace('Z', '+00:00'))
+                    signup_close_ts = int(gsa.timestamp())
+                except Exception:
+                    signup_close_ts = int(_dt.datetime.strptime(start_date, '%Y-%m-%d').replace(
+                        tzinfo=_dt.timezone.utc).timestamp())
+            else:
+                signup_close_ts = int(_dt.datetime.strptime(start_date, '%Y-%m-%d').replace(
+                    tzinfo=_dt.timezone.utc).timestamp())
+
             from db.init import get_db_connection
             conn, db_type = get_db_connection()
             cursor = conn.cursor()
@@ -601,7 +668,21 @@ def register_routes(app):
                 else:
                     cursor.execute("SELECT last_insert_rowid()")
                 new_id = cursor.fetchone()[0]
-                return jsonify({"id": new_id, "name": name, "status": "SIGNUP"}), 201
+
+                # Insert bracket_rounds mapping
+                for rnd_num, fb in enumerate(classic_fbs, start=1):
+                    cursor.execute(prepare_query(
+                        '''INSERT INTO bracket_rounds
+                           (tournament_id, round_number, fastbreak_id, game_date)
+                           VALUES (?, ?, ?, ?)'''
+                    ), (new_id, rnd_num, fb['id'], fb['gameDate']))
+                conn.commit()
+
+                return jsonify({
+                    "id": new_id, "name": name, "status": "SIGNUP",
+                    "signup_close_ts": signup_close_ts,
+                    "rounds_mapped": len(classic_fbs),
+                }), 201
             finally:
                 conn.close()
         db = get_db()
@@ -699,6 +780,20 @@ def register_routes(app):
         n = len(participants)
         import math as _math
         tournament["total_rounds"] = _math.ceil(_math.log2(n)) if n > 1 else 1
+
+        # Round-level schedule from bracket_rounds
+        cursor.execute(prepare_query('''
+            SELECT round_number, fastbreak_id, game_date
+            FROM bracket_rounds WHERE tournament_id = ?
+            ORDER BY round_number ASC
+        '''), (tid,))
+        round_schedule = {}
+        for rs in cursor.fetchall():
+            round_schedule[rs[0]] = {
+                "fastbreak_id": rs[1],
+                "game_date": rs[2],
+            }
+        tournament["round_schedule"] = round_schedule
 
         return jsonify(tournament)
 
@@ -832,7 +927,8 @@ def register_routes(app):
     def api_bracket_advance(tid):
         """Score current round matchups and create next round.
 
-        Body: { "fastbreak_id": "..." } — the TopShot fastbreak ID used for scoring.
+        The fastbreak_id for the current round is read from the
+        ``bracket_rounds`` mapping table (set at tournament creation).
         Pulls each player's rank, points, and lineup from the TopShot API;
         higher points wins.  Stores rank, lineup, and points per player.
         Creates next-round matchups from winners.
@@ -841,11 +937,6 @@ def register_routes(app):
         import json as _json
         conn, _ = get_db_connection()
         cursor = conn.cursor()
-
-        data = request.get_json() or {}
-        fastbreak_id = data.get("fastbreak_id", "").strip()
-        if not fastbreak_id:
-            return jsonify({"error": "Missing fastbreak_id"}), 400
 
         cursor.execute(prepare_query(
             'SELECT status, current_round FROM bracket_tournaments WHERE id = ?'
@@ -856,6 +947,15 @@ def register_routes(app):
         status, current_round = row[0], row[1]
         if status != 'ACTIVE':
             return jsonify({"error": "Tournament is not active"}), 400
+
+        # Look up the fastbreak_id for the current round from bracket_rounds
+        cursor.execute(prepare_query(
+            'SELECT fastbreak_id FROM bracket_rounds WHERE tournament_id = ? AND round_number = ?'
+        ), (tid, current_round))
+        round_row = cursor.fetchone()
+        if not round_row:
+            return jsonify({"error": f"No fastbreak mapped for round {current_round}"}), 400
+        fastbreak_id = round_row[0]
 
         # Get pending matchups for current round
         cursor.execute(prepare_query('''

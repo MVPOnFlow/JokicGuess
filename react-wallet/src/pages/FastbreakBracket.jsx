@@ -371,10 +371,17 @@ export default function FastbreakBracket() {
               {Array.from({ length: totalRounds }, (_, ri) => {
                 const roundNum = ri + 1;
                 const matchups = rounds[roundNum] || rounds[String(roundNum)] || [];
+                const schedule = (tournament.round_schedule || {})[roundNum] || (tournament.round_schedule || {})[String(roundNum)];
+                const gameDate = schedule?.game_date;
                 return (
                   <div key={roundNum} className="bracket-round">
                     <div className="bracket-round-title">
                       {getRoundName(roundNum, totalRounds)}
+                      {gameDate && (
+                        <span className="bracket-round-date">
+                          {new Date(gameDate + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                        </span>
+                      )}
                       {roundNum === tournament.current_round && tournament.status === 'ACTIVE' && (
                         <span className="bracket-current-badge">Current</span>
                       )}
