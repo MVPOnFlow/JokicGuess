@@ -573,9 +573,37 @@ def register_routes(app):
     #  Fastbreak Bracket Tournament API
     # ═══════════════════════════════════════════════════════════════
 
-    @app.route("/api/bracket/tournaments", methods=["GET"])
+    @app.route("/api/bracket/tournaments", methods=["GET", "POST"])
     def api_list_bracket_tournaments():
-        """List all bracket tournaments, newest first."""
+        """GET: list tournaments.  POST: create a new tournament (admin)."""
+        if request.method == "POST":
+            data = request.get_json(force=True)
+            name = (data.get("name") or "").strip()
+            fee_amount = float(data.get("fee_amount", 5))
+            fee_currency = (data.get("fee_currency") or "$MVP").strip()
+            signup_close_ts = data.get("signup_close_ts")
+            if not name or not signup_close_ts:
+                return jsonify({"error": "name and signup_close_ts are required"}), 400
+            signup_close_ts = int(signup_close_ts)
+            from db.init import get_db_connection
+            conn, db_type = get_db_connection()
+            cursor = conn.cursor()
+            try:
+                cursor.execute(prepare_query(
+                    '''INSERT INTO bracket_tournaments
+                       (name, fee_amount, fee_currency, signup_close_ts, status, current_round)
+                       VALUES (?, ?, ?, ?, 'SIGNUP', 0)'''
+                ), (name, fee_amount, fee_currency, signup_close_ts))
+                conn.commit()
+                # Retrieve the new id
+                if db_type == 'postgresql':
+                    cursor.execute("SELECT lastval()")
+                else:
+                    cursor.execute("SELECT last_insert_rowid()")
+                new_id = cursor.fetchone()[0]
+                return jsonify({"id": new_id, "name": name, "status": "SIGNUP"}), 201
+            finally:
+                conn.close()
         db = get_db()
         cursor = db.cursor()
         cursor.execute(prepare_query('''

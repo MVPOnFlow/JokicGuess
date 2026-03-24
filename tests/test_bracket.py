@@ -66,6 +66,47 @@ class TestListBracketTournaments:
         assert data[0]['participant_count'] == 3
 
 
+class TestCreateBracketTournament:
+    """POST /api/bracket/tournaments"""
+
+    @patch('db.init.get_db_connection')
+    def test_create_tournament(self, mock_conn_fn, client):
+        """Successfully create a new tournament."""
+        mock_conn = Mock()
+        mock_cursor = Mock()
+        mock_conn.cursor.return_value = mock_cursor
+        mock_cursor.fetchone.return_value = (42,)
+        mock_conn_fn.return_value = (mock_conn, 'sqlite')
+
+        resp = client.post('/api/bracket/tournaments', json={
+            'name': 'My Bracket',
+            'fee_amount': 10,
+            'fee_currency': '$MVP',
+            'signup_close_ts': 9999999999,
+        })
+        assert resp.status_code == 201
+        data = json.loads(resp.data)
+        assert data['id'] == 42
+        assert data['name'] == 'My Bracket'
+        assert data['status'] == 'SIGNUP'
+        mock_conn.commit.assert_called_once()
+        mock_conn.close.assert_called_once()
+
+    def test_create_missing_name(self, client):
+        """Missing name should return 400."""
+        resp = client.post('/api/bracket/tournaments', json={
+            'signup_close_ts': 9999999999,
+        })
+        assert resp.status_code == 400
+
+    def test_create_missing_close_ts(self, client):
+        """Missing signup_close_ts should return 400."""
+        resp = client.post('/api/bracket/tournaments', json={
+            'name': 'No TS',
+        })
+        assert resp.status_code == 400
+
+
 class TestGetBracketTournament:
     """GET /api/bracket/tournament/<id>"""
 
