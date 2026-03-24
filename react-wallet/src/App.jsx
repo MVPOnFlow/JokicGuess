@@ -5,6 +5,7 @@ import Swapfest from "./pages/Swapfest";
 import Treasury from "./pages/Treasury";
 import Vote from "./pages/Vote";
 import Fastbreak from "./pages/Fastbreak";
+import FastbreakBracket from "./pages/FastbreakBracket";
 import HorseStats from "./pages/HorseStats";
 import TDWatch from "./pages/TDWatch";
 import Museum from "./pages/Museum";
@@ -28,6 +29,7 @@ function App() {
           <Route path="treasury" element={<Treasury />} />
           <Route path="vote" element={<Vote />} />
           <Route path="fastbreak" element={<Fastbreak />} />
+          <Route path="bracket" element={<FastbreakBracket />} />
           <Route path="horsestats" element={<HorseStats />} />
           <Route path="tdwatch" element={<TDWatch />} />
           <Route path="museum" element={<Museum />} />

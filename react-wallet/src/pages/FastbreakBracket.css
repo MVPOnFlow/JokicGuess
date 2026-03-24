@@ -1,0 +1,280 @@
+/* ──────────────────────────────────────────────
+   FastbreakBracket.css
+   ────────────────────────────────────────────── */
+
+.bracket-page {
+  max-width: 1100px;
+  margin: 0 auto;
+}
+
+/* ── Rules ── */
+.bracket-rules-btn {
+  background-color: #0e2240;
+  color: #fdb927;
+  border: 1px solid #fdb927;
+  font-weight: 700;
+  border-radius: 9999px;
+  padding: 8px 20px;
+  cursor: pointer;
+  transition: background-color 0.15s;
+}
+.bracket-rules-btn:hover {
+  background-color: #162d50;
+}
+.bracket-rules-box {
+  background-color: #1c2a3a;
+  border: 1px solid #273549;
+  border-radius: 12px;
+  padding: 1.25rem 1.5rem;
+  line-height: 1.6;
+  color: #e5e7eb;
+}
+.bracket-rules-list {
+  padding-left: 1.25rem;
+  margin-bottom: 0;
+}
+.bracket-rules-list li {
+  margin-bottom: 0.35rem;
+}
+
+/* ── Tournament list ── */
+.bracket-tournament-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.bracket-tournament-card {
+  background-color: #1c2a3a;
+  border: 1px solid #273549;
+  border-radius: 12px;
+  padding: 16px 20px;
+  cursor: pointer;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.bracket-tournament-card:hover {
+  border-color: #fdb927;
+  box-shadow: 0 4px 16px rgba(253, 185, 39, 0.15);
+}
+.btc-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+.btc-name {
+  font-weight: 700;
+  font-size: 1.1rem;
+  color: #fdb927;
+}
+.btc-status {
+  font-weight: 600;
+  font-size: 0.85rem;
+}
+.btc-details {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  font-size: 0.9rem;
+  color: #9ca3af;
+}
+
+/* ── Tournament detail meta ── */
+.bracket-meta {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 16px;
+  margin-bottom: 16px;
+  font-size: 0.95rem;
+  color: #9ca3af;
+}
+.bracket-status {
+  font-weight: 700;
+  padding: 3px 12px;
+  border-radius: 9999px;
+  font-size: 0.85rem;
+}
+.bracket-status-signup { background: rgba(253, 185, 39, 0.15); color: #fdb927; }
+.bracket-status-active { background: rgba(16, 185, 129, 0.15); color: #10b981; }
+.bracket-status-complete { background: rgba(107, 114, 128, 0.15); color: #6b7280; }
+
+.bracket-countdown {
+  font-weight: 600;
+  color: #fdb927;
+}
+
+/* ── Winner banner ── */
+.bracket-winner-banner {
+  text-align: center;
+  background: linear-gradient(135deg, #fdb927 0%, #ff8c00 100%);
+  color: #0b1220;
+  padding: 12px 20px;
+  border-radius: 10px;
+  font-weight: 700;
+  font-size: 1.15rem;
+  margin-bottom: 16px;
+}
+
+/* ── Signup box ── */
+.bracket-signup-box {
+  text-align: center;
+  background-color: #0e2240;
+  border: 1px dashed #fdb927;
+  border-radius: 12px;
+  padding: 20px;
+  margin-top: 12px;
+}
+.bracket-signup-box p {
+  margin-bottom: 12px;
+  color: #9ca3af;
+}
+.bracket-signup-btn {
+  background-color: #fdb927;
+  color: #0b1220;
+  border: none;
+  padding: 10px 28px;
+  border-radius: 8px;
+  font-weight: 700;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: background-color 0.15s;
+}
+.bracket-signup-btn:hover:not(:disabled) {
+  background-color: #ffcc4d;
+}
+.bracket-signup-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+.bracket-tx-status {
+  font-size: 0.9rem;
+  color: #e5e7eb;
+}
+.bracket-signed-up {
+  text-align: center;
+  background-color: rgba(16, 185, 129, 0.1);
+  border: 1px solid #10b981;
+  border-radius: 10px;
+  padding: 12px;
+  margin-top: 12px;
+  color: #10b981;
+  font-weight: 600;
+}
+.bracket-eliminated {
+  color: #ef4444;
+  font-weight: 400;
+}
+
+/* ── Bracket visualization ── */
+.bracket-container {
+  display: flex;
+  gap: 24px;
+  overflow-x: auto;
+  padding-bottom: 12px;
+  align-items: flex-start;
+}
+.bracket-round {
+  min-width: 220px;
+  flex-shrink: 0;
+}
+.bracket-round-title {
+  text-align: center;
+  font-weight: 700;
+  color: #fdb927;
+  font-size: 0.95rem;
+  margin-bottom: 12px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
+}
+.bracket-current-badge {
+  background: #fdb927;
+  color: #0b1220;
+  font-size: 0.7rem;
+  font-weight: 800;
+  padding: 2px 8px;
+  border-radius: 9999px;
+  text-transform: uppercase;
+}
+.bracket-matchups {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.bracket-matchup {
+  background-color: #1c2a3a;
+  border: 1px solid #273549;
+  border-radius: 10px;
+  overflow: hidden;
+  transition: border-color 0.15s;
+}
+.bracket-matchup-done {
+  border-color: #374151;
+}
+.bracket-slot {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 12px;
+  font-size: 0.9rem;
+  color: #e5e7eb;
+}
+.bracket-slot-winner {
+  background-color: rgba(253, 185, 39, 0.1);
+  color: #fdb927;
+  font-weight: 700;
+}
+.bracket-vs {
+  text-align: center;
+  font-size: 0.7rem;
+  color: #6b7280;
+  padding: 2px 0;
+  background: #141e2e;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+.bracket-score {
+  font-weight: 700;
+  font-size: 0.85rem;
+  color: #9ca3af;
+  margin-left: 8px;
+}
+.bracket-score::before {
+  content: '#';
+  font-weight: 400;
+  color: #6b7280;
+}
+.bracket-pending-round {
+  text-align: center;
+  color: #6b7280;
+  font-style: italic;
+  padding: 20px 0;
+}
+
+/* ── Player name styling ── */
+.bracket-player {
+  white-space: nowrap;
+}
+.bracket-me {
+  color: #fdb927;
+  font-weight: 700;
+}
+.bracket-bye {
+  color: #6b7280;
+  font-style: italic;
+}
+
+/* ── Responsive ── */
+@media (max-width: 768px) {
+  .bracket-container {
+    gap: 12px;
+  }
+  .bracket-round {
+    min-width: 180px;
+  }
+  .bracket-meta {
+    gap: 8px;
+    font-size: 0.85rem;
+  }
+}
