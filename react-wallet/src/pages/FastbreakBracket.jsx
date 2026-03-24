@@ -65,6 +65,7 @@ function simplifyFlowError(e) {
 
 /* ── Constants ── */
 const COMMUNITY_WALLET = '0x2459710b1d10aed0';
+const ADMIN_WALLET = '0x6fd2465f3a22e34c';
 const ROUND_NAMES = { 1: 'Round 1', 2: 'Round 2', 3: 'Quarterfinals', 4: 'Semifinals', 5: 'Finals' };
 
 function getRoundName(round, totalRounds) {
@@ -96,8 +97,14 @@ export default function FastbreakBracket() {
   const [processing, setProcessing] = useState(false);
   const [showRules, setShowRules] = useState(false);
   const [expandedMatchup, setExpandedMatchup] = useState(null);
+  const [showCreate, setShowCreate] = useState(false);
+  const [createForm, setCreateForm] = useState({ name: '', start_date: '', fee_amount: '5', fee_currency: '$MVP' });
+  const [createStatus, setCreateStatus] = useState('');
+  const [creating, setCreating] = useState(false);
 
   useEffect(() => { fcl.currentUser().subscribe(setUser); }, []);
+
+  const isAdmin = user?.addr?.toLowerCase() === ADMIN_WALLET;
 
   /* ── Fetch tournament list ── */
   const fetchTournaments = useCallback(async () => {
@@ -174,6 +181,40 @@ export default function FastbreakBracket() {
     }
   };
 
+  /* ── Create tournament (admin) ── */
+  const handleCreateTournament = async () => {
+    if (!createForm.name.trim() || !createForm.start_date) {
+      setCreateStatus('❗ Name and start date are required.');
+      return;
+    }
+    setCreating(true);
+    setCreateStatus('');
+    try {
+      const res = await fetch('/api/bracket/tournaments', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: createForm.name.trim(),
+          start_date: createForm.start_date,
+          fee_amount: parseFloat(createForm.fee_amount) || 5,
+          fee_currency: createForm.fee_currency || '$MVP',
+        }),
+      });
+      const j = await res.json();
+      if (!res.ok) {
+        setCreateStatus(`❗ ${j.error || 'Failed to create tournament'}`);
+      } else {
+        setCreateStatus(`✅ Created! ID=${j.id}, ${j.rounds_mapped} rounds mapped.`);
+        setCreateForm({ name: '', start_date: '', fee_amount: '5', fee_currency: '$MVP' });
+        fetchTournaments();
+      }
+    } catch (e) {
+      setCreateStatus(`❗ ${e.message}`);
+    } finally {
+      setCreating(false);
+    }
+  };
+
   /* ── Derived state ── */
   const userParticipant = useMemo(() => {
     if (!tournament || !user?.addr) return null;
@@ -235,6 +276,47 @@ export default function FastbreakBracket() {
                   <li>If you don't have an opponent in round 1, you get a BYE (auto-advance)</li>
                   <li>Last player standing wins!</li>
                 </ul>
+              </div>
+            )}
+
+            {/* Admin: Create tournament */}
+            {isAdmin && (
+              <div className="bracket-admin-box mb-4">
+                <button className="bracket-rules-btn" onClick={() => setShowCreate(s => !s)}>
+                  {showCreate ? 'Hide Admin Panel' : '⚙ Create Tournament'}
+                </button>
+                {showCreate && (
+                  <div className="bracket-admin-form mt-3">
+                    <div className="bracket-admin-row">
+                      <label>Name</label>
+                      <input type="text" placeholder="Fastbreak Bracket #2" value={createForm.name}
+                        onChange={e => setCreateForm(f => ({ ...f, name: e.target.value }))} />
+                    </div>
+                    <div className="bracket-admin-row">
+                      <label>Start Date</label>
+                      <input type="date" value={createForm.start_date}
+                        onChange={e => setCreateForm(f => ({ ...f, start_date: e.target.value }))} />
+                    </div>
+                    <div className="bracket-admin-row">
+                      <label>Fee</label>
+                      <input type="number" min="0" step="1" value={createForm.fee_amount}
+                        onChange={e => setCreateForm(f => ({ ...f, fee_amount: e.target.value }))} />
+                    </div>
+                    <div className="bracket-admin-row">
+                      <label>Currency</label>
+                      <select value={createForm.fee_currency}
+                        onChange={e => setCreateForm(f => ({ ...f, fee_currency: e.target.value }))}>
+                        <option value="$MVP">$MVP</option>
+                        <option value="$FLOW">$FLOW</option>
+                        <option value="$TSHOT">$TSHOT</option>
+                      </select>
+                    </div>
+                    <button className="bracket-signup-btn mt-2" disabled={creating} onClick={handleCreateTournament}>
+                      {creating ? 'Creating…' : 'Create Tournament'}
+                    </button>
+                    {createStatus && <p className="bracket-tx-status mt-2" dangerouslySetInnerHTML={{ __html: createStatus }} />}
+                  </div>
+                )}
               </div>
             )}
 

@@ -195,6 +195,43 @@
   color: #9CA3AF;
   letter-spacing: 0.02em;
 }
+
+/* ── Admin create tournament ── */
+.bracket-admin-box {
+  text-align: center;
+}
+.bracket-admin-form {
+  max-width: 380px;
+  margin: 0 auto;
+  text-align: left;
+}
+.bracket-admin-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+.bracket-admin-row label {
+  width: 90px;
+  font-size: 0.85rem;
+  color: #9CA3AF;
+  flex-shrink: 0;
+}
+.bracket-admin-row input,
+.bracket-admin-row select {
+  flex: 1;
+  background: #111827;
+  border: 1px solid #374151;
+  color: #e5e7eb;
+  border-radius: 6px;
+  padding: 6px 10px;
+  font-size: 0.85rem;
+}
+.bracket-admin-row input:focus,
+.bracket-admin-row select:focus {
+  border-color: #fdb927;
+  outline: none;
+}
 .bracket-current-badge {
   background: #fdb927;
   color: #0b1220;
