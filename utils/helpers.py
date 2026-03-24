@@ -879,10 +879,8 @@ def get_ts_username_from_flow_wallet(flow_address):
             child_addr = asyncio.run(get_linked_child_account(flow_address))
             time.sleep(_GRPC_DELAY)
         print(f"🔍 [{flow_address}] child_addr={repr(child_addr)}")
-        # Check the static map before hitting the GraphQL API
-        username = DAPPER_WALLET_USERNAME_MAP.get(child_addr) if child_addr else None
-        if not username and child_addr:
-            username = get_username_from_dapper_wallet_flow(child_addr)
+        # Always use the GraphQL API for username resolution
+        username = get_username_from_dapper_wallet_flow(child_addr) if child_addr else None
         print(f"🔍 [{flow_address}] resolved username={repr(username)}")
     except Exception as exc:
         print(f"⚠️  [{flow_address}] username lookup failed: {type(exc).__name__}: {exc}")
