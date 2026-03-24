@@ -19,7 +19,32 @@ const TOKEN_CONFIG = {
   MVP: { contractName: 'PetJokicsHorses', contractAddr: '0x6fd2465f3a22e34c', storagePath: '/storage/PetJokicsHorsesVault', publicReceiverPath: '/public/PetJokicsHorsesReceiver' },
   FLOW: { contractName: 'FlowToken', contractAddr: '0x1654653399040a61', storagePath: '/storage/flowTokenVault', publicReceiverPath: '/public/flowTokenReceiver' },
   TSHOT: { contractName: 'TSHOT', contractAddr: '0x05b67ba314000b2d', storagePath: '/storage/TSHOTTokenVault', publicReceiverPath: '/public/TSHOTTokenReceiver' },
+  BETA: { contractName: 'EVMVMBridgedToken_d8ad8ae8375aa31bff541e17dc4b4917014ebdaa', contractAddr: '0x1e4aa0b87d10b141', storagePath: '/storage/EVMVMBridgedToken_d8ad8ae8375aa31bff541e17dc4b4917014ebdaaVault', publicReceiverPath: '/public/EVMVMBridgedToken_d8ad8ae8375aa31bff541e17dc4b4917014ebdaaReceiver' },
 };
+
+/* ── Cadence: discover child Dapper account ── */
+const CADENCE_GET_CHILD = `
+import HybridCustody from 0xd8a7e05a7ac670c0
+import TopShot from 0x0b2a3299cc857e29
+
+access(all) fun main(parent: Address): [Address] {
+  let acct = getAuthAccount<auth(Storage) &Account>(parent)
+  let manager = acct.storage
+    .borrow<auth(HybridCustody.Manage) &HybridCustody.Manager>(
+      from: HybridCustody.ManagerStoragePath
+    )
+  if manager == nil { return [] }
+
+  let children = manager!.getChildAddresses()
+  for child in children {
+    let account = getAccount(child)
+    let ref = account.capabilities
+      .borrow<&TopShot.Collection>(/public/MomentCollection)
+    if ref != nil { return [child] }
+  }
+  return []
+}
+`;
 
 function buildTransferCadence({ contractName, contractAddr, storagePath, publicReceiverPath }) {
   return `
@@ -98,11 +123,46 @@ export default function FastbreakBracket() {
   const [showRules, setShowRules] = useState(false);
   const [expandedMatchup, setExpandedMatchup] = useState(null);
   const [showCreate, setShowCreate] = useState(false);
-  const [createForm, setCreateForm] = useState({ name: '', start_date: '', fee_amount: '5', fee_currency: '$MVP' });
+  const [createForm, setCreateForm] = useState({ name: '', start_date: '', fee_amount: '5', fee_currency: '$MVP', max_rounds: '3' });
   const [createStatus, setCreateStatus] = useState('');
   const [creating, setCreating] = useState(false);
+  const [childAddr, setChildAddr] = useState(null);
+  const [childError, setChildError] = useState(null);
+  const [childLoading, setChildLoading] = useState(false);
 
   useEffect(() => { fcl.currentUser().subscribe(setUser); }, []);
+
+  /* ── Discover child Dapper account when wallet connects ── */
+  useEffect(() => {
+    if (!user?.addr) {
+      setChildAddr(null);
+      setChildError(null);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      setChildLoading(true);
+      setChildError(null);
+      try {
+        const result = await fcl.query({
+          cadence: CADENCE_GET_CHILD,
+          args: (arg, t) => [arg(user.addr, t.Address)],
+        });
+        if (!cancelled) {
+          if (result && result.length > 0) {
+            setChildAddr(result[0]);
+          } else {
+            setChildError('No linked Dapper account found. Make sure your Dapper wallet is linked to this Flow wallet before signing up.');
+          }
+        }
+      } catch (e) {
+        if (!cancelled) setChildError('Could not discover Dapper child account. Please try reconnecting your wallet.');
+      } finally {
+        if (!cancelled) setChildLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [user?.addr]);
 
   const isAdmin = user?.addr?.toLowerCase() === ADMIN_WALLET;
 
@@ -137,6 +197,15 @@ export default function FastbreakBracket() {
     else setTournament(null);
   }, [selectedTournamentId, fetchTournamentDetail]);
 
+  /* ── Auto-refresh active tournaments every 60s ── */
+  useEffect(() => {
+    if (!selectedTournamentId || !tournament || tournament.status !== 'ACTIVE') return;
+    const interval = setInterval(() => {
+      fetchTournamentDetail(selectedTournamentId);
+    }, 60000);
+    return () => clearInterval(interval);
+  }, [selectedTournamentId, tournament?.status, fetchTournamentDetail]);
+
   const selectTournament = (id) => {
     setSearchParams(id ? { id: String(id) } : {});
   };
@@ -145,6 +214,10 @@ export default function FastbreakBracket() {
   const handleSignup = async () => {
     if (!user.loggedIn) { setTxStatus('❗ Please connect your wallet first.'); return; }
     if (!tournament) return;
+    if (!childAddr) {
+      setTxStatus('❗ No linked Dapper account detected. Please link your Dapper wallet before signing up.');
+      return;
+    }
 
     const tokenKey = stripLeadingDollar(tournament.fee_currency).toUpperCase();
     if (!TOKEN_CONFIG[tokenKey]) {
@@ -198,6 +271,7 @@ export default function FastbreakBracket() {
           start_date: createForm.start_date,
           fee_amount: parseFloat(createForm.fee_amount) || 5,
           fee_currency: createForm.fee_currency || '$MVP',
+          max_rounds: parseInt(createForm.max_rounds) || 3,
         }),
       });
       const j = await res.json();
@@ -205,7 +279,7 @@ export default function FastbreakBracket() {
         setCreateStatus(`❗ ${j.error || 'Failed to create tournament'}`);
       } else {
         setCreateStatus(`✅ Created! ID=${j.id}, ${j.rounds_mapped} rounds mapped.`);
-        setCreateForm({ name: '', start_date: '', fee_amount: '5', fee_currency: '$MVP' });
+        setCreateForm({ name: '', start_date: '', fee_amount: '5', fee_currency: '$MVP', max_rounds: '3' });
         fetchTournaments();
       }
     } catch (e) {
@@ -223,9 +297,14 @@ export default function FastbreakBracket() {
     );
   }, [tournament, user?.addr]);
 
+  const isTournamentFull = tournament &&
+    tournament.max_players &&
+    (tournament.participants || []).length >= tournament.max_players;
+
   const isSignupOpen = tournament &&
     tournament.status === 'SIGNUP' &&
-    Date.now() / 1000 < tournament.signup_close_ts;
+    Date.now() / 1000 < tournament.signup_close_ts &&
+    !isTournamentFull;
 
   const signupTimeLeft = useMemo(() => {
     if (!tournament) return '';
@@ -309,6 +388,19 @@ export default function FastbreakBracket() {
                         <option value="$MVP">$MVP</option>
                         <option value="$FLOW">$FLOW</option>
                         <option value="$TSHOT">$TSHOT</option>
+                        <option value="$BETA">$BETA</option>
+                      </select>
+                    </div>
+                    <div className="bracket-admin-row">
+                      <label>Max Rounds</label>
+                      <select value={createForm.max_rounds}
+                        onChange={e => setCreateForm(f => ({ ...f, max_rounds: e.target.value }))}>
+                        <option value="1">1 (2 players)</option>
+                        <option value="2">2 (4 players)</option>
+                        <option value="3">3 (8 players)</option>
+                        <option value="4">4 (16 players)</option>
+                        <option value="5">5 (32 players)</option>
+                        <option value="6">6 (64 players)</option>
                       </select>
                     </div>
                     <button className="bracket-signup-btn mt-2" disabled={creating} onClick={handleCreateTournament}>
@@ -350,7 +442,7 @@ export default function FastbreakBracket() {
                       </div>
                       <div className="btc-details">
                         <span>Fee: <strong>{t.fee_amount} {formatCurrencyLabel(t.fee_currency)}</strong></span>
-                        <span>Players: <strong>{t.participant_count}</strong></span>
+                        <span>Players: <strong>{t.participant_count}{t.max_players ? ` / ${t.max_players}` : ''}</strong></span>
                         {t.winner_wallet && (
                           <span>Winner: <strong>{shortenWallet(t.winner_wallet)}</strong></span>
                         )}
@@ -405,9 +497,13 @@ export default function FastbreakBracket() {
               {tournament.status === 'SIGNUP' ? '📝 Signup' : tournament.status === 'ACTIVE' ? '🔥 Active' : '✅ Complete'}
             </span>
             <span>Fee: <strong>{tournament.fee_amount} {formatCurrencyLabel(tournament.fee_currency)}</strong></span>
-            <span>Players: <strong>{(tournament.participants || []).length}</strong></span>
+            <span>Players: <strong>{(tournament.participants || []).length}{tournament.max_players ? ` / ${tournament.max_players}` : ''}</strong></span>
             <span>Rounds: <strong>{totalRounds}</strong></span>
             {tournament.status !== 'COMPLETE' && <span className="bracket-countdown">{signupTimeLeft}</span>}
+          </div>
+
+          <div className="bracket-prize-pool">
+            💰 Prize: <strong>{(tournament.fee_amount * (tournament.participants || []).length * 0.95).toFixed(2)} {formatCurrencyLabel(tournament.fee_currency)}</strong>
           </div>
 
           {/* Winner banner */}
@@ -420,17 +516,35 @@ export default function FastbreakBracket() {
           {/* Signup action */}
           {isSignupOpen && !userParticipant && (
             <div className="bracket-signup-box">
-              <p>Connect your wallet and pay the entry fee to join this bracket.</p>
+              {!user.loggedIn && <p>Connect your wallet and pay the entry fee to join this bracket.</p>}
+              {user.loggedIn && childLoading && (
+                <p className="bracket-wallet-checking"><Spinner animation="border" size="sm" variant="warning" /> Checking wallet…</p>
+              )}
+              {user.loggedIn && childError && (
+                <div className="bracket-wallet-warning">
+                  ⚠️ {childError}
+                  <br />
+                  <a href="https://nft.flowverse.co/" target="_blank" rel="noopener noreferrer">Link your Dapper wallet →</a>
+                </div>
+              )}
+              {user.loggedIn && !childLoading && childAddr && (
+                <p>Your Dapper account is linked. Pay the entry fee to join.</p>
+              )}
               <button
                 className="bracket-signup-btn"
                 onClick={handleSignup}
-                disabled={!user.loggedIn || processing}
+                disabled={!user.loggedIn || processing || childLoading || !!childError}
               >
                 {processing ? 'Processing…' : user.loggedIn
                   ? `Pay ${tournament.fee_amount} ${formatCurrencyLabel(tournament.fee_currency)} & Sign Up`
                   : 'Connect Wallet to Sign Up'}
               </button>
               {txStatus && <p className="bracket-tx-status mt-2" dangerouslySetInnerHTML={{ __html: txStatus }} />}
+            </div>
+          )}
+          {isTournamentFull && !userParticipant && tournament.status === 'SIGNUP' && (
+            <div className="bracket-signed-up">
+              🚫 Tournament is full ({tournament.max_players}/{tournament.max_players} players)
             </div>
           )}
           {userParticipant && (
@@ -455,6 +569,7 @@ export default function FastbreakBracket() {
                 const matchups = rounds[roundNum] || rounds[String(roundNum)] || [];
                 const schedule = (tournament.round_schedule || {})[roundNum] || (tournament.round_schedule || {})[String(roundNum)];
                 const gameDate = schedule?.game_date;
+                const objectives = schedule?.objectives;
                 return (
                   <div key={roundNum} className="bracket-round">
                     <div className="bracket-round-title">
@@ -464,20 +579,34 @@ export default function FastbreakBracket() {
                           {new Date(gameDate + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                         </span>
                       )}
+                      {objectives && (
+                        <span className="bracket-round-objectives">
+                          {objectives}
+                        </span>
+                      )}
                       {roundNum === tournament.current_round && tournament.status === 'ACTIVE' && (
                         <span className="bracket-current-badge">Current</span>
+                      )}
+                      {matchups.some(m => m.status === 'PENDING' && (m.player1_score != null || m.player2_score != null)) && (
+                        <span className="bracket-live-badge">LIVE</span>
+                      )}
+                      {matchups.every(m => m.status === 'PROJECTED') && matchups.length > 0 && (
+                        <span className="bracket-projected-badge">Projected</span>
                       )}
                     </div>
                     <div className="bracket-matchups">
                       {matchups.map((m) => {
                         const isComplete = m.status === 'COMPLETE' || m.status === 'BYE';
+                        const isProjected = m.status === 'PROJECTED';
+                        const isLive = m.status === 'PENDING' && (m.player1_score != null || m.player2_score != null);
                         const isExpanded = expandedMatchup === m.id;
                         const hasLineupData = (m.player1_lineup?.length > 0) || (m.player2_lineup?.length > 0);
+                        const isClickable = hasLineupData && !isProjected;
                         return (
                           <div
                             key={m.id}
-                            className={`bracket-matchup ${isComplete ? 'bracket-matchup-done' : ''} ${hasLineupData ? 'bracket-matchup-clickable' : ''} ${isExpanded ? 'bracket-matchup-expanded' : ''}`}
-                            onClick={() => hasLineupData && setExpandedMatchup(isExpanded ? null : m.id)}
+                            className={`bracket-matchup ${isComplete ? 'bracket-matchup-done' : ''} ${isProjected ? 'bracket-matchup-projected' : ''} ${isLive ? 'bracket-matchup-live' : ''} ${isClickable ? 'bracket-matchup-clickable' : ''} ${isExpanded ? 'bracket-matchup-expanded' : ''}`}
+                            onClick={() => isClickable && setExpandedMatchup(isExpanded ? null : m.id)}
                           >
                             {/* Player 1 slot */}
                             <div className={`bracket-slot ${m.winner_wallet === m.player1_wallet && isComplete ? 'bracket-slot-winner' : ''}`}>
@@ -540,7 +669,7 @@ export default function FastbreakBracket() {
       {/* Participants table */}
       <div className="card shadow mb-4">
         <div className="card-body">
-          <h3 className="text-center mb-3">Participants ({(tournament.participants || []).length})</h3>
+          <h3 className="text-center mb-3">Participants ({(tournament.participants || []).length}{tournament.max_players ? ` / ${tournament.max_players}` : ''})</h3>
           {(tournament.participants || []).length === 0 ? (
             <p className="text-center text-muted">No participants yet.</p>
           ) : (

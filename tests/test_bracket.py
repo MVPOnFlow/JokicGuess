@@ -51,8 +51,8 @@ class TestListBracketTournaments:
         db, cursor = _mock_db()
         mock_get_db.return_value = db
 
-        # Tournament row
-        tournament_row = (1, 'Test Cup', 5.0, '$MVP', 9999999999, 'SIGNUP', 0, None, '2026-01-01')
+        # Tournament row (includes max_rounds as 10th column)
+        tournament_row = (1, 'Test Cup', 5.0, '$MVP', 9999999999, 'SIGNUP', 0, None, '2026-01-01', 3)
         cursor.fetchall.side_effect = [
             [tournament_row],  # tournament list
         ]
@@ -101,6 +101,8 @@ class TestCreateBracketTournament:
         assert data['name'] == 'My Bracket'
         assert data['status'] == 'SIGNUP'
         assert data['rounds_mapped'] == 6
+        assert data['max_rounds'] == 6
+        assert data['max_players'] == 64
         # commit called twice: once for tournament insert, once for bracket_rounds
         assert mock_conn.commit.call_count == 2
         mock_conn.close.assert_called_once()
@@ -151,8 +153,8 @@ class TestGetBracketTournament:
         db, cursor = _mock_db()
         mock_get_db.return_value = db
 
-        # First fetchone: tournament row
-        tournament_row = (1, 'Test Cup', 5.0, '$MVP', 9999999999, 'ACTIVE', 1, None, '2026-01-01')
+        # First fetchone: tournament row (includes max_rounds as 10th column)
+        tournament_row = (1, 'Test Cup', 5.0, '$MVP', 9999999999, 'ACTIVE', 1, None, '2026-01-01', 3)
         participant_rows = [
             (1, '0xaaa', 'user1', 1, None),
             (2, '0xbbb', 'user2', 2, None),
@@ -161,7 +163,7 @@ class TestGetBracketTournament:
             (1, 1, 0, '0xaaa', '0xbbb', None, None, None, None, None, None, None, None, 'PENDING'),
         ]
         round_schedule_rows = [
-            (1, 'fb-abc', '2026-04-10'),
+            (1, 'fb-abc', '2026-04-10', '125 PTS, 40 FGM'),
         ]
 
         cursor.fetchone.return_value = tournament_row
@@ -174,6 +176,8 @@ class TestGetBracketTournament:
         assert len(data['participants']) == 2
         assert data['total_rounds'] == 1
         assert '1' in data['round_schedule'] or 1 in data['round_schedule']
+        sched = data['round_schedule'].get('1') or data['round_schedule'].get(1)
+        assert sched['objectives'] == '125 PTS, 40 FGM'
 
 
 class TestBracketSignup:
@@ -187,10 +191,11 @@ class TestBracketSignup:
 
         import time
         future_ts = int(time.time()) + 3600
-        # Tournament row
+        # Tournament row (signup_close_ts, status, max_rounds)
         cursor.fetchone.side_effect = [
-            (future_ts, 'SIGNUP'),  # tournament check
-            None,                    # duplicate check (no existing)
+            (future_ts, 'SIGNUP', 3),  # tournament check
+            (0,),                       # participant count for max-players check
+            None,                       # duplicate check (no existing)
         ]
 
         resp = client.post(
@@ -224,7 +229,7 @@ class TestBracketSignup:
         db, cursor = _mock_db()
         mock_get_conn.return_value = (db, 'sqlite')
 
-        cursor.fetchone.return_value = (1000000, 'ACTIVE')  # not SIGNUP
+        cursor.fetchone.return_value = (1000000, 'ACTIVE', 3)  # not SIGNUP
 
         resp = client.post(
             '/api/bracket/tournament/1/signup',

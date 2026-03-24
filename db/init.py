@@ -312,6 +312,7 @@ def initialize_database(conn, db_type):
             signup_close_ts BIGINT NOT NULL,
             status TEXT NOT NULL DEFAULT 'SIGNUP',
             current_round INTEGER NOT NULL DEFAULT 0,
+            max_rounds INTEGER NOT NULL DEFAULT 6,
             winner_wallet TEXT,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
@@ -360,10 +361,20 @@ def initialize_database(conn, db_type):
             round_number INTEGER NOT NULL,
             fastbreak_id TEXT NOT NULL,
             game_date TEXT NOT NULL,
+            objectives TEXT DEFAULT NULL,
             UNIQUE (tournament_id, round_number)
         )
     '''))
     conn.commit()
+
+    # Migration: add max_rounds column if it doesn't exist yet
+    try:
+        cursor.execute(prepare_query(
+            "ALTER TABLE bracket_tournaments ADD COLUMN max_rounds INTEGER NOT NULL DEFAULT 6"
+        ))
+        conn.commit()
+    except Exception:
+        pass  # column already exists
 
     # ── One-time seed: populate jokic_editions if empty ──
     try:
