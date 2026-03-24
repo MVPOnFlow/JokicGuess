@@ -216,9 +216,9 @@ def initialize_database(conn, db_type):
                 ALTER TABLE fastbreak_rankings
                 ADD CONSTRAINT unique_fb_user UNIQUE (fastbreak_id, username);
             '''))
-        except:
-            pass
-        conn.commit()
+            conn.commit()
+        except Exception:
+            conn.rollback()  # PostgreSQL requires rollback after failed DDL
     else:
         # SQLite-specific setup
         cursor.execute(prepare_query('''
@@ -383,7 +383,7 @@ def initialize_database(conn, db_type):
         if row and row[0] == 0:
             _seed_jokic_editions(conn, db_type)
     except Exception:
-        pass  # table may not exist yet in test mocks
+        conn.rollback()  # PostgreSQL requires rollback after failed statement
 
     return cursor
 
