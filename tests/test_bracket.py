@@ -129,7 +129,7 @@ class TestGetBracketTournament:
             (2, '0xbbb', 'user2', 2, None),
         ]
         matchup_rows = [
-            (1, 1, 0, '0xaaa', '0xbbb', None, None, None, None, 'PENDING'),
+            (1, 1, 0, '0xaaa', '0xbbb', None, None, None, None, None, None, None, None, 'PENDING'),
         ]
 
         cursor.fetchone.return_value = tournament_row
@@ -260,16 +260,15 @@ class TestBracketGenerate:
 class TestBracketAdvance:
     """POST /api/bracket/tournament/<id>/advance"""
 
+    @patch('routes.api.get_rank_and_lineup_for_user')
     @patch('db.init.get_db_connection')
-    def test_advance_scores_and_creates_next_round(self, mock_get_conn, client):
+    def test_advance_scores_and_creates_next_round(self, mock_get_conn, mock_get_fb, client):
         db, cursor = _mock_db()
         mock_get_conn.return_value = (db, 'sqlite')
 
         # Tournament status
         cursor.fetchone.side_effect = [
             ('ACTIVE', 1),            # tournament status + current_round
-            (5,),                      # p1 rank (user1)
-            (10,),                     # p2 rank (user2)
         ]
         # Pending matchups for round 1
         # Then wallet-to-username map
@@ -279,6 +278,12 @@ class TestBracketAdvance:
             [('0xaaa', 'user1'), ('0xbbb', 'user2')],  # wallet→username
             [],                                    # BYE winners
         ]
+
+        # Mock TopShot API responses — higher points wins
+        mock_get_fb.side_effect = lambda username, fb_id: (
+            {'rank': 5, 'points': 210, 'players': ['LeBron James', 'Steph Curry']} if username == 'user1'
+            else {'rank': 10, 'points': 180, 'players': ['Luka Doncic', 'Ja Morant']}
+        )
 
         resp = client.post(
             '/api/bracket/tournament/1/advance',

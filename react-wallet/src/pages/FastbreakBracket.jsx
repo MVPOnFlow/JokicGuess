@@ -383,14 +383,40 @@ export default function FastbreakBracket() {
                         const isComplete = m.status === 'COMPLETE' || m.status === 'BYE';
                         return (
                           <div key={m.id} className={`bracket-matchup ${isComplete ? 'bracket-matchup-done' : ''}`}>
+                            {/* Player 1 slot */}
                             <div className={`bracket-slot ${m.winner_wallet === m.player1_wallet && isComplete ? 'bracket-slot-winner' : ''}`}>
-                              {walletDisplay(m.player1_wallet)}
-                              {m.player1_score != null && <span className="bracket-score">{m.player1_score}</span>}
+                              <div className="bracket-slot-header">
+                                {walletDisplay(m.player1_wallet)}
+                                {m.player1_score != null && <span className="bracket-score">{m.player1_score} pts</span>}
+                              </div>
+                              {m.player1_rank != null && (
+                                <span className="bracket-rank">Rank #{m.player1_rank}</span>
+                              )}
+                              {m.player1_lineup && m.player1_lineup.length > 0 && (
+                                <div className="bracket-lineup">
+                                  {m.player1_lineup.map((name, i) => (
+                                    <span key={i} className="bracket-lineup-player">{name}</span>
+                                  ))}
+                                </div>
+                              )}
                             </div>
                             <div className="bracket-vs">vs</div>
+                            {/* Player 2 slot */}
                             <div className={`bracket-slot ${m.winner_wallet === m.player2_wallet && isComplete ? 'bracket-slot-winner' : ''}`}>
-                              {walletDisplay(m.player2_wallet)}
-                              {m.player2_score != null && <span className="bracket-score">{m.player2_score}</span>}
+                              <div className="bracket-slot-header">
+                                {walletDisplay(m.player2_wallet)}
+                                {m.player2_score != null && <span className="bracket-score">{m.player2_score} pts</span>}
+                              </div>
+                              {m.player2_rank != null && (
+                                <span className="bracket-rank">Rank #{m.player2_rank}</span>
+                              )}
+                              {m.player2_lineup && m.player2_lineup.length > 0 && (
+                                <div className="bracket-lineup">
+                                  {m.player2_lineup.map((name, i) => (
+                                    <span key={i} className="bracket-lineup-player">{name}</span>
+                                  ))}
+                                </div>
+                              )}
                             </div>
                           </div>
                         );

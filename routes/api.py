@@ -672,12 +672,15 @@ def register_routes(app):
             SELECT id, round_number, match_index,
                    player1_wallet, player2_wallet,
                    player1_score, player2_score,
+                   player1_rank, player2_rank,
+                   player1_lineup, player2_lineup,
                    winner_wallet, fastbreak_id, status
             FROM bracket_matchups WHERE tournament_id = ?
             ORDER BY round_number ASC, match_index ASC
         '''), (tid,))
         rounds = {}
         for m in cursor.fetchall():
+            import json as _json
             rn = m[1]
             if rn not in rounds:
                 rounds[rn] = []
@@ -685,7 +688,10 @@ def register_routes(app):
                 "id": m[0], "round_number": rn, "match_index": m[2],
                 "player1_wallet": m[3], "player2_wallet": m[4],
                 "player1_score": m[5], "player2_score": m[6],
-                "winner_wallet": m[7], "fastbreak_id": m[8], "status": m[9],
+                "player1_rank": m[7], "player2_rank": m[8],
+                "player1_lineup": _json.loads(m[9]) if m[9] else None,
+                "player2_lineup": _json.loads(m[10]) if m[10] else None,
+                "winner_wallet": m[11], "fastbreak_id": m[12], "status": m[13],
             })
         tournament["rounds"] = rounds
 
@@ -827,10 +833,12 @@ def register_routes(app):
         """Score current round matchups and create next round.
 
         Body: { "fastbreak_id": "..." } — the TopShot fastbreak ID used for scoring.
-        Pulls each player's rank from fastbreak_rankings table; lower rank wins.
+        Pulls each player's rank, points, and lineup from the TopShot API;
+        higher points wins.  Stores rank, lineup, and points per player.
         Creates next-round matchups from winners.
         """
         from db.init import get_db_connection
+        import json as _json
         conn, _ = get_db_connection()
         cursor = conn.cursor()
 
@@ -866,16 +874,15 @@ def register_routes(app):
         ), (tid,))
         wallet_to_username = {r[0]: r[1] for r in cursor.fetchall()}
 
-        def get_score(wallet):
-            """Get rank from fastbreak_rankings. Lower rank = better."""
+        def get_fb_data(wallet):
+            """Fetch rank, points, and lineup from TopShot API for a wallet."""
             username = wallet_to_username.get(wallet)
             if not username:
-                return None
-            cursor.execute(prepare_query(
-                'SELECT rank FROM fastbreak_rankings WHERE fastbreak_id = ? AND LOWER(username) = LOWER(?)'
-            ), (fastbreak_id, username))
-            r = cursor.fetchone()
-            return r[0] if r else None
+                return {}
+            try:
+                return get_rank_and_lineup_for_user(username, fastbreak_id) or {}
+            except Exception:
+                return {}
 
         winners = []
         for matchup_id, p1, p2 in pending:
@@ -887,12 +894,20 @@ def register_routes(app):
                 winners.append(p1)
                 continue
 
-            s1 = get_score(p1)
-            s2 = get_score(p2)
+            d1 = get_fb_data(p1)
+            d2 = get_fb_data(p2)
+            s1 = d1.get('points')
+            s2 = d2.get('points')
+            rk1 = d1.get('rank')
+            rk2 = d2.get('rank')
+            ln1 = d1.get('players')
+            ln2 = d2.get('players')
+            ln1_str = _json.dumps(ln1) if ln1 else None
+            ln2_str = _json.dumps(ln2) if ln2 else None
 
-            # Determine winner: lower rank wins; None means no lineup → loss
+            # Determine winner: higher points wins; None means no lineup → loss
             if s1 is not None and s2 is not None:
-                winner = p1 if s1 <= s2 else p2
+                winner = p1 if s1 >= s2 else p2
                 loser = p2 if winner == p1 else p1
             elif s1 is not None:
                 winner, loser = p1, p2
@@ -904,10 +919,13 @@ def register_routes(app):
 
             cursor.execute(prepare_query('''
                 UPDATE bracket_matchups
-                SET player1_score = ?, player2_score = ?, winner_wallet = ?,
+                SET player1_score = ?, player2_score = ?,
+                    player1_rank = ?, player2_rank = ?,
+                    player1_lineup = ?, player2_lineup = ?,
+                    winner_wallet = ?,
                     fastbreak_id = ?, status = 'COMPLETE'
                 WHERE id = ?
-            '''), (s1, s2, winner, fastbreak_id, matchup_id))
+            '''), (s1, s2, rk1, rk2, ln1_str, ln2_str, winner, fastbreak_id, matchup_id))
 
             # Mark loser eliminated
             cursor.execute(prepare_query(

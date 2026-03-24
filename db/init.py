@@ -341,6 +341,10 @@ def initialize_database(conn, db_type):
             player2_wallet TEXT,
             player1_score INTEGER,
             player2_score INTEGER,
+            player1_rank INTEGER,
+            player2_rank INTEGER,
+            player1_lineup TEXT,
+            player2_lineup TEXT,
             winner_wallet TEXT,
             fastbreak_id TEXT,
             status TEXT NOT NULL DEFAULT 'PENDING'
