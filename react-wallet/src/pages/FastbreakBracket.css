@@ -1,0 +1,484 @@
+/* ──────────────────────────────────────────────
+   FastbreakBracket.css
+   ────────────────────────────────────────────── */
+
+.bracket-page {
+  max-width: 1100px;
+  margin: 0 auto;
+}
+
+/* ── Rules ── */
+.bracket-rules-btn {
+  background-color: #0e2240;
+  color: #fdb927;
+  border: 1px solid #fdb927;
+  font-weight: 700;
+  border-radius: 9999px;
+  padding: 8px 20px;
+  cursor: pointer;
+  transition: background-color 0.15s;
+}
+.bracket-rules-btn:hover {
+  background-color: #162d50;
+}
+.bracket-rules-box {
+  background-color: #1c2a3a;
+  border: 1px solid #273549;
+  border-radius: 12px;
+  padding: 1.25rem 1.5rem;
+  line-height: 1.6;
+  color: #e5e7eb;
+}
+.bracket-rules-list {
+  padding-left: 1.25rem;
+  margin-bottom: 0;
+}
+.bracket-rules-list li {
+  margin-bottom: 0.35rem;
+}
+
+/* ── Tournament list ── */
+.bracket-tournament-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.bracket-tournament-card {
+  background-color: #1c2a3a;
+  border: 1px solid #273549;
+  border-radius: 12px;
+  padding: 16px 20px;
+  cursor: pointer;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.bracket-tournament-card:hover {
+  border-color: #fdb927;
+  box-shadow: 0 4px 16px rgba(253, 185, 39, 0.15);
+}
+.btc-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+.btc-name {
+  font-weight: 700;
+  font-size: 1.1rem;
+  color: #fdb927;
+}
+.btc-status {
+  font-weight: 600;
+  font-size: 0.85rem;
+}
+.btc-details {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  font-size: 0.9rem;
+  color: #9ca3af;
+}
+
+/* ── Tournament detail meta ── */
+.bracket-meta {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 16px;
+  margin-bottom: 16px;
+  font-size: 0.95rem;
+  color: #9ca3af;
+}
+.bracket-status {
+  font-weight: 700;
+  padding: 3px 12px;
+  border-radius: 9999px;
+  font-size: 0.85rem;
+}
+.bracket-status-signup { background: rgba(253, 185, 39, 0.15); color: #fdb927; }
+.bracket-status-active { background: rgba(16, 185, 129, 0.15); color: #10b981; }
+.bracket-status-complete { background: rgba(107, 114, 128, 0.15); color: #6b7280; }
+
+.bracket-countdown {
+  font-weight: 600;
+  color: #fdb927;
+}
+
+/* ── Prize pool ── */
+.bracket-prize-pool {
+  text-align: center;
+  font-size: 1.05rem;
+  color: #e5e7eb;
+  margin-top: 10px;
+  margin-bottom: 12px;
+}
+.bracket-prize-pool strong {
+  color: #fdb927;
+}
+.bracket-prize-detail {
+  font-size: 0.8rem;
+  color: #6b7280;
+}
+
+/* ── Winner banner ── */
+.bracket-winner-banner {
+  text-align: center;
+  background: linear-gradient(135deg, #fdb927 0%, #ff8c00 100%);
+  color: #0b1220;
+  padding: 12px 20px;
+  border-radius: 10px;
+  font-weight: 700;
+  font-size: 1.15rem;
+  margin-bottom: 16px;
+}
+
+/* ── Signup box ── */
+.bracket-signup-box {
+  text-align: center;
+  background-color: #0e2240;
+  border: 1px dashed #fdb927;
+  border-radius: 12px;
+  padding: 20px;
+  margin-top: 12px;
+}
+.bracket-signup-box p {
+  margin-bottom: 12px;
+  color: #9ca3af;
+}
+.bracket-signup-btn {
+  background-color: #fdb927;
+  color: #0b1220;
+  border: none;
+  padding: 10px 28px;
+  border-radius: 8px;
+  font-weight: 700;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: background-color 0.15s;
+}
+.bracket-signup-btn:hover:not(:disabled) {
+  background-color: #ffcc4d;
+}
+.bracket-signup-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+.bracket-tx-status {
+  font-size: 0.9rem;
+  color: #e5e7eb;
+}
+.bracket-wallet-checking {
+  color: #fdb927;
+  font-size: 0.9rem;
+  margin-bottom: 10px;
+}
+.bracket-wallet-warning {
+  background-color: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  border-radius: 8px;
+  padding: 12px 16px;
+  margin-bottom: 12px;
+  color: #f87171;
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+.bracket-wallet-warning a {
+  color: #fdb927;
+  font-weight: 600;
+  text-decoration: underline;
+}
+.bracket-wallet-warning a:hover {
+  color: #ffcc4d;
+}
+.bracket-signed-up {
+  text-align: center;
+  background-color: rgba(16, 185, 129, 0.1);
+  border: 1px solid #10b981;
+  border-radius: 10px;
+  padding: 12px;
+  margin-top: 12px;
+  color: #10b981;
+  font-weight: 600;
+}
+.bracket-eliminated {
+  color: #ef4444;
+  font-weight: 400;
+}
+
+/* ── Section headings inside cards ── */
+.bracket-page .card-body h3 {
+  color: #fdb927;
+  border-bottom: 2px solid #fdb927;
+  padding-bottom: 0.5rem;
+  margin-bottom: 1.5rem;
+  text-align: center;
+}
+
+/* ── Bracket visualization ── */
+.bracket-container {
+  display: flex;
+  gap: 24px;
+  overflow-x: auto;
+  padding-bottom: 12px;
+  align-items: flex-start;
+}
+.bracket-round {
+  min-width: 220px;
+  flex-shrink: 0;
+}
+.bracket-round-title {
+  text-align: center;
+  font-weight: 700;
+  color: #fdb927;
+  font-size: 0.95rem;
+  margin-bottom: 12px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 2px;
+}
+.bracket-round-date {
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: #9CA3AF;
+  letter-spacing: 0.02em;
+}
+.bracket-round-objectives {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: #60A5FA;
+  letter-spacing: 0.02em;
+  margin-top: 1px;
+}
+
+/* ── Admin create tournament ── */
+.bracket-admin-box {
+  text-align: center;
+}
+.bracket-admin-form {
+  max-width: 380px;
+  margin: 0 auto;
+  text-align: left;
+}
+.bracket-admin-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+.bracket-admin-row label {
+  width: 90px;
+  font-size: 0.85rem;
+  color: #9CA3AF;
+  flex-shrink: 0;
+}
+.bracket-admin-row input,
+.bracket-admin-row select {
+  flex: 1;
+  background: #111827;
+  border: 1px solid #374151;
+  color: #e5e7eb;
+  border-radius: 6px;
+  padding: 6px 10px;
+  font-size: 0.85rem;
+}
+.bracket-admin-row input:focus,
+.bracket-admin-row select:focus {
+  border-color: #fdb927;
+  outline: none;
+}
+.bracket-current-badge {
+  background: #fdb927;
+  color: #0b1220;
+  font-size: 0.7rem;
+  font-weight: 800;
+  padding: 2px 8px;
+  border-radius: 9999px;
+  text-transform: uppercase;
+}
+.bracket-matchups {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.bracket-matchup {
+  background-color: #1c2a3a;
+  border: 1px solid #273549;
+  border-radius: 10px;
+  overflow: hidden;
+  transition: border-color 0.15s;
+}
+.bracket-matchup-done {
+  border-color: #374151;
+}
+.bracket-matchup-projected {
+  border-style: dashed;
+  border-color: rgba(96, 165, 250, 0.3);
+  opacity: 0.65;
+}
+.bracket-matchup-live {
+  border-color: #10b981;
+  box-shadow: 0 0 8px rgba(16, 185, 129, 0.2);
+}
+.bracket-matchup-clickable {
+  cursor: pointer;
+}
+.bracket-matchup-clickable:hover {
+  border-color: #fdb927;
+}
+.bracket-matchup-expanded {
+  border-color: #fdb927;
+}
+.bracket-slot {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  padding: 8px 12px;
+  font-size: 0.9rem;
+  color: #e5e7eb;
+}
+.bracket-slot-winner {
+  background-color: rgba(253, 185, 39, 0.1);
+  color: #fdb927;
+  font-weight: 700;
+}
+.bracket-vs {
+  text-align: center;
+  font-size: 0.7rem;
+  color: #6b7280;
+  padding: 2px 0;
+  background: #141e2e;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+.bracket-score {
+  font-weight: 700;
+  font-size: 0.85rem;
+  color: #9ca3af;
+  margin-left: 8px;
+}
+.bracket-slot-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+}
+
+/* ── Expanded lineup detail panel ── */
+.bracket-detail {
+  background: #141e2e;
+  border-top: 1px solid #273549;
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.bracket-detail-player {
+  border-radius: 8px;
+  background: #1c2a3a;
+  padding: 8px 10px;
+}
+.bracket-detail-winner {
+  border-left: 3px solid #fdb927;
+}
+.bracket-detail-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+}
+.bracket-detail-name {
+  font-weight: 700;
+  font-size: 0.85rem;
+}
+.bracket-detail-stats {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.bracket-detail-pts {
+  font-weight: 700;
+  font-size: 0.85rem;
+  color: #e5e7eb;
+}
+.bracket-detail-rank {
+  font-size: 0.75rem;
+  color: #6b7280;
+}
+.bracket-detail-lineup {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.bracket-detail-no-lineup {
+  font-size: 0.75rem;
+  color: #6b7280;
+  font-style: italic;
+}
+.bracket-lineup-player {
+  font-size: 0.72rem;
+  color: #d1d5db;
+  background-color: rgba(253, 185, 39, 0.08);
+  border: 1px solid rgba(253, 185, 39, 0.15);
+  border-radius: 6px;
+  padding: 2px 8px;
+  white-space: nowrap;
+}
+.bracket-pending-round {
+  text-align: center;
+  color: #6b7280;
+  font-style: italic;
+  padding: 20px 0;
+}
+
+/* ── Player name styling ── */
+.bracket-player {
+  white-space: nowrap;
+}
+.bracket-me {
+  color: #fdb927;
+  font-weight: 700;
+}
+.bracket-bye {
+  color: #6b7280;
+  font-style: italic;
+}
+
+/* ── Live / Projected badges ── */
+.bracket-live-badge {
+  background: #ef4444;
+  color: white;
+  font-size: 0.6rem;
+  font-weight: 800;
+  padding: 2px 8px;
+  border-radius: 9999px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  animation: bracket-pulse 2s ease-in-out infinite;
+}
+.bracket-projected-badge {
+  background: rgba(96, 165, 250, 0.15);
+  color: #60A5FA;
+  font-size: 0.6rem;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 9999px;
+}
+@keyframes bracket-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+/* ── Responsive ── */
+@media (max-width: 768px) {
+  .bracket-container {
+    gap: 12px;
+  }
+  .bracket-round {
+    min-width: 180px;
+  }
+  .bracket-meta {
+    gap: 8px;
+    font-size: 0.85rem;
+  }
+}

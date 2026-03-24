@@ -552,6 +552,12 @@ def extract_fastbreak_runs():
       gameDate
       gamesStartAt
       status
+      stats {
+        id
+        stat
+        valueNeeded
+        valueType
+      }
     }
     """
 
@@ -824,47 +830,22 @@ def get_flow_address_by_username(username: str):
     #print(f"✅ Username: {public_info['username']}, Flow Address: {flow_address}, DapperID: {public_info['dapperID']}")
     return '0x'+flow_address
 
-def get_username_from_dapper_wallet_flow(flow_address: str) -> str:
+def get_username_from_dapper_wallet_flow(dapper_address: str) -> str:
     """
-    Fetches the Top Shot username for a given Flow address.
-    Returns the username string or None if not found.
+    Fetches the Dapper display-name for a given Dapper wallet address
+    via the open.meetdapper.com profile API.
+    Returns the displayName string or None if not found.
     """
-    url = "https://public-api.nbatopshot.com/graphql"
-
-    query = """
-    query GetUserProfile($input: GetUserProfileInput!) {
-      getUserProfile(input: $input) {
-        publicInfo {
-          username
-          flowAddress
-        }
-      }
-    }
-    """
-    flow_address = flow_address.removeprefix('0x')
-    variables = {
-        "input": {
-            "flowAddress": flow_address
-        }
-    }
+    addr = dapper_address if dapper_address.startswith('0x') else f'0x{dapper_address}'
+    url = f"https://open.meetdapper.com/profile?address={addr}"
 
     headers = {
         "User-Agent": "PetJokicsHorses",
-        "Content-Type": "application/json"
     }
 
-    response = requests.post(url, json={"query": query, "variables": variables}, headers=headers, timeout=10)
+    response = requests.get(url, headers=headers, timeout=10)
     data = response.json()
-    # Handle potential GraphQL errors
-    if "errors" in data:
-        print("❌ GraphQL Error:", data["errors"])
-        return None
-
-    public_info = data.get("data", {}).get("getUserProfile", {}).get("publicInfo")
-    if public_info and public_info.get("username"):
-        return public_info["username"]
-
-    return None
+    return data.get("displayName") or None
 
 # Known wallet → TopShot username overrides (skip GraphQL chain)
 _KNOWN_WALLET_USERNAMES = {

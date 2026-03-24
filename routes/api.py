@@ -12,7 +12,7 @@ from utils.helpers import (
     prepare_query, map_wallet_to_username, 
     get_rank_and_lineup_for_user, get_flow_wallet_from_ts_username,
     get_ts_username_from_flow_wallet, get_jokic_editions,
-    get_dapper_id_from_flow_wallet
+    get_dapper_id_from_flow_wallet, extract_fastbreak_runs
 )
 from config import (
     SWAPFEST_START_TIME, SWAPFEST_END_TIME,
@@ -568,6 +568,580 @@ def register_routes(app):
             return jsonify({"error": "Missing required parameters"}), 400
 
         return jsonify({"hasLineup": bool(get_rank_and_lineup_for_user(username, fastbreak_id))})
+
+    # ═══════════════════════════════════════════════════════════════
+    #  Fastbreak Bracket Tournament API
+    # ═══════════════════════════════════════════════════════════════
+
+    @app.route("/api/bracket/tournaments", methods=["GET", "POST"])
+    def api_list_bracket_tournaments():
+        """GET: list tournaments.  POST: create a new tournament (admin).
+
+        POST body:
+            name          – tournament name (required)
+            start_date    – YYYY-MM-DD of the first Classic Fastbreak day (required)
+            fee_amount    – entry fee (default 5)
+            fee_currency  – e.g. '$MVP' (default)
+            max_rounds    – maximum number of rounds (1-6, default 6). Max players = 2^max_rounds.
+
+        The server calls the TopShot API to discover the next Classic
+        Fastbreak days starting on *start_date* and pre-assigns them to
+        rounds 1–max_rounds.  ``signup_close_ts`` is derived from the first
+        Fastbreak's ``gamesStartAt`` (or midnight UTC of start_date as
+        fallback).
+        """
+        if request.method == "POST":
+            data = request.get_json(force=True)
+            name = (data.get("name") or "").strip()
+            fee_amount = float(data.get("fee_amount", 5))
+            fee_currency = (data.get("fee_currency") or "$MVP").strip()
+            start_date = (data.get("start_date") or "").strip()
+            max_rounds = int(data.get("max_rounds", 6))
+            if max_rounds < 1 or max_rounds > 6:
+                return jsonify({"error": "max_rounds must be between 1 and 6"}), 400
+
+            if not name or not start_date:
+                return jsonify({"error": "name and start_date are required"}), 400
+
+            # ── Fetch upcoming Classic fastbreak days from TopShot ──
+            try:
+                runs = extract_fastbreak_runs()
+            except Exception as e:
+                return jsonify({"error": f"Failed to fetch fastbreak runs: {e}"}), 502
+
+            classic_fbs = []
+            for run in runs:
+                rn = run.get('runName', '')
+                if not rn or rn.endswith('Pro'):
+                    continue
+                if 'Classic' not in rn:
+                    continue
+                for fb in (run.get('fastBreaks') or []):
+                    if not fb:
+                        continue
+                    gd = (fb.get('gameDate') or '')[:10]
+                    if gd >= start_date:
+                        # Build objectives string from stats array
+                        stats = fb.get('stats') or []
+                        obj_parts = []
+                        for s in stats:
+                            val = s.get('valueNeeded')
+                            stat_name = s.get('stat', '')
+                            if val is not None and stat_name:
+                                obj_parts.append(f"{val} {stat_name}")
+                        objectives_str = ', '.join(obj_parts) if obj_parts else None
+                        classic_fbs.append({
+                            'id': fb['id'],
+                            'gameDate': gd,
+                            'gamesStartAt': fb.get('gamesStartAt'),
+                            'status': fb.get('status'),
+                            'objectives': objectives_str,
+                        })
+
+            # Sort by date and take first 6
+            classic_fbs.sort(key=lambda x: x['gameDate'])
+            # Deduplicate by gameDate (take first per date)
+            seen_dates = set()
+            unique_fbs = []
+            for fb in classic_fbs:
+                if fb['gameDate'] not in seen_dates:
+                    seen_dates.add(fb['gameDate'])
+                    unique_fbs.append(fb)
+            classic_fbs = unique_fbs[:max_rounds]
+
+            if not classic_fbs:
+                return jsonify({"error": "No Classic Fastbreak days found from the given start_date"}), 400
+
+            # Derive signup_close_ts from the first FB's gamesStartAt
+            import datetime as _dt
+            first_fb = classic_fbs[0]
+            if first_fb.get('gamesStartAt'):
+                try:
+                    gsa = _dt.datetime.fromisoformat(first_fb['gamesStartAt'].replace('Z', '+00:00'))
+                    signup_close_ts = int(gsa.timestamp())
+                except Exception:
+                    signup_close_ts = int(_dt.datetime.strptime(start_date, '%Y-%m-%d').replace(
+                        tzinfo=_dt.timezone.utc).timestamp())
+            else:
+                signup_close_ts = int(_dt.datetime.strptime(start_date, '%Y-%m-%d').replace(
+                    tzinfo=_dt.timezone.utc).timestamp())
+
+            from db.init import get_db_connection
+            conn, db_type = get_db_connection()
+            cursor = conn.cursor()
+            try:
+                cursor.execute(prepare_query(
+                    '''INSERT INTO bracket_tournaments
+                       (name, fee_amount, fee_currency, signup_close_ts, status, current_round, max_rounds)
+                       VALUES (?, ?, ?, ?, 'SIGNUP', 0, ?)'''
+                ), (name, fee_amount, fee_currency, signup_close_ts, max_rounds))
+                conn.commit()
+                # Retrieve the new id
+                if db_type == 'postgresql':
+                    cursor.execute("SELECT lastval()")
+                else:
+                    cursor.execute("SELECT last_insert_rowid()")
+                new_id = cursor.fetchone()[0]
+
+                # Insert bracket_rounds mapping
+                for rnd_num, fb in enumerate(classic_fbs, start=1):
+                    cursor.execute(prepare_query(
+                        '''INSERT INTO bracket_rounds
+                           (tournament_id, round_number, fastbreak_id, game_date, objectives)
+                           VALUES (?, ?, ?, ?, ?)'''
+                    ), (new_id, rnd_num, fb['id'], fb['gameDate'], fb.get('objectives')))
+                conn.commit()
+
+                return jsonify({
+                    "id": new_id, "name": name, "status": "SIGNUP",
+                    "signup_close_ts": signup_close_ts,
+                    "rounds_mapped": len(classic_fbs),
+                    "max_rounds": max_rounds,
+                    "max_players": 2 ** max_rounds,
+                }), 201
+            finally:
+                conn.close()
+        db = get_db()
+        cursor = db.cursor()
+        cursor.execute(prepare_query('''
+            SELECT id, name, fee_amount, fee_currency, signup_close_ts,
+                   status, current_round, winner_wallet, created_at, max_rounds
+            FROM bracket_tournaments
+            ORDER BY created_at DESC
+        '''))
+        rows = cursor.fetchall()
+        tournaments = []
+        for r in rows:
+            tid = r[0]
+            mr = int(r[9]) if r[9] is not None else 6
+            # participant count
+            cursor.execute(prepare_query(
+                'SELECT COUNT(*) FROM bracket_participants WHERE tournament_id = ?'
+            ), (tid,))
+            pcount = cursor.fetchone()[0]
+            tournaments.append({
+                "id": tid, "name": r[1],
+                "fee_amount": float(r[2]), "fee_currency": r[3],
+                "signup_close_ts": int(r[4]), "status": r[5],
+                "current_round": r[6], "winner_wallet": r[7],
+                "created_at": str(r[8]), "participant_count": pcount,
+                "max_rounds": mr, "max_players": 2 ** mr,
+            })
+        return jsonify(tournaments)
+
+    @app.route("/api/bracket/tournament/<int:tid>", methods=["GET"])
+    def api_get_bracket_tournament(tid):
+        """Get a single tournament with participants, matchups, and bracket."""
+        db = get_db()
+        cursor = db.cursor()
+        cursor.execute(prepare_query('''
+            SELECT id, name, fee_amount, fee_currency, signup_close_ts,
+                   status, current_round, winner_wallet, created_at, max_rounds
+            FROM bracket_tournaments WHERE id = ?
+        '''), (tid,))
+        row = cursor.fetchone()
+        if not row:
+            return jsonify({"error": "Tournament not found"}), 404
+
+        mr = int(row[9]) if row[9] is not None else 6
+        tournament = {
+            "id": row[0], "name": row[1],
+            "fee_amount": float(row[2]), "fee_currency": row[3],
+            "signup_close_ts": int(row[4]), "status": row[5],
+            "current_round": row[6], "winner_wallet": row[7],
+            "created_at": str(row[8]),
+            "max_rounds": mr, "max_players": 2 ** mr,
+        }
+
+        # Participants
+        cursor.execute(prepare_query('''
+            SELECT id, wallet_address, ts_username, seed_number, eliminated_in_round
+            FROM bracket_participants WHERE tournament_id = ?
+            ORDER BY seed_number ASC NULLS LAST, id ASC
+        '''), (tid,))
+        participants = []
+        for p in cursor.fetchall():
+            participants.append({
+                "id": p[0], "wallet_address": p[1],
+                "ts_username": p[2], "seed_number": p[3],
+                "eliminated_in_round": p[4],
+            })
+        tournament["participants"] = participants
+
+        # Matchups grouped by round
+        cursor.execute(prepare_query('''
+            SELECT id, round_number, match_index,
+                   player1_wallet, player2_wallet,
+                   player1_score, player2_score,
+                   player1_rank, player2_rank,
+                   player1_lineup, player2_lineup,
+                   winner_wallet, fastbreak_id, status
+            FROM bracket_matchups WHERE tournament_id = ?
+            ORDER BY round_number ASC, match_index ASC
+        '''), (tid,))
+        rounds = {}
+        for m in cursor.fetchall():
+            import json as _json
+            rn = m[1]
+            if rn not in rounds:
+                rounds[rn] = []
+            rounds[rn].append({
+                "id": m[0], "round_number": rn, "match_index": m[2],
+                "player1_wallet": m[3], "player2_wallet": m[4],
+                "player1_score": m[5], "player2_score": m[6],
+                "player1_rank": m[7], "player2_rank": m[8],
+                "player1_lineup": _json.loads(m[9]) if m[9] else None,
+                "player2_lineup": _json.loads(m[10]) if m[10] else None,
+                "winner_wallet": m[11], "fastbreak_id": m[12], "status": m[13],
+            })
+        tournament["rounds"] = rounds
+
+        # Compute total_rounds
+        n = len(participants)
+        import math as _math
+        tournament["total_rounds"] = _math.ceil(_math.log2(n)) if n > 1 else 1
+
+        # Round-level schedule from bracket_rounds
+        cursor.execute(prepare_query('''
+            SELECT round_number, fastbreak_id, game_date, objectives
+            FROM bracket_rounds WHERE tournament_id = ?
+            ORDER BY round_number ASC
+        '''), (tid,))
+        round_schedule = {}
+        for rs in cursor.fetchall():
+            round_schedule[rs[0]] = {
+                "fastbreak_id": rs[1],
+                "game_date": rs[2],
+                "objectives": rs[3] if len(rs) > 3 else None,
+            }
+        tournament["round_schedule"] = round_schedule
+
+        return jsonify(tournament)
+
+    @app.route("/api/bracket/check-wallet", methods=["GET"])
+    def api_bracket_check_wallet():
+        """Pre-check whether a Flow wallet can be resolved to a TopShot username.
+
+        Returns the username on success, or a descriptive error with a
+        ``reason`` field so the frontend can show targeted guidance.
+        """
+        wallet = (request.args.get("wallet") or "").strip().lower()
+        if not wallet:
+            return jsonify({"error": "Missing wallet address", "reason": "missing"}), 400
+
+        try:
+            ts_username = get_ts_username_from_flow_wallet(wallet)
+        except Exception:
+            ts_username = None
+
+        if ts_username:
+            return jsonify({"ts_username": ts_username})
+
+        # Distinguish: no child account vs child found but no username
+        try:
+            import asyncio as _asyncio
+            from utils.helpers import get_linked_child_account, _grpc_lock, _GRPC_DELAY
+            import time as _time
+            with _grpc_lock:
+                child = _asyncio.run(get_linked_child_account(wallet))
+                _time.sleep(_GRPC_DELAY)
+        except Exception:
+            child = None
+
+        if not child:
+            return jsonify({
+                "error": "No linked Dapper wallet found. Link your Dapper account to your Flow wallet on NBA Top Shot, then try again.",
+                "reason": "no_child",
+            }), 400
+
+        return jsonify({
+            "error": "Dapper wallet found but could not resolve your TopShot username. Make sure your TopShot profile is set up.",
+            "reason": "no_username",
+        }), 400
+
+    @app.route("/api/bracket/tournament/<int:tid>/signup", methods=["POST"])
+    def api_bracket_signup(tid):
+        """Sign up a wallet for a bracket tournament."""
+        from db.init import get_db_connection
+        conn, _ = get_db_connection()
+        cursor = conn.cursor()
+
+        data = request.get_json() or {}
+        wallet = (data.get("wallet") or "").strip().lower()
+        if not wallet:
+            return jsonify({"error": "Missing wallet address"}), 400
+
+        # Resolve TopShot username from wallet
+        ts_username = None
+        try:
+            ts_username = get_ts_username_from_flow_wallet(wallet)
+        except Exception:
+            pass
+        if not ts_username:
+            return jsonify({"error": "Could not resolve TopShot username for this wallet. Make sure your Dapper wallet is linked."}), 400
+
+        cursor.execute(prepare_query(
+            'SELECT signup_close_ts, status, max_rounds FROM bracket_tournaments WHERE id = ?'
+        ), (tid,))
+        row = cursor.fetchone()
+        if not row:
+            return jsonify({"error": "Tournament not found"}), 404
+        close_ts, status, max_rounds = int(row[0]), row[1], int(row[2])
+        now_ts = int(datetime.datetime.now(datetime.UTC).timestamp())
+        if status != 'SIGNUP':
+            return jsonify({"error": "Tournament is no longer accepting signups"}), 403
+        if now_ts >= close_ts:
+            return jsonify({"error": "Signup deadline has passed"}), 403
+
+        # Check max players limit (2^max_rounds)
+        max_players = 2 ** max_rounds
+        cursor.execute(prepare_query(
+            'SELECT COUNT(*) FROM bracket_participants WHERE tournament_id = ?'
+        ), (tid,))
+        current_count = cursor.fetchone()[0]
+        if current_count >= max_players:
+            return jsonify({"error": f"Tournament is full ({max_players}/{max_players} players)"}), 403
+
+        # Check duplicate
+        cursor.execute(prepare_query(
+            'SELECT id FROM bracket_participants WHERE tournament_id = ? AND wallet_address = ?'
+        ), (tid, wallet))
+        if cursor.fetchone():
+            return jsonify({"error": "Already signed up for this tournament"}), 409
+
+        cursor.execute(prepare_query('''
+            INSERT INTO bracket_participants (tournament_id, wallet_address, ts_username)
+            VALUES (?, ?, ?)
+        '''), (tid, wallet, ts_username))
+        conn.commit()
+
+        return jsonify({"success": True, "ts_username": ts_username})
+
+    @app.route("/api/bracket/tournament/<int:tid>/generate", methods=["POST"])
+    def api_bracket_generate(tid):
+        """Generate first-round bracket after signup closes.
+
+        Seeds participants randomly and creates round-1 matchups.
+        Participants that don't fit in a power-of-2 bracket get a BYE
+        (auto-advance to round 2).
+        """
+        from db.init import get_db_connection
+        import random as _random
+        conn, _ = get_db_connection()
+        cursor = conn.cursor()
+
+        cursor.execute(prepare_query(
+            'SELECT status FROM bracket_tournaments WHERE id = ?'
+        ), (tid,))
+        row = cursor.fetchone()
+        if not row:
+            return jsonify({"error": "Tournament not found"}), 404
+        if row[0] not in ('SIGNUP',):
+            return jsonify({"error": "Bracket already generated"}), 400
+
+        cursor.execute(prepare_query(
+            'SELECT id, wallet_address, ts_username FROM bracket_participants WHERE tournament_id = ?'
+        ), (tid,))
+        parts = cursor.fetchall()
+        if len(parts) < 2:
+            return jsonify({"error": "Need at least 2 participants"}), 400
+
+        # Shuffle and seed
+        plist = [(p[0], p[1], p[2]) for p in parts]
+        _random.shuffle(plist)
+        for idx, (pid, _w, _u) in enumerate(plist):
+            cursor.execute(prepare_query(
+                'UPDATE bracket_participants SET seed_number = ? WHERE id = ?'
+            ), (idx + 1, pid))
+
+        n = len(plist)
+        import math as _math
+        total_rounds = _math.ceil(_math.log2(n))
+        bracket_size = 2 ** total_rounds
+        num_byes = bracket_size - n
+
+        # Create round 1 matchups
+        match_idx = 0
+        bye_wallets = []
+        i = 0
+        while i < n:
+            p1_wallet = plist[i][1]
+            if num_byes > 0:
+                # This player gets a BYE
+                cursor.execute(prepare_query('''
+                    INSERT INTO bracket_matchups
+                    (tournament_id, round_number, match_index, player1_wallet, player2_wallet, winner_wallet, status)
+                    VALUES (?, 1, ?, ?, NULL, ?, 'BYE')
+                '''), (tid, match_idx, p1_wallet, p1_wallet))
+                bye_wallets.append(p1_wallet)
+                num_byes -= 1
+                i += 1
+            else:
+                p2_wallet = plist[i + 1][1] if i + 1 < n else None
+                cursor.execute(prepare_query('''
+                    INSERT INTO bracket_matchups
+                    (tournament_id, round_number, match_index, player1_wallet, player2_wallet, status)
+                    VALUES (?, 1, ?, ?, ?, 'PENDING')
+                '''), (tid, match_idx, p1_wallet, p2_wallet))
+                i += 2
+            match_idx += 1
+
+        # Update tournament status
+        cursor.execute(prepare_query(
+            'UPDATE bracket_tournaments SET status = ?, current_round = 1 WHERE id = ?'
+        ), ('ACTIVE', tid))
+        conn.commit()
+
+        return jsonify({"success": True, "participants": n, "total_rounds": total_rounds, "byes": len(bye_wallets)})
+
+    @app.route("/api/bracket/tournament/<int:tid>/advance", methods=["POST"])
+    def api_bracket_advance(tid):
+        """Score current round matchups and create next round.
+
+        The fastbreak_id for the current round is read from the
+        ``bracket_rounds`` mapping table (set at tournament creation).
+        Pulls each player's rank, points, and lineup from the TopShot API;
+        higher points wins.  Stores rank, lineup, and points per player.
+        Creates next-round matchups from winners.
+        """
+        from db.init import get_db_connection
+        import json as _json
+        conn, _ = get_db_connection()
+        cursor = conn.cursor()
+
+        cursor.execute(prepare_query(
+            'SELECT status, current_round FROM bracket_tournaments WHERE id = ?'
+        ), (tid,))
+        row = cursor.fetchone()
+        if not row:
+            return jsonify({"error": "Tournament not found"}), 404
+        status, current_round = row[0], row[1]
+        if status != 'ACTIVE':
+            return jsonify({"error": "Tournament is not active"}), 400
+
+        # Look up the fastbreak_id for the current round from bracket_rounds
+        cursor.execute(prepare_query(
+            'SELECT fastbreak_id FROM bracket_rounds WHERE tournament_id = ? AND round_number = ?'
+        ), (tid, current_round))
+        round_row = cursor.fetchone()
+        if not round_row:
+            return jsonify({"error": f"No fastbreak mapped for round {current_round}"}), 400
+        fastbreak_id = round_row[0]
+
+        # Get pending matchups for current round
+        cursor.execute(prepare_query('''
+            SELECT id, player1_wallet, player2_wallet
+            FROM bracket_matchups
+            WHERE tournament_id = ? AND round_number = ? AND status = 'PENDING'
+        '''), (tid, current_round))
+        pending = cursor.fetchall()
+
+        if not pending:
+            return jsonify({"error": "No pending matchups for current round"}), 400
+
+        # Username lookup helper (wallet → ts_username from participants)
+        cursor.execute(prepare_query(
+            'SELECT wallet_address, ts_username FROM bracket_participants WHERE tournament_id = ?'
+        ), (tid,))
+        wallet_to_username = {r[0]: r[1] for r in cursor.fetchall()}
+
+        def get_fb_data(wallet):
+            """Fetch rank, points, and lineup from TopShot API for a wallet."""
+            username = wallet_to_username.get(wallet)
+            if not username:
+                return {}
+            try:
+                return get_rank_and_lineup_for_user(username, fastbreak_id) or {}
+            except Exception:
+                return {}
+
+        winners = []
+        for matchup_id, p1, p2 in pending:
+            if not p2:
+                # BYE — shouldn't be PENDING, but handle gracefully
+                cursor.execute(prepare_query(
+                    'UPDATE bracket_matchups SET winner_wallet = ?, status = ?, fastbreak_id = ? WHERE id = ?'
+                ), (p1, 'BYE', fastbreak_id, matchup_id))
+                winners.append(p1)
+                continue
+
+            d1 = get_fb_data(p1)
+            d2 = get_fb_data(p2)
+            s1 = d1.get('points')
+            s2 = d2.get('points')
+            rk1 = d1.get('rank')
+            rk2 = d2.get('rank')
+            ln1 = d1.get('players')
+            ln2 = d2.get('players')
+            ln1_str = _json.dumps(ln1) if ln1 else None
+            ln2_str = _json.dumps(ln2) if ln2 else None
+
+            # Determine winner: higher points wins; None means no lineup → loss
+            if s1 is not None and s2 is not None:
+                winner = p1 if s1 >= s2 else p2
+                loser = p2 if winner == p1 else p1
+            elif s1 is not None:
+                winner, loser = p1, p2
+            elif s2 is not None:
+                winner, loser = p2, p1
+            else:
+                # Neither has a score — p1 wins by coin flip (seeded higher)
+                winner, loser = p1, p2
+
+            cursor.execute(prepare_query('''
+                UPDATE bracket_matchups
+                SET player1_score = ?, player2_score = ?,
+                    player1_rank = ?, player2_rank = ?,
+                    player1_lineup = ?, player2_lineup = ?,
+                    winner_wallet = ?,
+                    fastbreak_id = ?, status = 'COMPLETE'
+                WHERE id = ?
+            '''), (s1, s2, rk1, rk2, ln1_str, ln2_str, winner, fastbreak_id, matchup_id))
+
+            # Mark loser eliminated
+            cursor.execute(prepare_query(
+                'UPDATE bracket_participants SET eliminated_in_round = ? WHERE tournament_id = ? AND wallet_address = ?'
+            ), (current_round, tid, loser))
+
+            winners.append(winner)
+
+        # Also collect BYE winners from this round
+        cursor.execute(prepare_query('''
+            SELECT winner_wallet FROM bracket_matchups
+            WHERE tournament_id = ? AND round_number = ? AND status = 'BYE'
+        '''), (tid, current_round))
+        for r in cursor.fetchall():
+            if r[0] and r[0] not in winners:
+                winners.append(r[0])
+
+        # Check if tournament is over
+        if len(winners) <= 1:
+            champion = winners[0] if winners else None
+            cursor.execute(prepare_query(
+                'UPDATE bracket_tournaments SET status = ?, winner_wallet = ? WHERE id = ?'
+            ), ('COMPLETE', champion, tid))
+            conn.commit()
+            return jsonify({"success": True, "status": "COMPLETE", "winner": champion})
+
+        # Create next round matchups
+        next_round = current_round + 1
+        for mi in range(0, len(winners), 2):
+            p1 = winners[mi]
+            p2 = winners[mi + 1] if mi + 1 < len(winners) else None
+            st = 'BYE' if not p2 else 'PENDING'
+            w = p1 if not p2 else None
+            cursor.execute(prepare_query('''
+                INSERT INTO bracket_matchups
+                (tournament_id, round_number, match_index, player1_wallet, player2_wallet, winner_wallet, status)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+            '''), (tid, next_round, mi // 2, p1, p2, w, st))
+
+        cursor.execute(prepare_query(
+            'UPDATE bracket_tournaments SET current_round = ? WHERE id = ?'
+        ), (next_round, tid))
+        conn.commit()
+
+        return jsonify({"success": True, "status": "ACTIVE", "next_round": next_round, "winners": len(winners)})
 
     @app.route("/api/museum")
     def museum_editions():

@@ -301,6 +301,81 @@ def initialize_database(conn, db_type):
     except Exception:
         pass  # column already exists
 
+    # ── Fastbreak Bracket tables ──
+    serial_pk = 'INTEGER PRIMARY KEY AUTOINCREMENT' if db_type == 'sqlite' else 'SERIAL PRIMARY KEY'
+    cursor.execute(prepare_query(f'''
+        CREATE TABLE IF NOT EXISTS bracket_tournaments (
+            id {serial_pk},
+            name TEXT NOT NULL,
+            fee_amount NUMERIC NOT NULL DEFAULT 5,
+            fee_currency TEXT NOT NULL DEFAULT '$MVP',
+            signup_close_ts BIGINT NOT NULL,
+            status TEXT NOT NULL DEFAULT 'SIGNUP',
+            current_round INTEGER NOT NULL DEFAULT 0,
+            max_rounds INTEGER NOT NULL DEFAULT 6,
+            winner_wallet TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    '''))
+    conn.commit()
+
+    cursor.execute(prepare_query(f'''
+        CREATE TABLE IF NOT EXISTS bracket_participants (
+            id {serial_pk},
+            tournament_id INTEGER NOT NULL,
+            wallet_address TEXT NOT NULL,
+            ts_username TEXT,
+            seed_number INTEGER,
+            eliminated_in_round INTEGER,
+            signed_up_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE (tournament_id, wallet_address)
+        )
+    '''))
+    conn.commit()
+
+    cursor.execute(prepare_query(f'''
+        CREATE TABLE IF NOT EXISTS bracket_matchups (
+            id {serial_pk},
+            tournament_id INTEGER NOT NULL,
+            round_number INTEGER NOT NULL,
+            match_index INTEGER NOT NULL,
+            player1_wallet TEXT,
+            player2_wallet TEXT,
+            player1_score INTEGER,
+            player2_score INTEGER,
+            player1_rank INTEGER,
+            player2_rank INTEGER,
+            player1_lineup TEXT,
+            player2_lineup TEXT,
+            winner_wallet TEXT,
+            fastbreak_id TEXT,
+            status TEXT NOT NULL DEFAULT 'PENDING'
+        )
+    '''))
+    conn.commit()
+
+    cursor.execute(prepare_query(f'''
+        CREATE TABLE IF NOT EXISTS bracket_rounds (
+            id {serial_pk},
+            tournament_id INTEGER NOT NULL,
+            round_number INTEGER NOT NULL,
+            fastbreak_id TEXT NOT NULL,
+            game_date TEXT NOT NULL,
+            objectives TEXT DEFAULT NULL,
+            UNIQUE (tournament_id, round_number)
+        )
+    '''))
+    conn.commit()
+
+    # Migration: add max_rounds column if it doesn't exist yet
+    try:
+        cursor.execute(prepare_query(
+            "ALTER TABLE bracket_tournaments ADD COLUMN max_rounds INTEGER NOT NULL DEFAULT 6"
+        ))
+        conn.commit()
+    except Exception:
+        pass  # column already exists
+
     # ── One-time seed: populate jokic_editions if empty ──
     try:
         cursor.execute(prepare_query("SELECT COUNT(*) FROM jokic_editions"))

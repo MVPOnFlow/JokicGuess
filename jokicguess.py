@@ -15,6 +15,7 @@ from config import DISCORD_TOKEN, FLASK_HOST, FLASK_PORT
 from db.init import get_db_connection, initialize_database
 from routes.api import register_routes
 from bot.commands import register_commands
+from bot.bracket_poller import start_bracket_poller
 
 
 # Initialize Flask app
@@ -72,6 +73,9 @@ def run_flask():
 
 
 if __name__ == "__main__":
+    # Start bracket poller daemon thread (every 10 min)
+    start_bracket_poller()
+
     # Start Flask in background thread
     threading.Thread(target=run_flask, daemon=True).start()
     

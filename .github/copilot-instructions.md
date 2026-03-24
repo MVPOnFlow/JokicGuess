@@ -16,6 +16,7 @@ Each UI page has its own instruction file in `.github/instructions/` with a full
 | Treasury | `/treasury` | `.github/instructions/treasury.instructions.md` |
 | Vote | `/vote` | `.github/instructions/vote.instructions.md` |
 | Fastbreak | `/fastbreak` | `.github/instructions/fastbreak.instructions.md` |
+| Fastbreak Bracket | `/bracket` | `.github/instructions/bracket.instructions.md` |
 | Horse Stats | `/horsestats` | `.github/instructions/horsestats.instructions.md` |
 | TD Watch | `/tdwatch` | `.github/instructions/tdwatch.instructions.md` |
 | Museum | `/museum` | `.github/instructions/museum.instructions.md` |
