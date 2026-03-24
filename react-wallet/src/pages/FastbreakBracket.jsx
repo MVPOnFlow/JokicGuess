@@ -95,6 +95,7 @@ export default function FastbreakBracket() {
   const [txStatus, setTxStatus] = useState('');
   const [processing, setProcessing] = useState(false);
   const [showRules, setShowRules] = useState(false);
+  const [expandedMatchup, setExpandedMatchup] = useState(null);
 
   useEffect(() => { fcl.currentUser().subscribe(setUser); }, []);
 
@@ -381,43 +382,57 @@ export default function FastbreakBracket() {
                     <div className="bracket-matchups">
                       {matchups.map((m) => {
                         const isComplete = m.status === 'COMPLETE' || m.status === 'BYE';
+                        const isExpanded = expandedMatchup === m.id;
+                        const hasLineupData = (m.player1_lineup?.length > 0) || (m.player2_lineup?.length > 0);
                         return (
-                          <div key={m.id} className={`bracket-matchup ${isComplete ? 'bracket-matchup-done' : ''}`}>
+                          <div
+                            key={m.id}
+                            className={`bracket-matchup ${isComplete ? 'bracket-matchup-done' : ''} ${hasLineupData ? 'bracket-matchup-clickable' : ''} ${isExpanded ? 'bracket-matchup-expanded' : ''}`}
+                            onClick={() => hasLineupData && setExpandedMatchup(isExpanded ? null : m.id)}
+                          >
                             {/* Player 1 slot */}
                             <div className={`bracket-slot ${m.winner_wallet === m.player1_wallet && isComplete ? 'bracket-slot-winner' : ''}`}>
                               <div className="bracket-slot-header">
                                 {walletDisplay(m.player1_wallet)}
                                 {m.player1_score != null && <span className="bracket-score">{m.player1_score} pts</span>}
                               </div>
-                              {m.player1_rank != null && (
-                                <span className="bracket-rank">Rank #{m.player1_rank}</span>
-                              )}
-                              {m.player1_lineup && m.player1_lineup.length > 0 && (
-                                <div className="bracket-lineup">
-                                  {m.player1_lineup.map((name, i) => (
-                                    <span key={i} className="bracket-lineup-player">{name}</span>
-                                  ))}
-                                </div>
-                              )}
                             </div>
-                            <div className="bracket-vs">vs</div>
+                            <div className="bracket-vs">{hasLineupData ? (isExpanded ? '▾ vs' : '▸ vs') : 'vs'}</div>
                             {/* Player 2 slot */}
                             <div className={`bracket-slot ${m.winner_wallet === m.player2_wallet && isComplete ? 'bracket-slot-winner' : ''}`}>
                               <div className="bracket-slot-header">
                                 {walletDisplay(m.player2_wallet)}
                                 {m.player2_score != null && <span className="bracket-score">{m.player2_score} pts</span>}
                               </div>
-                              {m.player2_rank != null && (
-                                <span className="bracket-rank">Rank #{m.player2_rank}</span>
-                              )}
-                              {m.player2_lineup && m.player2_lineup.length > 0 && (
-                                <div className="bracket-lineup">
-                                  {m.player2_lineup.map((name, i) => (
-                                    <span key={i} className="bracket-lineup-player">{name}</span>
-                                  ))}
-                                </div>
-                              )}
                             </div>
+                            {/* Expanded lineup detail */}
+                            {isExpanded && (
+                              <div className="bracket-detail" onClick={e => e.stopPropagation()}>
+                                {[{ wallet: m.player1_wallet, rank: m.player1_rank, score: m.player1_score, lineup: m.player1_lineup, isWinner: m.winner_wallet === m.player1_wallet && isComplete },
+                                  { wallet: m.player2_wallet, rank: m.player2_rank, score: m.player2_score, lineup: m.player2_lineup, isWinner: m.winner_wallet === m.player2_wallet && isComplete }]
+                                  .filter(p => p.wallet)
+                                  .map((p, pi) => (
+                                    <div key={pi} className={`bracket-detail-player ${p.isWinner ? 'bracket-detail-winner' : ''}`}>
+                                      <div className="bracket-detail-header">
+                                        <span className="bracket-detail-name">{walletDisplay(p.wallet)}</span>
+                                        <span className="bracket-detail-stats">
+                                          {p.score != null && <span className="bracket-detail-pts">{p.score} pts</span>}
+                                          {p.rank != null && <span className="bracket-detail-rank">Rank #{p.rank}</span>}
+                                        </span>
+                                      </div>
+                                      {p.lineup && p.lineup.length > 0 ? (
+                                        <div className="bracket-detail-lineup">
+                                          {p.lineup.map((name, i) => (
+                                            <span key={i} className="bracket-lineup-player">{name}</span>
+                                          ))}
+                                        </div>
+                                      ) : (
+                                        <div className="bracket-detail-no-lineup">No lineup submitted</div>
+                                      )}
+                                    </div>
+                                  ))}
+                              </div>
+                            )}
                           </div>
                         );
                       })}
