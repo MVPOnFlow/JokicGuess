@@ -555,6 +555,22 @@ export default function FastbreakBracket() {
               )}
             </div>
           )}
+
+          {/* How It Works — show during signup phase */}
+          {tournament.status === 'SIGNUP' && (
+            <div className="bracket-rules-box mt-4">
+              <h5 className="text-warning mb-2">🏆 How It Works</h5>
+              <ul className="bracket-rules-list">
+                <li>Sign up by paying the entry fee before the deadline</li>
+                <li>Your Flow wallet is linked to your Dapper/TopShot username</li>
+                <li>Once signups close, a single-elimination bracket is formed</li>
+                <li>Each round corresponds to one daily Fastbreak contest on NBA TopShot</li>
+                <li>Your real Fastbreak score determines the winner of each matchup</li>
+                <li>If you don't have an opponent in round 1, you get a BYE (auto-advance)</li>
+                <li>Last player standing wins the prize pool!</li>
+              </ul>
+            </div>
+          )}
         </div>
       </div>
 
