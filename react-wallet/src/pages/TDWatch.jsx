@@ -7,7 +7,7 @@ function TDWatch() {
   // Top 3 all-time triple-double leaders
   const tdLeaders = [
     { rank: 1, name: 'Russell Westbrook', count: 209, active: true },
-    { rank: 2, name: 'Nikola Jokić', count: 191, active: true, isJokic: true },
+    { rank: 2, name: 'Nikola Jokić', count: 193, active: true, isJokic: true },
     { rank: 3, name: 'Oscar Robertson', count: 181, active: false }
   ];
 
@@ -67,7 +67,6 @@ function TDWatch() {
     { timestamp: 1769054400, opponent: 'Lakers', isHome: true, played: true, tripleDouble: false, stats: null },
     { timestamp: 1769227200, opponent: 'Wizards', isHome: false, played: true, tripleDouble: false, stats: null },
     { timestamp: 1769313600, opponent: 'Bucks', isHome: false, played: true, tripleDouble: false, stats: null },
-    { timestamp: 1769400000, opponent: 'Grizzlies', isHome: false, played: false, tripleDouble: false, stats: null },
     { timestamp: 1769659200, opponent: 'Pistons', isHome: true, played: true, tripleDouble: false, stats: null },
     { timestamp: 1769832000, opponent: 'Nets', isHome: true, played: true, tripleDouble: false, stats: null },
     { timestamp: 1769918400, opponent: 'Clippers', isHome: true, played: true, tripleDouble: false, stats: { points: 31, rebounds: 12, assists: 5 } },
@@ -94,11 +93,11 @@ function TDWatch() {
     { timestamp: 1773374400, opponent: 'Rockets', isHome: true, played: true, tripleDouble: true, stats: { points: 16, rebounds: 12, assists: 13 } },
     { timestamp: 1773460800, opponent: 'Spurs', isHome: false, played: true, tripleDouble: true, stats: { points: 31, rebounds: 20, assists: 12 } },
     { timestamp: 1773720000, opponent: 'Lakers', isHome: false, played: true, tripleDouble: true, stats: { points: 24, rebounds: 16, assists: 14 } },
-    { timestamp: 1773799200, opponent: '76ers', isHome: true, played: false, tripleDouble: false, stats: null },
-    { timestamp: 1773880200, opponent: 'Grizzlies', isHome: false, played: false, tripleDouble: false, stats: null },
-    { timestamp: 1774054800, opponent: 'Raptors', isHome: true, played: false, tripleDouble: false, stats: null },
-    { timestamp: 1774213200, opponent: 'Trail Blazers', isHome: true, played: false, tripleDouble: false, stats: null },
-    { timestamp: 1774407600, opponent: 'Suns', isHome: false, played: false, tripleDouble: false, stats: null },
+    { timestamp: 1773799200, opponent: '76ers', isHome: true, played: true, tripleDouble: false, stats: { points: 8, rebounds: 7, assists: 14 } },
+    { timestamp: 1773880200, opponent: 'Grizzlies', isHome: false, played: true, tripleDouble: false, stats: { points: 29, rebounds: 14, assists: 9 } },
+    { timestamp: 1774054800, opponent: 'Raptors', isHome: true, played: true, tripleDouble: false, stats: { points: 22, rebounds: 8, assists: 9 } },
+    { timestamp: 1774213200, opponent: 'Trail Blazers', isHome: true, played: true, tripleDouble: true, stats: { points: 22, rebounds: 14, assists: 14 } },
+    { timestamp: 1774407600, opponent: 'Suns', isHome: false, played: true, tripleDouble: true, stats: { points: 23, rebounds: 17, assists: 17 } },
     { timestamp: 1774490400, opponent: 'Mavericks', isHome: true, played: false, tripleDouble: false, stats: null },
     { timestamp: 1774659600, opponent: 'Jazz', isHome: true, played: false, tripleDouble: false, stats: null },
     { timestamp: 1774836000, opponent: 'Warriors', isHome: true, played: false, tripleDouble: false, stats: null },

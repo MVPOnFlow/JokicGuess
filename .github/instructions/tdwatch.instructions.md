@@ -32,8 +32,8 @@ None — all data is hardcoded in the component.
 - None (data manually sourced and hardcoded).
 
 ## Implementation Notes
-- **Data sourcing**: Game data and triple-double results should be synced from Nikola Jokić's Basketball Reference game log: https://www.basketball-reference.com/players/j/jokicni01/gamelog/2026
-- **Triple-double leaders**: When updating all-time triple-double leaders (names or totals), always pull the latest numbers from Basketball Reference: https://www.basketball-reference.com/leaders/trp_dbl_career.html rather than relying on model memory.
+- **Data sourcing**: Game data and triple-double results should be fetched from the ESPN game log page: https://www.espn.com/nba/player/gamelog/_/id/3112335/nikola-jokic — **do NOT use Basketball Reference** (it blocks automated/fetch requests and returns redirects). The ESPN page returns a table with columns: date, opponent, result, MIN, FG, FG%, 3PT, 3P%, FT, FT%, REB, AST (among others). Extract PTS, REB, AST for each game.
+- **Triple-double leaders**: When updating all-time triple-double leaders, use the ESPN page above (season totals) or count TDs from the hardcoded array. Do not rely on model memory for totals.
 - **Schedule syncing**: The Nuggets schedule and TD tracking also live in the DB (`nuggets_schedule` table) used by Discord bot commands. Keep both sources in sync.
 - The schedule covers the 2025–26 NBA season. Update the hardcoded array as games are played.
 - Season data imported from `jokicSeasonData.js` for shared use.
