@@ -1097,9 +1097,9 @@ export default function Swap() {
           <div className="swap-card">
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
               <div className="swap-panel-label" style={{ margin: 0 }}>
-                Your TopShot Jokic Moments
+                Your Unlocked Jokic Moments
                 <span style={{ color: '#6B7280', fontWeight: 400, marginLeft: 6 }}>
-                  ({moments.length} total)
+                  ({moments.length} unlocked · 🔒 locked moments hidden)
                 </span>
               </div>
               <div style={{ fontSize: '0.75rem', color: '#6B7280' }}>
@@ -1140,7 +1140,7 @@ export default function Swap() {
               </div>
             ) : filtered.length === 0 ? (
               <div style={{ textAlign: 'center', padding: '2rem', color: '#6B7280' }}>
-                {moments.length === 0 ? 'No TopShot moments found in your Dapper account.' : 'No moments match your filter.'}
+                {moments.length === 0 ? 'No unlocked Jokic moments found. Locked moments cannot be swapped.' : 'No moments match your filter.'}
               </div>
             ) : (
               <div className="swap-moment-grid">
