@@ -298,12 +298,14 @@ transaction(momentIds: [UInt64], momentRecipient: Address, boostNftId: UInt64, b
    Cadence: check if user has $MVP vault set up
    ================================================================ */
 const CADENCE_CHECK_MVP_VAULT = `
+import FungibleToken from 0xf233dcee88fe0abe
 import PetJokicsHorses from 0x6fd2465f3a22e34c
 
 access(all) fun main(address: Address): Bool {
   let account = getAccount(address)
-  return account.capabilities
-    .borrow<&PetJokicsHorses.Vault>(/public/PetJokicsHorsesReceiver) != nil
+  let receiver = account.capabilities
+    .borrow<&{FungibleToken.Receiver}>(PetJokicsHorses.ReceiverPublicPath)
+  return receiver != nil
 }
 `;
 
@@ -311,21 +313,38 @@ access(all) fun main(address: Address): Bool {
    Cadence: set up $MVP vault for the user
    ================================================================ */
 const CADENCE_SETUP_MVP_VAULT = `
-import FungibleToken from 0xf233dcee88fe0abe
 import PetJokicsHorses from 0x6fd2465f3a22e34c
+import FungibleToken from 0xf233dcee88fe0abe
+import MetadataViews from 0x1d7e57aa55817448
+import Toucans from 0x577a3c409c5dcb5e
 
-transaction {
-  prepare(signer: auth(Storage, Capabilities) &Account) {
-    if signer.storage.borrow<&PetJokicsHorses.Vault>(from: /storage/PetJokicsHorsesVault) == nil {
-      signer.storage.save(<- PetJokicsHorses.createEmptyVault(vaultType: Type<@PetJokicsHorses.Vault>()), to: /storage/PetJokicsHorsesVault)
+transaction() {
+  prepare(user: auth(Storage, Capabilities) &Account) {
+    // ── Toucans Collection (dependency) ──
+    if user.storage.borrow<&Toucans.Collection>(from: Toucans.CollectionStoragePath) == nil {
+      user.storage.save(<- Toucans.createCollection(), to: Toucans.CollectionStoragePath)
+      let cap = user.capabilities.storage.issue<&Toucans.Collection>(Toucans.CollectionStoragePath)
+      user.capabilities.publish(cap, at: Toucans.CollectionPublicPath)
     }
-    if signer.capabilities.get<&PetJokicsHorses.Vault>(/public/PetJokicsHorsesReceiver) == nil {
-      signer.capabilities.unpublish(/public/PetJokicsHorsesReceiver)
-      signer.capabilities.publish(
-        signer.capabilities.storage.issue<&PetJokicsHorses.Vault>(/storage/PetJokicsHorsesVault),
-        at: /public/PetJokicsHorsesReceiver
+
+    // ── $MVP Vault: save if missing ──
+    if user.storage.borrow<&PetJokicsHorses.Vault>(from: PetJokicsHorses.VaultStoragePath) == nil {
+      user.storage.save(
+        <- PetJokicsHorses.createEmptyVault(vaultType: Type<@PetJokicsHorses.Vault>()),
+        to: PetJokicsHorses.VaultStoragePath
       )
     }
+
+    // ── Always fix capabilities (handles wallets left in a bad state) ──
+    // Unpublish any stale / mistyped caps first, then re-issue fresh ones
+    user.capabilities.unpublish(PetJokicsHorses.VaultPublicPath)
+    user.capabilities.unpublish(PetJokicsHorses.ReceiverPublicPath)
+
+    let publicCap = user.capabilities.storage.issue<&PetJokicsHorses.Vault>(PetJokicsHorses.VaultStoragePath)
+    user.capabilities.publish(publicCap, at: PetJokicsHorses.VaultPublicPath)
+
+    let receiverCap = user.capabilities.storage.issue<&PetJokicsHorses.Vault>(PetJokicsHorses.VaultStoragePath)
+    user.capabilities.publish(receiverCap, at: PetJokicsHorses.ReceiverPublicPath)
   }
 }
 `;
@@ -344,7 +363,7 @@ transaction(amount: UFix64, recipient: Address) {
 
   prepare(signer: auth(Storage, BorrowValue) &Account) {
     let vaultRef = signer.storage.borrow<auth(FungibleToken.Withdraw) &PetJokicsHorses.Vault>(
-      from: /storage/PetJokicsHorsesVault
+      from: PetJokicsHorses.VaultStoragePath
     ) ?? panic("Could not borrow reference to the owner's Vault!")
     self.sentVault <- vaultRef.withdraw(amount: amount)
   }
