@@ -2,10 +2,10 @@ import React, { useState, useRef } from 'react';
 
 const candidates = [
   { key: 'jokic',   name: 'Nikola Jokić', team: 'DEN', emoji: '🃏', isJokic: true },
-  { key: 'embiid',  name: 'Joel Embiid',  team: 'PHI', emoji: '🏥' },
+  { key: 'embiid',  name: 'Victor Wembanyama',  team: 'SAS', emoji: '👽' },
   { key: 'sga',     name: 'Shai Gilgeous-Alexander', team: 'OKC', emoji: '⛈️' },
-  { key: 'luka',    name: 'Luka Dončić',   team: 'DAL', emoji: '🪄' },
-  { key: 'giannis', name: 'Giannis Antetokounmpo', team: 'MIL', emoji: '🦌' },
+  { key: 'luka',    name: 'Luka Dončić',   team: 'LAL', emoji: '🪄' },
+  { key: 'giannis', name: 'Jalen Brown', team: 'BOS', emoji: '☘️' },
 ];
 
 const styles = {
