@@ -1099,7 +1099,7 @@ export default function Swap() {
               <div className="swap-panel-label" style={{ margin: 0 }}>
                 Your Unlocked Jokic Moments
                 <span style={{ color: '#6B7280', fontWeight: 400, marginLeft: 6 }}>
-                  ({moments.length} unlocked · 🔒 locked moments hidden)
+                  ({moments.length} unlocked)
                 </span>
               </div>
               <div style={{ fontSize: '0.75rem', color: '#6B7280' }}>
