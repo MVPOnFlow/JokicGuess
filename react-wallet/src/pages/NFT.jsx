@@ -196,7 +196,7 @@ export default function NFT() {
   const [allLoading, setAllLoading]         = useState(false);
   const [setupBusy, setSetupBusy]           = useState(false);
   const [error, setError]                   = useState(null);
-  const [viewMode, setViewMode]             = useState('mine');   // 'mine' | 'all'
+  const [viewMode, setViewMode]             = useState('all');    // 'mine' | 'all'
 
   /* ── subscribe to wallet ── */
   useEffect(() => {
@@ -278,7 +278,7 @@ export default function NFT() {
     if (viewMode === 'all' && allNfts.length === 0) {
       refreshAll();
     }
-  }, [viewMode, allNfts.length, refreshAll]);
+  }, [viewMode, refreshAll]);  // removed allNfts.length dep to avoid re-fetch loop
 
   /* ── enable collection ── */
   const handleSetup = async () => {
@@ -303,27 +303,20 @@ export default function NFT() {
     }
   };
 
-  /* ── not logged in ── */
-  if (!user.loggedIn) {
-    return (
-      <div className="nft-container">
-        <div className="nft-hero">
-          <h1>🐎 Jokic's Horse Stable</h1>
-          <p>Send a horse back to the treasury during a swap for a one-time <strong>20% $MVP boost</strong></p>
-          <a href={FLOWTY_BUY_URL} target="_blank" rel="noopener noreferrer" className="nft-btn nft-btn-primary mt-2">
-            🛒 Buy a Horse
-          </a>
-        </div>
-        <div className="nft-connect-prompt">
-          <h3>Connect Your Wallet</h3>
-          <p>Connect your Flow wallet to view your MVP Horse NFTs and enable the collection.</p>
-          <button className="nft-btn nft-btn-primary" onClick={() => fcl.authenticate()}>
-            Connect Wallet
-          </button>
-        </div>
-      </div>
-    );
-  }
+  /* Auto-switch to 'mine' when logged in with horses, stay on 'all' otherwise */
+  useEffect(() => {
+    if (user.loggedIn && myNfts.length > 0) {
+      setViewMode('mine');
+    } else if (!user.loggedIn) {
+      setViewMode('all');
+    }
+  }, [user.loggedIn, myNfts.length]);
+
+  /* Auto-fetch all horses on mount so they're ready */
+  useEffect(() => {
+    if (allNfts.length === 0) refreshAll();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <div className="nft-container">
@@ -342,7 +335,7 @@ export default function NFT() {
           <div className="nft-toggle">
             <button
               className={`nft-toggle-btn ${viewMode === 'mine' ? 'active' : ''}`}
-              onClick={() => setViewMode('mine')}
+              onClick={() => { if (user.loggedIn) setViewMode('mine'); else fcl.authenticate(); }}
             >
               My Horses
             </button>
@@ -355,7 +348,7 @@ export default function NFT() {
           </div>
 
           <div className="d-flex gap-2 align-items-center">
-            {viewMode === 'mine' && hasCollection === false && (
+            {viewMode === 'mine' && user.loggedIn && hasCollection === false && (
               <button
                 className="nft-btn nft-btn-primary"
                 onClick={handleSetup}
@@ -374,7 +367,16 @@ export default function NFT() {
           </div>
         </div>
 
-        {viewMode === 'mine' && (
+        {viewMode === 'mine' && !user.loggedIn && (
+          <div className="nft-connect-prompt mt-2">
+            <p>Connect your Flow wallet to view your MVP Horse NFTs.</p>
+            <button className="nft-btn nft-btn-primary" onClick={() => fcl.authenticate()}>
+              Connect Wallet
+            </button>
+          </div>
+        )}
+
+        {viewMode === 'mine' && user.loggedIn && (
           <div className="mt-2">
             <span style={{ color: '#9CA3AF', fontSize: '0.85rem' }}>Collection status </span>
             {hasCollection === null ? (
