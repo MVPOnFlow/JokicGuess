@@ -782,6 +782,50 @@
   border-color: #FDB927;
 }
 
+/* --- Prizes banner --- */
+.swap-lb-prizes {
+  background: rgba(253, 185, 39, 0.08);
+  border: 1px solid rgba(253, 185, 39, 0.25);
+  border-radius: 8px;
+  padding: 0.75rem 1rem;
+  margin-bottom: 1rem;
+}
+
+.swap-lb-prizes-heading {
+  margin: 0 0 0.4rem;
+  font-size: 0.92rem;
+  font-weight: 600;
+  color: #FDB927;
+}
+
+.swap-lb-prizes-list {
+  margin: 0;
+  padding-left: 1.2rem;
+  list-style: disc;
+}
+
+.swap-lb-prizes-list li {
+  margin-bottom: 0.2rem;
+  font-size: 0.85rem;
+}
+
+.swap-lb-prize-link {
+  color: #60A5FA;
+  text-decoration: none;
+}
+
+.swap-lb-prize-link:hover {
+  text-decoration: underline;
+  color: #93C5FD;
+}
+
+.swap-lb-prizes-pick {
+  margin: 0.5rem 0 0;
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: #E5E7EB;
+}
+
 .swap-lb-loading,
 .swap-lb-empty {
   text-align: center;

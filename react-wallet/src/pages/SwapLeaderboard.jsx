@@ -57,6 +57,14 @@ export default function SwapLeaderboard() {
       + ' ' + d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
   };
 
+  const prizes = [
+    { label: 'Steph Curry Rare 2022 All-Star Game (Series 3)', url: 'https://nbatopshot.com/moment/427f928f-748d-4022-848b-fbedede78aea' },
+    { label: 'LeBron James Top Shot This Pack', url: 'https://nbatopshot.com/listings/pack/2d288490-b22c-48d7-bacb-e798e21eb3e2' },
+    { label: "Collector's Court II: Guaranteed Hit", url: 'https://nbatopshot.com/listings/pack/bca73720-7150-4725-b78c-c05d637f26cf' },
+    { label: 'Courtside: Guaranteed Hit', url: 'https://nbatopshot.com/listings/pack/7ebd77e0-80e1-4808-98b8-5d1d1392b5b2' },
+    { label: '$MVP Horse NFT', url: '/pettingzoo', internal: true },
+  ];
+
   return (
     <div className="swap-leaderboard-card">
       <div className="swap-lb-header">
@@ -72,6 +80,25 @@ export default function SwapLeaderboard() {
             ))}
           </select>
         )}
+      </div>
+
+      <div className="swap-lb-prizes">
+        <p className="swap-lb-prizes-heading">🎁 Guaranteed prizes drafted among the Top 5 at the end of the month:</p>
+        <ul className="swap-lb-prizes-list">
+          {prizes.map((p, i) => (
+            <li key={i}>
+              {p.internal ? (
+                <a href={p.url} className="swap-lb-prize-link">{p.label}</a>
+              ) : (
+                <a href={p.url} target="_blank" rel="noopener noreferrer" className="swap-lb-prize-link">{p.label}</a>
+              )}
+            </li>
+          ))}
+        </ul>
+        <p className="swap-lb-prizes-pick">
+          🥇 1st place gets 1st pick, draft order follows leaderboard rank in{' '}
+          <a href="https://discord.gg/3p3ff9PHqW" target="_blank" rel="noopener noreferrer" className="swap-lb-prize-link">Discord</a>!
+        </p>
       </div>
 
       {loading ? (
