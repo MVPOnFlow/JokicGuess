@@ -707,7 +707,7 @@ export default function FastbreakBracket() {
                       <tr key={p.id} className={isMe ? 'mvp-user-row' : ''}>
                         <td>{p.seed_number || '—'}</td>
                         <td><strong>{p.ts_username || '—'}</strong></td>
-                        <td>{shortenWallet(p.wallet_address)}</td>
+                        <td style={{ fontFamily: 'monospace', fontSize: '0.85em' }}>{p.wallet_address || '—'}</td>
                         <td>
                           {isChamp ? '🏆 Champion'
                             : p.eliminated_in_round ? `❌ Rd ${p.eliminated_in_round}`
