@@ -7,7 +7,7 @@ function TDWatch() {
   // Top 3 all-time triple-double leaders
   const tdLeaders = [
     { rank: 1, name: 'Russell Westbrook', count: 209, active: true },
-    { rank: 2, name: 'Nikola Jokić', count: 193, active: true, isJokic: true },
+    { rank: 2, name: 'Nikola Jokić', count: 195, active: true, isJokic: true },
     { rank: 3, name: 'Oscar Robertson', count: 181, active: false }
   ];
 
@@ -98,8 +98,8 @@ function TDWatch() {
     { timestamp: 1774054800, opponent: 'Raptors', isHome: true, played: true, tripleDouble: false, stats: { points: 22, rebounds: 8, assists: 9 } },
     { timestamp: 1774213200, opponent: 'Trail Blazers', isHome: true, played: true, tripleDouble: true, stats: { points: 22, rebounds: 14, assists: 14 } },
     { timestamp: 1774407600, opponent: 'Suns', isHome: false, played: true, tripleDouble: true, stats: { points: 23, rebounds: 17, assists: 17 } },
-    { timestamp: 1774490400, opponent: 'Mavericks', isHome: true, played: false, tripleDouble: false, stats: null },
-    { timestamp: 1774659600, opponent: 'Jazz', isHome: true, played: false, tripleDouble: false, stats: null },
+    { timestamp: 1774490400, opponent: 'Mavericks', isHome: true, played: true, tripleDouble: true, stats: { points: 23, rebounds: 21, assists: 19 } },
+    { timestamp: 1774659600, opponent: 'Jazz', isHome: true, played: true, tripleDouble: true, stats: { points: 33, rebounds: 15, assists: 12 } },
     { timestamp: 1774836000, opponent: 'Warriors', isHome: true, played: false, tripleDouble: false, stats: null },
     
     // April 2026
