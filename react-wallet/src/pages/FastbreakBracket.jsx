@@ -90,7 +90,7 @@ function simplifyFlowError(e) {
 
 /* ── Constants ── */
 const COMMUNITY_WALLET = '0x2459710b1d10aed0';
-const ADMIN_WALLET = '0x6fd2465f3a22e34c';
+const ADMIN_WALLETS = ['0x6fd2465f3a22e34c', '0xcc4b6fa5550a4610'];
 const ROUND_NAMES = { 1: 'Round 1', 2: 'Round 2', 3: 'Quarterfinals', 4: 'Semifinals', 5: 'Finals' };
 
 function getRoundName(round, totalRounds) {
@@ -164,7 +164,7 @@ export default function FastbreakBracket() {
     return () => { cancelled = true; };
   }, [user?.addr]);
 
-  const isAdmin = user?.addr?.toLowerCase() === ADMIN_WALLET;
+  const isAdmin = ADMIN_WALLETS.includes(user?.addr?.toLowerCase());
 
   /* ── Fetch tournament list ── */
   const fetchTournaments = useCallback(async () => {
