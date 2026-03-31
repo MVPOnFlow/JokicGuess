@@ -799,7 +799,8 @@ def register_routes(app):
 
         # Participants
         cursor.execute(prepare_query('''
-            SELECT id, wallet_address, ts_username, seed_number, eliminated_in_round
+            SELECT id, wallet_address, ts_username, seed_number, eliminated_in_round,
+                   moment_tx_id, moment_ids
             FROM bracket_participants WHERE tournament_id = ?
             ORDER BY seed_number ASC NULLS LAST, id ASC
         '''), (tid,))
@@ -809,6 +810,8 @@ def register_routes(app):
                 "id": p[0], "wallet_address": p[1],
                 "ts_username": p[2], "seed_number": p[3],
                 "eliminated_in_round": p[4],
+                "moment_tx_id": p[5] if len(p) > 5 else None,
+                "moment_ids": p[6] if len(p) > 6 else None,
             })
         tournament["participants"] = participants
 
