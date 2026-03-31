@@ -578,11 +578,14 @@ def register_routes(app):
         """GET: list tournaments.  POST: create a new tournament (admin).
 
         POST body:
-            name          – tournament name (required)
-            start_date    – YYYY-MM-DD of the first Classic Fastbreak day (required)
-            fee_amount    – entry fee (default 5)
-            fee_currency  – e.g. '$MVP' (default)
-            max_rounds    – maximum number of rounds (1-6, default 6). Max players = 2^max_rounds.
+            name           – tournament name (required)
+            start_date     – YYYY-MM-DD of the first Classic Fastbreak day (required)
+            fee_amount     – entry fee (default 5; ignored for FREEROLL)
+            fee_currency   – e.g. '$MVP' (default; ignored for FREEROLL/MOMENT)
+            max_rounds     – maximum number of rounds (1-6, default 6). Max players = 2^max_rounds.
+            buyin_type     – 'TOKEN' (default), 'FREEROLL', or 'MOMENT'
+            moment_filters – (MOMENT only) JSON object with optional keys:
+                             tier, player_name, set_name, series
 
         The server calls the TopShot API to discover the next Classic
         Fastbreak days starting on *start_date* and pre-assigns them to
@@ -597,8 +600,30 @@ def register_routes(app):
             fee_currency = (data.get("fee_currency") or "$MVP").strip()
             start_date = (data.get("start_date") or "").strip()
             max_rounds = int(data.get("max_rounds", 6))
+            buyin_type = (data.get("buyin_type") or "TOKEN").strip().upper()
+            moment_filters_raw = data.get("moment_filters")
             if max_rounds < 1 or max_rounds > 6:
                 return jsonify({"error": "max_rounds must be between 1 and 6"}), 400
+            if buyin_type not in ('TOKEN', 'FREEROLL', 'MOMENT'):
+                return jsonify({"error": "buyin_type must be TOKEN, FREEROLL, or MOMENT"}), 400
+            # Validate moment_filters for MOMENT buy-in
+            import json as _json_mod
+            moment_filters_str = None
+            if buyin_type == 'MOMENT':
+                if not moment_filters_raw or not isinstance(moment_filters_raw, dict):
+                    return jsonify({"error": "moment_filters object is required for MOMENT buy-in"}), 400
+                allowed_keys = {'tier', 'player_name', 'set_name', 'series'}
+                if not any(k in moment_filters_raw for k in allowed_keys):
+                    return jsonify({"error": f"moment_filters must include at least one of: {', '.join(sorted(allowed_keys))}"}), 400
+                # Keep only allowed keys
+                moment_filters_clean = {k: v for k, v in moment_filters_raw.items() if k in allowed_keys and v}
+                moment_filters_str = _json_mod.dumps(moment_filters_clean)
+            if buyin_type == 'FREEROLL':
+                fee_amount = 0
+                fee_currency = ''
+            num_moments = int(data.get('num_moments', 1))
+            if num_moments < 1 or num_moments > 50:
+                return jsonify({"error": "num_moments must be between 1 and 50"}), 400
 
             if not name or not start_date:
                 return jsonify({"error": "name and start_date are required"}), 400
@@ -672,9 +697,10 @@ def register_routes(app):
             try:
                 cursor.execute(prepare_query(
                     '''INSERT INTO bracket_tournaments
-                       (name, fee_amount, fee_currency, signup_close_ts, status, current_round, max_rounds)
-                       VALUES (?, ?, ?, ?, 'SIGNUP', 0, ?)'''
-                ), (name, fee_amount, fee_currency, signup_close_ts, max_rounds))
+                       (name, fee_amount, fee_currency, buyin_type, moment_filters,
+                        num_moments, signup_close_ts, status, current_round, max_rounds)
+                       VALUES (?, ?, ?, ?, ?, ?, ?, 'SIGNUP', 0, ?)'''
+                ), (name, fee_amount, fee_currency, buyin_type, moment_filters_str, num_moments, signup_close_ts, max_rounds))
                 conn.commit()
                 # Retrieve the new id
                 if db_type == 'postgresql':
@@ -698,6 +724,8 @@ def register_routes(app):
                     "rounds_mapped": len(classic_fbs),
                     "max_rounds": max_rounds,
                     "max_players": 2 ** max_rounds,
+                    "buyin_type": buyin_type,
+                    "num_moments": num_moments,
                 }), 201
             finally:
                 conn.close()
@@ -705,15 +733,21 @@ def register_routes(app):
         cursor = db.cursor()
         cursor.execute(prepare_query('''
             SELECT id, name, fee_amount, fee_currency, signup_close_ts,
-                   status, current_round, winner_wallet, created_at, max_rounds
+                   status, current_round, winner_wallet, created_at, max_rounds,
+                   buyin_type, moment_filters, num_moments
             FROM bracket_tournaments
             ORDER BY created_at DESC
         '''))
         rows = cursor.fetchall()
         tournaments = []
+        import json as _json_mod
         for r in rows:
             tid = r[0]
             mr = int(r[9]) if r[9] is not None else 6
+            bt = r[10] if len(r) > 10 and r[10] else 'TOKEN'
+            mf_raw = r[11] if len(r) > 11 else None
+            mf = _json_mod.loads(mf_raw) if mf_raw else None
+            nm = int(r[12]) if len(r) > 12 and r[12] is not None else 1
             # participant count
             cursor.execute(prepare_query(
                 'SELECT COUNT(*) FROM bracket_participants WHERE tournament_id = ?'
@@ -726,6 +760,8 @@ def register_routes(app):
                 "current_round": r[6], "winner_wallet": r[7],
                 "created_at": str(r[8]), "participant_count": pcount,
                 "max_rounds": mr, "max_players": 2 ** mr,
+                "buyin_type": bt, "moment_filters": mf,
+                "num_moments": nm,
             })
         return jsonify(tournaments)
 
@@ -736,14 +772,20 @@ def register_routes(app):
         cursor = db.cursor()
         cursor.execute(prepare_query('''
             SELECT id, name, fee_amount, fee_currency, signup_close_ts,
-                   status, current_round, winner_wallet, created_at, max_rounds
+                   status, current_round, winner_wallet, created_at, max_rounds,
+                   buyin_type, moment_filters, num_moments
             FROM bracket_tournaments WHERE id = ?
         '''), (tid,))
         row = cursor.fetchone()
         if not row:
             return jsonify({"error": "Tournament not found"}), 404
 
+        import json as _json_mod
         mr = int(row[9]) if row[9] is not None else 6
+        bt = row[10] if len(row) > 10 and row[10] else 'TOKEN'
+        mf_raw = row[11] if len(row) > 11 else None
+        mf = _json_mod.loads(mf_raw) if mf_raw else None
+        nm = int(row[12]) if len(row) > 12 and row[12] is not None else 1
         tournament = {
             "id": row[0], "name": row[1],
             "fee_amount": float(row[2]), "fee_currency": row[3],
@@ -751,6 +793,8 @@ def register_routes(app):
             "current_round": row[6], "winner_wallet": row[7],
             "created_at": str(row[8]),
             "max_rounds": mr, "max_players": 2 ** mr,
+            "buyin_type": bt, "moment_filters": mf,
+            "num_moments": nm,
         }
 
         # Participants
@@ -859,9 +903,226 @@ def register_routes(app):
             "reason": "no_username",
         }), 400
 
+    @app.route("/api/bracket/tournament/<int:tid>/enrich-moments", methods=["POST"])
+    def api_bracket_enrich_moments(tid):
+        """Enrich raw Cadence moments with TopShot metadata via GraphQL.
+
+        Expects JSON: { moments: [{id, playID, setName, serial}, ...] }
+        Returns JSON: { moments: [{id, serial, playerName, tier, setName, seriesNumber, imageUrl, teamName, nbaSeason}, ...] }
+
+        Uses a local DB cache (``moment_metadata``) so metadata is only
+        fetched once per moment.  On subsequent requests the cached rows
+        are returned instantly and only *new* moment IDs hit TopShot.
+
+        For uncached moments, GraphQL alias batching packs up to
+        BATCH_SIZE moment IDs into a single request (using aliases
+        m0, m1, …), keeping HTTP calls minimal.
+        """
+        data = request.get_json(force=True) or {}
+        moments_in = data.get('moments', [])
+        if not moments_in:
+            return jsonify({'moments': []})
+
+        # Cap at 2000 moments per request
+        moments_in = moments_in[:2000]
+
+        # Build a quick lookup from moment ID → raw input so we can
+        # attach serial numbers back after enrichment.
+        raw_by_id = {}
+        for m in moments_in:
+            mid = m.get('id')
+            if mid is not None:
+                raw_by_id[int(mid)] = m
+
+        if not raw_by_id:
+            return jsonify({'moments': []})
+
+        all_ids = list(raw_by_id.keys())
+
+        # ── 1. Check the local cache ─────────────────────────────────
+        from db.connection import get_db as _enrich_get_db, db_type as _enrich_db_type
+
+        cached_rows = {}
+        try:
+            db = _enrich_get_db()
+            cur = db.cursor()
+            # Fetch in batches of 500 to stay within SQL parameter limits
+            for i in range(0, len(all_ids), 500):
+                chunk = all_ids[i:i + 500]
+                placeholders = ','.join(
+                    ['%s'] * len(chunk) if _enrich_db_type == 'postgresql'
+                    else ['?'] * len(chunk)
+                )
+                cur.execute(
+                    f"SELECT moment_id, player_name, tier, set_name, "
+                    f"series_number, image_url, team_name, nba_season, "
+                    f"play_category FROM moment_metadata "
+                    f"WHERE moment_id IN ({placeholders})",
+                    chunk,
+                )
+                for row in cur.fetchall():
+                    if _enrich_db_type == 'postgresql':
+                        mid = int(row[0])
+                    else:
+                        mid = int(row['moment_id']) if hasattr(row, 'keys') else int(row[0])
+                    cached_rows[mid] = {
+                        'playerName': row[1] if not hasattr(row, 'keys') else row['player_name'],
+                        'tier': row[2] if not hasattr(row, 'keys') else row['tier'],
+                        'setName': row[3] if not hasattr(row, 'keys') else row['set_name'],
+                        'seriesNumber': row[4] if not hasattr(row, 'keys') else row['series_number'],
+                        'imageUrl': row[5] if not hasattr(row, 'keys') else row['image_url'],
+                        'teamName': row[6] if not hasattr(row, 'keys') else row['team_name'],
+                        'nbaSeason': row[7] if not hasattr(row, 'keys') else row['nba_season'],
+                        'playCategory': row[8] if not hasattr(row, 'keys') else row['play_category'],
+                    }
+        except Exception:
+            cached_rows = {}
+
+        # ── 2. Build enriched list for cached moments ─────────────────
+        enriched = []
+        for mid, meta in cached_rows.items():
+            raw = raw_by_id.get(mid, {})
+            enriched.append({
+                'id': mid,
+                'serial': raw.get('serial', 0),
+                **meta,
+            })
+
+        # ── 3. Determine which IDs still need GraphQL ─────────────────
+        uncached_ids = [mid for mid in all_ids if mid not in cached_rows]
+
+        if not uncached_ids:
+            return jsonify({'moments': enriched})
+
+        # ── GraphQL batch helper ──────────────────────────────────────
+        _GQL_FIELDS = (
+            "{ data {"
+            " id tier"
+            " set { flowName flowSeriesNumber }"
+            " play { stats { playerName teamAtMoment nbaSeason playCategory } }"
+            " assetPathPrefix"
+            " } }"
+        )
+        BATCH_SIZE = 48  # max per GraphQL request (TopShot complexity limit)
+
+        def _fetch_batch(id_list):
+            """Fetch a batch of moments in ONE GraphQL request via aliases."""
+            aliases = " ".join(
+                f'm{i}: getMintedMoment(momentId: "{mid}") {_GQL_FIELDS}'
+                for i, mid in enumerate(id_list)
+            )
+            query = f"query BatchEnrich {{ {aliases} }}"
+            try:
+                resp = http_requests.post(
+                    'https://public-api.nbatopshot.com/graphql',
+                    json={'query': query},
+                    headers={**_TS_HEADERS, 'Content-Type': 'application/json'},
+                    timeout=30,
+                )
+                resp.raise_for_status()
+                gql_data = resp.json().get('data') or {}
+                results = {}
+                for i, mid in enumerate(id_list):
+                    entry = gql_data.get(f'm{i}')
+                    if entry and entry.get('data'):
+                        results[int(mid)] = entry['data']
+                return results
+            except Exception:
+                return {}
+
+        # ── 4. Split uncached IDs into batches and fetch in parallel ──
+        batches = [
+            uncached_ids[i:i + BATCH_SIZE]
+            for i in range(0, len(uncached_ids), BATCH_SIZE)
+        ]
+
+        new_metadata = []  # list of tuples to INSERT into cache
+        with ThreadPoolExecutor(max_workers=10) as pool:
+            future_map = {
+                pool.submit(_fetch_batch, batch): batch
+                for batch in batches
+            }
+            for future in as_completed(future_map):
+                try:
+                    batch_results = future.result()
+                except Exception:
+                    batch_results = {}
+
+                for mid, ts_data in batch_results.items():
+                    raw = raw_by_id.get(mid, {})
+
+                    raw_tier = ts_data.get('tier') or 'MOMENT_TIER_COMMON'
+                    tier = raw_tier.replace('MOMENT_TIER_', '')
+                    play = ts_data.get('play') or {}
+                    stats = play.get('stats') or {}
+                    set_info = ts_data.get('set') or {}
+                    asset_prefix = ts_data.get('assetPathPrefix') or ''
+                    image_url = f"{asset_prefix}Hero_2880_2880_Black.jpg" if asset_prefix else ''
+
+                    meta = {
+                        'playerName': stats.get('playerName', ''),
+                        'tier': tier,
+                        'setName': set_info.get('flowName', raw.get('setName', '')),
+                        'seriesNumber': set_info.get('flowSeriesNumber'),
+                        'imageUrl': image_url,
+                        'teamName': stats.get('teamAtMoment', ''),
+                        'nbaSeason': stats.get('nbaSeason', ''),
+                        'playCategory': stats.get('playCategory', ''),
+                    }
+                    enriched.append({
+                        'id': mid,
+                        'serial': raw.get('serial', 0),
+                        **meta,
+                    })
+                    new_metadata.append((
+                        mid,
+                        meta['playerName'], meta['tier'], meta['setName'],
+                        meta['seriesNumber'], meta['imageUrl'], meta['teamName'],
+                        meta['nbaSeason'], meta['playCategory'],
+                        int(time.time()),
+                    ))
+
+        # ── 5. Persist newly-fetched metadata into the cache ──────────
+        if new_metadata:
+            try:
+                db = _enrich_get_db()
+                cur = db.cursor()
+                if _enrich_db_type == 'postgresql':
+                    for row in new_metadata:
+                        cur.execute(
+                            "INSERT INTO moment_metadata "
+                            "(moment_id, player_name, tier, set_name, series_number, "
+                            "image_url, team_name, nba_season, play_category, cached_at) "
+                            "VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) "
+                            "ON CONFLICT (moment_id) DO NOTHING",
+                            row,
+                        )
+                else:
+                    cur.executemany(
+                        "INSERT OR IGNORE INTO moment_metadata "
+                        "(moment_id, player_name, tier, set_name, series_number, "
+                        "image_url, team_name, nba_season, play_category, cached_at) "
+                        "VALUES (?,?,?,?,?,?,?,?,?,?)",
+                        new_metadata,
+                    )
+                db.commit()
+            except Exception:
+                pass  # cache write failure is non-fatal
+
+        return jsonify({'moments': enriched})
+
     @app.route("/api/bracket/tournament/<int:tid>/signup", methods=["POST"])
     def api_bracket_signup(tid):
-        """Sign up a wallet for a bracket tournament."""
+        """Sign up a wallet for a bracket tournament.
+
+        For FREEROLL: { wallet }
+        For TOKEN:    { wallet } (token transfer handled client-side before calling)
+        For MOMENT:   { wallet, txId, momentIds }
+          – verifies on-chain that moments were deposited to treasury.
+        """
+        import json as _json
+        import base64 as _b64
+
         from db.init import get_db_connection
         conn, _ = get_db_connection()
         cursor = conn.cursor()
@@ -881,12 +1142,14 @@ def register_routes(app):
             return jsonify({"error": "Could not resolve TopShot username for this wallet. Make sure your Dapper wallet is linked."}), 400
 
         cursor.execute(prepare_query(
-            'SELECT signup_close_ts, status, max_rounds FROM bracket_tournaments WHERE id = ?'
+            'SELECT signup_close_ts, status, max_rounds, buyin_type, num_moments FROM bracket_tournaments WHERE id = ?'
         ), (tid,))
         row = cursor.fetchone()
         if not row:
             return jsonify({"error": "Tournament not found"}), 404
-        close_ts, status, max_rounds = int(row[0]), row[1], int(row[2])
+        close_ts, status, max_rounds, buyin_type, num_moments = (
+            int(row[0]), row[1], int(row[2]), (row[3] or 'TOKEN'), int(row[4] or 1)
+        )
         now_ts = int(datetime.datetime.now(datetime.UTC).timestamp())
         if status != 'SIGNUP':
             return jsonify({"error": "Tournament is no longer accepting signups"}), 403
@@ -909,13 +1172,112 @@ def register_routes(app):
         if cursor.fetchone():
             return jsonify({"error": "Already signed up for this tournament"}), 409
 
+        # ── MOMENT buy-in: on-chain verification ──────────────────
+        if buyin_type == 'MOMENT':
+            tx_id = (data.get('txId') or '').strip()
+            moment_ids = data.get('momentIds', [])
+
+            if not tx_id or not moment_ids:
+                return jsonify({"error": "Moment buy-in requires txId and momentIds"}), 400
+            if len(moment_ids) != num_moments:
+                return jsonify({
+                    "error": f"Expected {num_moments} moment(s), got {len(moment_ids)}"
+                }), 400
+
+            # Replay protection — same txId cannot be used twice
+            cursor.execute(prepare_query(
+                'SELECT id FROM bracket_participants WHERE moment_tx_id = ?'
+            ), (tx_id,))
+            if cursor.fetchone():
+                return jsonify({"error": "This transaction has already been used for a signup"}), 409
+
+            # Fetch transaction result from Flow REST API
+            treasury_addr_clean = FLOW_ACCOUNT.removeprefix('0x').lower()
+            try:
+                flow_resp = http_requests.get(
+                    f'https://rest-mainnet.onflow.org/v1/transaction_results/{tx_id}',
+                    timeout=15,
+                )
+                if flow_resp.status_code != 200:
+                    return jsonify({'error': f'Could not fetch tx from Flow (HTTP {flow_resp.status_code})'}), 502
+                tx_result = flow_resp.json()
+            except Exception as e:
+                return jsonify({'error': f'Flow API error: {str(e)}'}), 502
+
+            tx_status = tx_result.get('status', '').upper()
+            if tx_status != 'SEALED':
+                return jsonify({'error': f'Transaction not sealed (status: {tx_status})'}), 400
+            if tx_result.get('error_message'):
+                return jsonify({'error': f'Transaction failed on-chain: {tx_result["error_message"]}'}), 400
+
+            # Verify proposer matches claimed wallet
+            try:
+                tx_body_resp = http_requests.get(
+                    f'https://rest-mainnet.onflow.org/v1/transactions/{tx_id}',
+                    timeout=10,
+                )
+                if tx_body_resp.status_code == 200:
+                    tx_body = tx_body_resp.json()
+                    proposer = tx_body.get('proposer', '').removeprefix('0x').lower()
+                    claimed = wallet.removeprefix('0x').lower()
+                    if proposer and proposer != claimed:
+                        return jsonify({'error': 'Transaction proposer does not match your wallet'}), 403
+            except Exception:
+                pass  # non-fatal
+
+            # Parse TopShot.Deposit events
+            deposited_ids = set()
+            deposit_event_type = 'A.0b2a3299cc857e29.TopShot.Deposit'
+            for ev in tx_result.get('events', []):
+                if ev.get('type') != deposit_event_type:
+                    continue
+                try:
+                    payload = _json.loads(_b64.b64decode(ev['payload']).decode('utf-8'))
+                    fields = payload.get('value', {}).get('fields', [])
+                    ev_id = None
+                    ev_to = None
+                    for f in fields:
+                        if f.get('name') == 'id':
+                            ev_id = int(f['value']['value'])
+                        elif f.get('name') == 'to':
+                            val = f.get('value', {})
+                            if val.get('type') == 'Optional' and val.get('value'):
+                                ev_to = val['value'].get('value', '').removeprefix('0x').lower()
+                            elif val.get('value'):
+                                ev_to = str(val['value']).removeprefix('0x').lower()
+                    if ev_id is not None and ev_to == treasury_addr_clean:
+                        deposited_ids.add(ev_id)
+                except Exception:
+                    continue
+
+            claimed_set = set(int(mid) for mid in moment_ids)
+            missing = claimed_set - deposited_ids
+            if missing:
+                return jsonify({
+                    'error': f'On-chain verification failed: moments {sorted(missing)} '
+                             f'not deposited to treasury in tx {tx_id}',
+                }), 400
+
+            # Store with moment info
+            cursor.execute(prepare_query('''
+                INSERT INTO bracket_participants
+                    (tournament_id, wallet_address, ts_username, moment_tx_id, moment_ids)
+                VALUES (?, ?, ?, ?, ?)
+            '''), (tid, wallet, ts_username, tx_id, _json.dumps(sorted(claimed_set))))
+            conn.commit()
+            return jsonify({
+                "success": True, "ts_username": ts_username,
+                "buyin_type": buyin_type, "moments_verified": len(claimed_set),
+            })
+
+        # ── TOKEN / FREEROLL buy-in ───────────────────────────────
         cursor.execute(prepare_query('''
             INSERT INTO bracket_participants (tournament_id, wallet_address, ts_username)
             VALUES (?, ?, ?)
         '''), (tid, wallet, ts_username))
         conn.commit()
 
-        return jsonify({"success": True, "ts_username": ts_username})
+        return jsonify({"success": True, "ts_username": ts_username, "buyin_type": buyin_type})
 
     @app.route("/api/bracket/tournament/<int:tid>/generate", methods=["POST"])
     def api_bracket_generate(tid):

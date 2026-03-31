@@ -309,6 +309,9 @@ def initialize_database(conn, db_type):
             name TEXT NOT NULL,
             fee_amount NUMERIC NOT NULL DEFAULT 5,
             fee_currency TEXT NOT NULL DEFAULT '$MVP',
+            buyin_type TEXT NOT NULL DEFAULT 'TOKEN',
+            moment_filters TEXT DEFAULT NULL,
+            num_moments INTEGER NOT NULL DEFAULT 1,
             signup_close_ts BIGINT NOT NULL,
             status TEXT NOT NULL DEFAULT 'SIGNUP',
             current_round INTEGER NOT NULL DEFAULT 0,
@@ -327,6 +330,8 @@ def initialize_database(conn, db_type):
             ts_username TEXT,
             seed_number INTEGER,
             eliminated_in_round INTEGER,
+            moment_tx_id TEXT,
+            moment_ids TEXT,
             signed_up_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             UNIQUE (tournament_id, wallet_address)
         )
@@ -375,6 +380,68 @@ def initialize_database(conn, db_type):
         conn.commit()
     except Exception:
         conn.rollback()  # PostgreSQL requires rollback after failed statement
+
+    # Migration: add buyin_type column if it doesn't exist yet
+    try:
+        cursor.execute(prepare_query(
+            "ALTER TABLE bracket_tournaments ADD COLUMN buyin_type TEXT NOT NULL DEFAULT 'TOKEN'"
+        ))
+        conn.commit()
+    except Exception:
+        conn.rollback()
+
+    # Migration: add moment_filters column if it doesn't exist yet
+    try:
+        cursor.execute(prepare_query(
+            "ALTER TABLE bracket_tournaments ADD COLUMN moment_filters TEXT DEFAULT NULL"
+        ))
+        conn.commit()
+    except Exception:
+        conn.rollback()
+
+    # Migration: add num_moments column if it doesn't exist yet
+    try:
+        cursor.execute(prepare_query(
+            "ALTER TABLE bracket_tournaments ADD COLUMN num_moments INTEGER NOT NULL DEFAULT 1"
+        ))
+        conn.commit()
+    except Exception:
+        conn.rollback()
+
+    # Migration: add moment_tx_id column to bracket_participants
+    try:
+        cursor.execute(prepare_query(
+            "ALTER TABLE bracket_participants ADD COLUMN moment_tx_id TEXT"
+        ))
+        conn.commit()
+    except Exception:
+        conn.rollback()
+
+    # Migration: add moment_ids column to bracket_participants
+    try:
+        cursor.execute(prepare_query(
+            "ALTER TABLE bracket_participants ADD COLUMN moment_ids TEXT"
+        ))
+        conn.commit()
+    except Exception:
+        conn.rollback()
+
+    # ── Moment metadata cache (enrichment) ──
+    cursor.execute(prepare_query('''
+        CREATE TABLE IF NOT EXISTS moment_metadata (
+            moment_id BIGINT PRIMARY KEY,
+            player_name TEXT,
+            tier TEXT,
+            set_name TEXT,
+            series_number INTEGER,
+            image_url TEXT,
+            team_name TEXT,
+            nba_season TEXT,
+            play_category TEXT,
+            cached_at BIGINT
+        )
+    '''))
+    conn.commit()
 
     # ── One-time seed: populate jokic_editions if empty ──
     try:
