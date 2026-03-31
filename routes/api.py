@@ -578,11 +578,14 @@ def register_routes(app):
         """GET: list tournaments.  POST: create a new tournament (admin).
 
         POST body:
-            name          – tournament name (required)
-            start_date    – YYYY-MM-DD of the first Classic Fastbreak day (required)
-            fee_amount    – entry fee (default 5)
-            fee_currency  – e.g. '$MVP' (default)
-            max_rounds    – maximum number of rounds (1-6, default 6). Max players = 2^max_rounds.
+            name           – tournament name (required)
+            start_date     – YYYY-MM-DD of the first Classic Fastbreak day (required)
+            fee_amount     – entry fee (default 5; ignored for FREEROLL)
+            fee_currency   – e.g. '$MVP' (default; ignored for FREEROLL/MOMENT)
+            max_rounds     – maximum number of rounds (1-6, default 6). Max players = 2^max_rounds.
+            buyin_type     – 'TOKEN' (default), 'FREEROLL', or 'MOMENT'
+            moment_filters – (MOMENT only) JSON object with optional keys:
+                             tier, player_name, set_name, series
 
         The server calls the TopShot API to discover the next Classic
         Fastbreak days starting on *start_date* and pre-assigns them to
@@ -597,8 +600,27 @@ def register_routes(app):
             fee_currency = (data.get("fee_currency") or "$MVP").strip()
             start_date = (data.get("start_date") or "").strip()
             max_rounds = int(data.get("max_rounds", 6))
+            buyin_type = (data.get("buyin_type") or "TOKEN").strip().upper()
+            moment_filters_raw = data.get("moment_filters")
             if max_rounds < 1 or max_rounds > 6:
                 return jsonify({"error": "max_rounds must be between 1 and 6"}), 400
+            if buyin_type not in ('TOKEN', 'FREEROLL', 'MOMENT'):
+                return jsonify({"error": "buyin_type must be TOKEN, FREEROLL, or MOMENT"}), 400
+            # Validate moment_filters for MOMENT buy-in
+            import json as _json_mod
+            moment_filters_str = None
+            if buyin_type == 'MOMENT':
+                if not moment_filters_raw or not isinstance(moment_filters_raw, dict):
+                    return jsonify({"error": "moment_filters object is required for MOMENT buy-in"}), 400
+                allowed_keys = {'tier', 'player_name', 'set_name', 'series'}
+                if not any(k in moment_filters_raw for k in allowed_keys):
+                    return jsonify({"error": f"moment_filters must include at least one of: {', '.join(sorted(allowed_keys))}"}), 400
+                # Keep only allowed keys
+                moment_filters_clean = {k: v for k, v in moment_filters_raw.items() if k in allowed_keys and v}
+                moment_filters_str = _json_mod.dumps(moment_filters_clean)
+            if buyin_type == 'FREEROLL':
+                fee_amount = 0
+                fee_currency = ''
 
             if not name or not start_date:
                 return jsonify({"error": "name and start_date are required"}), 400
@@ -672,9 +694,10 @@ def register_routes(app):
             try:
                 cursor.execute(prepare_query(
                     '''INSERT INTO bracket_tournaments
-                       (name, fee_amount, fee_currency, signup_close_ts, status, current_round, max_rounds)
-                       VALUES (?, ?, ?, ?, 'SIGNUP', 0, ?)'''
-                ), (name, fee_amount, fee_currency, signup_close_ts, max_rounds))
+                       (name, fee_amount, fee_currency, buyin_type, moment_filters,
+                        signup_close_ts, status, current_round, max_rounds)
+                       VALUES (?, ?, ?, ?, ?, ?, 'SIGNUP', 0, ?)'''
+                ), (name, fee_amount, fee_currency, buyin_type, moment_filters_str, signup_close_ts, max_rounds))
                 conn.commit()
                 # Retrieve the new id
                 if db_type == 'postgresql':
@@ -698,6 +721,7 @@ def register_routes(app):
                     "rounds_mapped": len(classic_fbs),
                     "max_rounds": max_rounds,
                     "max_players": 2 ** max_rounds,
+                    "buyin_type": buyin_type,
                 }), 201
             finally:
                 conn.close()
@@ -705,15 +729,20 @@ def register_routes(app):
         cursor = db.cursor()
         cursor.execute(prepare_query('''
             SELECT id, name, fee_amount, fee_currency, signup_close_ts,
-                   status, current_round, winner_wallet, created_at, max_rounds
+                   status, current_round, winner_wallet, created_at, max_rounds,
+                   buyin_type, moment_filters
             FROM bracket_tournaments
             ORDER BY created_at DESC
         '''))
         rows = cursor.fetchall()
         tournaments = []
+        import json as _json_mod
         for r in rows:
             tid = r[0]
             mr = int(r[9]) if r[9] is not None else 6
+            bt = r[10] if len(r) > 10 and r[10] else 'TOKEN'
+            mf_raw = r[11] if len(r) > 11 else None
+            mf = _json_mod.loads(mf_raw) if mf_raw else None
             # participant count
             cursor.execute(prepare_query(
                 'SELECT COUNT(*) FROM bracket_participants WHERE tournament_id = ?'
@@ -726,6 +755,7 @@ def register_routes(app):
                 "current_round": r[6], "winner_wallet": r[7],
                 "created_at": str(r[8]), "participant_count": pcount,
                 "max_rounds": mr, "max_players": 2 ** mr,
+                "buyin_type": bt, "moment_filters": mf,
             })
         return jsonify(tournaments)
 
@@ -736,14 +766,19 @@ def register_routes(app):
         cursor = db.cursor()
         cursor.execute(prepare_query('''
             SELECT id, name, fee_amount, fee_currency, signup_close_ts,
-                   status, current_round, winner_wallet, created_at, max_rounds
+                   status, current_round, winner_wallet, created_at, max_rounds,
+                   buyin_type, moment_filters
             FROM bracket_tournaments WHERE id = ?
         '''), (tid,))
         row = cursor.fetchone()
         if not row:
             return jsonify({"error": "Tournament not found"}), 404
 
+        import json as _json_mod
         mr = int(row[9]) if row[9] is not None else 6
+        bt = row[10] if len(row) > 10 and row[10] else 'TOKEN'
+        mf_raw = row[11] if len(row) > 11 else None
+        mf = _json_mod.loads(mf_raw) if mf_raw else None
         tournament = {
             "id": row[0], "name": row[1],
             "fee_amount": float(row[2]), "fee_currency": row[3],
@@ -751,6 +786,7 @@ def register_routes(app):
             "current_round": row[6], "winner_wallet": row[7],
             "created_at": str(row[8]),
             "max_rounds": mr, "max_players": 2 ** mr,
+            "buyin_type": bt, "moment_filters": mf,
         }
 
         # Participants
@@ -881,12 +917,12 @@ def register_routes(app):
             return jsonify({"error": "Could not resolve TopShot username for this wallet. Make sure your Dapper wallet is linked."}), 400
 
         cursor.execute(prepare_query(
-            'SELECT signup_close_ts, status, max_rounds FROM bracket_tournaments WHERE id = ?'
+            'SELECT signup_close_ts, status, max_rounds, buyin_type FROM bracket_tournaments WHERE id = ?'
         ), (tid,))
         row = cursor.fetchone()
         if not row:
             return jsonify({"error": "Tournament not found"}), 404
-        close_ts, status, max_rounds = int(row[0]), row[1], int(row[2])
+        close_ts, status, max_rounds, buyin_type = int(row[0]), row[1], int(row[2]), (row[3] or 'TOKEN')
         now_ts = int(datetime.datetime.now(datetime.UTC).timestamp())
         if status != 'SIGNUP':
             return jsonify({"error": "Tournament is no longer accepting signups"}), 403
@@ -915,7 +951,7 @@ def register_routes(app):
         '''), (tid, wallet, ts_username))
         conn.commit()
 
-        return jsonify({"success": True, "ts_username": ts_username})
+        return jsonify({"success": True, "ts_username": ts_username, "buyin_type": buyin_type})
 
     @app.route("/api/bracket/tournament/<int:tid>/generate", methods=["POST"])
     def api_bracket_generate(tid):

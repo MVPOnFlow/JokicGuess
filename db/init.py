@@ -309,6 +309,8 @@ def initialize_database(conn, db_type):
             name TEXT NOT NULL,
             fee_amount NUMERIC NOT NULL DEFAULT 5,
             fee_currency TEXT NOT NULL DEFAULT '$MVP',
+            buyin_type TEXT NOT NULL DEFAULT 'TOKEN',
+            moment_filters TEXT DEFAULT NULL,
             signup_close_ts BIGINT NOT NULL,
             status TEXT NOT NULL DEFAULT 'SIGNUP',
             current_round INTEGER NOT NULL DEFAULT 0,
@@ -375,6 +377,24 @@ def initialize_database(conn, db_type):
         conn.commit()
     except Exception:
         conn.rollback()  # PostgreSQL requires rollback after failed statement
+
+    # Migration: add buyin_type column if it doesn't exist yet
+    try:
+        cursor.execute(prepare_query(
+            "ALTER TABLE bracket_tournaments ADD COLUMN buyin_type TEXT NOT NULL DEFAULT 'TOKEN'"
+        ))
+        conn.commit()
+    except Exception:
+        conn.rollback()
+
+    # Migration: add moment_filters column if it doesn't exist yet
+    try:
+        cursor.execute(prepare_query(
+            "ALTER TABLE bracket_tournaments ADD COLUMN moment_filters TEXT DEFAULT NULL"
+        ))
+        conn.commit()
+    except Exception:
+        conn.rollback()
 
     # ── One-time seed: populate jokic_editions if empty ──
     try:

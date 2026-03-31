@@ -123,7 +123,11 @@ export default function FastbreakBracket() {
   const [showRules, setShowRules] = useState(false);
   const [expandedMatchup, setExpandedMatchup] = useState(null);
   const [showCreate, setShowCreate] = useState(false);
-  const [createForm, setCreateForm] = useState({ name: '', start_date: '', fee_amount: '5', fee_currency: '$MVP', max_rounds: '3' });
+  const [createForm, setCreateForm] = useState({
+    name: '', start_date: '', fee_amount: '5', fee_currency: '$MVP', max_rounds: '3',
+    buyin_type: 'TOKEN',
+    moment_tier: '', moment_player_name: '', moment_set_name: '', moment_series: '',
+  });
   const [createStatus, setCreateStatus] = useState('');
   const [creating, setCreating] = useState(false);
   const [childAddr, setChildAddr] = useState(null);
@@ -219,20 +223,28 @@ export default function FastbreakBracket() {
       return;
     }
 
-    const tokenKey = stripLeadingDollar(tournament.fee_currency).toUpperCase();
-    if (!TOKEN_CONFIG[tokenKey]) {
-      setTxStatus(`❗ Unsupported token: ${tournament.fee_currency}`);
-      return;
-    }
+    const buyin = tournament.buyin_type || 'TOKEN';
 
     try {
       setProcessing(true);
-      setTxStatus('Waiting for wallet approval…');
-      const txId = await sendToken({ token: tokenKey, amount: tournament.fee_amount, recipient: COMMUNITY_WALLET });
-      setTxStatus(`✅ Transaction submitted! TX: <a href="https://flowscan.io/tx/${txId}" target="_blank" rel="noopener noreferrer">${txId.slice(0, 12)}…</a>`);
-      await fcl.tx(txId).onceSealed();
 
-      setTxStatus('✅ Payment confirmed. Registering…');
+      if (buyin === 'TOKEN') {
+        const tokenKey = stripLeadingDollar(tournament.fee_currency).toUpperCase();
+        if (!TOKEN_CONFIG[tokenKey]) {
+          setTxStatus(`❗ Unsupported token: ${tournament.fee_currency}`);
+          setProcessing(false);
+          return;
+        }
+        setTxStatus('Waiting for wallet approval…');
+        const txId = await sendToken({ token: tokenKey, amount: tournament.fee_amount, recipient: COMMUNITY_WALLET });
+        setTxStatus(`✅ Transaction submitted! TX: <a href="https://flowscan.io/tx/${txId}" target="_blank" rel="noopener noreferrer">${txId.slice(0, 12)}…</a>`);
+        await fcl.tx(txId).onceSealed();
+        setTxStatus('✅ Payment confirmed. Registering…');
+      } else {
+        // FREEROLL or MOMENT — no on-chain payment needed
+        setTxStatus('Registering…');
+      }
+
       const res = await fetch(`/api/bracket/tournament/${tournament.id}/signup`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -260,26 +272,46 @@ export default function FastbreakBracket() {
       setCreateStatus('❗ Name and start date are required.');
       return;
     }
+    if (createForm.buyin_type === 'MOMENT') {
+      const { moment_tier, moment_player_name, moment_set_name, moment_series } = createForm;
+      if (!moment_tier && !moment_player_name && !moment_set_name && !moment_series) {
+        setCreateStatus('❗ At least one moment filter is required for Moment buy-in.');
+        return;
+      }
+    }
     setCreating(true);
     setCreateStatus('');
     try {
+      const body = {
+        name: createForm.name.trim(),
+        start_date: createForm.start_date,
+        fee_amount: createForm.buyin_type === 'FREEROLL' ? 0 : (parseFloat(createForm.fee_amount) || 5),
+        fee_currency: createForm.buyin_type === 'FREEROLL' ? '' : (createForm.fee_currency || '$MVP'),
+        max_rounds: parseInt(createForm.max_rounds) || 3,
+        buyin_type: createForm.buyin_type,
+      };
+      if (createForm.buyin_type === 'MOMENT') {
+        const mf = {};
+        if (createForm.moment_tier) mf.tier = createForm.moment_tier;
+        if (createForm.moment_player_name) mf.player_name = createForm.moment_player_name;
+        if (createForm.moment_set_name) mf.set_name = createForm.moment_set_name;
+        if (createForm.moment_series) mf.series = createForm.moment_series;
+        body.moment_filters = mf;
+      }
       const res = await fetch('/api/bracket/tournaments', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: createForm.name.trim(),
-          start_date: createForm.start_date,
-          fee_amount: parseFloat(createForm.fee_amount) || 5,
-          fee_currency: createForm.fee_currency || '$MVP',
-          max_rounds: parseInt(createForm.max_rounds) || 3,
-        }),
+        body: JSON.stringify(body),
       });
       const j = await res.json();
       if (!res.ok) {
         setCreateStatus(`❗ ${j.error || 'Failed to create tournament'}`);
       } else {
         setCreateStatus(`✅ Created! ID=${j.id}, ${j.rounds_mapped} rounds mapped.`);
-        setCreateForm({ name: '', start_date: '', fee_amount: '5', fee_currency: '$MVP', max_rounds: '3' });
+        setCreateForm({
+          name: '', start_date: '', fee_amount: '5', fee_currency: '$MVP', max_rounds: '3',
+          buyin_type: 'TOKEN', moment_tier: '', moment_player_name: '', moment_set_name: '', moment_series: '',
+        });
         fetchTournaments();
       }
     } catch (e) {
@@ -347,7 +379,7 @@ export default function FastbreakBracket() {
               <div className="bracket-rules-box mb-4">
                 <h5 className="text-warning mb-2">🏆 How It Works</h5>
                 <ul className="bracket-rules-list">
-                  <li>Sign up by paying the entry fee before the deadline</li>
+                  <li>Sign up before the deadline — entry may require a token fee, a qualifying moment, or be free (freeroll)</li>
                   <li>Your Flow wallet is linked to your Dapper/TopShot username</li>
                   <li>Once signups close, a single-elimination bracket is formed</li>
                   <li>Each round corresponds to one daily Fastbreak contest on NBA TopShot</li>
@@ -377,20 +409,65 @@ export default function FastbreakBracket() {
                         onChange={e => setCreateForm(f => ({ ...f, start_date: e.target.value }))} />
                     </div>
                     <div className="bracket-admin-row">
-                      <label>Fee</label>
-                      <input type="number" min="0" step="1" value={createForm.fee_amount}
-                        onChange={e => setCreateForm(f => ({ ...f, fee_amount: e.target.value }))} />
-                    </div>
-                    <div className="bracket-admin-row">
-                      <label>Currency</label>
-                      <select value={createForm.fee_currency}
-                        onChange={e => setCreateForm(f => ({ ...f, fee_currency: e.target.value }))}>
-                        <option value="$MVP">$MVP</option>
-                        <option value="$FLOW">$FLOW</option>
-                        <option value="$TSHOT">$TSHOT</option>
-                        <option value="$BETA">$BETA</option>
+                      <label>Buy-in Type</label>
+                      <select value={createForm.buyin_type}
+                        onChange={e => setCreateForm(f => ({ ...f, buyin_type: e.target.value }))}>
+                        <option value="TOKEN">Token (pay entry fee)</option>
+                        <option value="FREEROLL">Freeroll (free entry)</option>
+                        <option value="MOMENT">Moment (must own matching moment)</option>
                       </select>
                     </div>
+                    {createForm.buyin_type === 'TOKEN' && (
+                      <>
+                        <div className="bracket-admin-row">
+                          <label>Fee</label>
+                          <input type="number" min="0" step="1" value={createForm.fee_amount}
+                            onChange={e => setCreateForm(f => ({ ...f, fee_amount: e.target.value }))} />
+                        </div>
+                        <div className="bracket-admin-row">
+                          <label>Currency</label>
+                          <select value={createForm.fee_currency}
+                            onChange={e => setCreateForm(f => ({ ...f, fee_currency: e.target.value }))}>
+                            <option value="$MVP">$MVP</option>
+                            <option value="$FLOW">$FLOW</option>
+                            <option value="$TSHOT">$TSHOT</option>
+                            <option value="$BETA">$BETA</option>
+                          </select>
+                        </div>
+                      </>
+                    )}
+                    {createForm.buyin_type === 'MOMENT' && (
+                      <div className="bracket-moment-filters">
+                        <p className="text-muted small mb-2">Specify at least one filter — players must own a matching TopShot moment to enter.</p>
+                        <div className="bracket-admin-row">
+                          <label>Tier</label>
+                          <select value={createForm.moment_tier}
+                            onChange={e => setCreateForm(f => ({ ...f, moment_tier: e.target.value }))}>
+                            <option value="">Any</option>
+                            <option value="COMMON">Common</option>
+                            <option value="FANDOM">Fandom</option>
+                            <option value="RARE">Rare</option>
+                            <option value="LEGENDARY">Legendary</option>
+                            <option value="ULTIMATE">Ultimate</option>
+                          </select>
+                        </div>
+                        <div className="bracket-admin-row">
+                          <label>Player Name</label>
+                          <input type="text" placeholder="e.g. Stephen Curry" value={createForm.moment_player_name}
+                            onChange={e => setCreateForm(f => ({ ...f, moment_player_name: e.target.value }))} />
+                        </div>
+                        <div className="bracket-admin-row">
+                          <label>Set Name</label>
+                          <input type="text" placeholder="e.g. Base Set" value={createForm.moment_set_name}
+                            onChange={e => setCreateForm(f => ({ ...f, moment_set_name: e.target.value }))} />
+                        </div>
+                        <div className="bracket-admin-row">
+                          <label>Series</label>
+                          <input type="text" placeholder="e.g. 8" value={createForm.moment_series}
+                            onChange={e => setCreateForm(f => ({ ...f, moment_series: e.target.value }))} />
+                        </div>
+                      </div>
+                    )}
                     <div className="bracket-admin-row">
                       <label>Max Rounds</label>
                       <select value={createForm.max_rounds}
@@ -441,7 +518,13 @@ export default function FastbreakBracket() {
                         <span className="btc-status" style={{ color: statusColor }}>{statusLabel}</span>
                       </div>
                       <div className="btc-details">
-                        <span>Fee: <strong>{t.fee_amount} {formatCurrencyLabel(t.fee_currency)}</strong></span>
+                        <span>
+                          {t.buyin_type === 'FREEROLL'
+                            ? 'Entry: 🆓 Freeroll'
+                            : t.buyin_type === 'MOMENT'
+                              ? <>Entry: 🃏 Moment{t.moment_filters && <> ({[t.moment_filters.tier, t.moment_filters.player_name, t.moment_filters.set_name, t.moment_filters.series && `S${t.moment_filters.series}`].filter(Boolean).join(', ')})</>}</>
+                              : <>Fee: <strong>{t.fee_amount} {formatCurrencyLabel(t.fee_currency)}</strong></>}
+                        </span>
                         <span>Players: <strong>{t.participant_count}{t.max_players ? ` / ${t.max_players}` : ''}</strong></span>
                         {t.winner_wallet && (
                           <span>Winner: <strong>{shortenWallet(t.winner_wallet)}</strong></span>
@@ -496,15 +579,41 @@ export default function FastbreakBracket() {
             <span className={`bracket-status bracket-status-${tournament.status.toLowerCase()}`}>
               {tournament.status === 'SIGNUP' ? '📝 Signup' : tournament.status === 'ACTIVE' ? '🔥 Active' : '✅ Complete'}
             </span>
-            <span>Fee: <strong>{tournament.fee_amount} {formatCurrencyLabel(tournament.fee_currency)}</strong></span>
+            <span>
+              {(tournament.buyin_type || 'TOKEN') === 'FREEROLL'
+                ? 'Entry: 🆓 Freeroll'
+                : (tournament.buyin_type || 'TOKEN') === 'MOMENT'
+                  ? 'Entry: 🃏 Moment'
+                  : <>Fee: <strong>{tournament.fee_amount} {formatCurrencyLabel(tournament.fee_currency)}</strong></>}
+            </span>
             <span>Players: <strong>{(tournament.participants || []).length}{tournament.max_players ? ` / ${tournament.max_players}` : ''}</strong></span>
             <span>Rounds: <strong>{totalRounds}</strong></span>
             {tournament.status !== 'COMPLETE' && <span className="bracket-countdown">{signupTimeLeft}</span>}
           </div>
 
-          <div className="bracket-prize-pool">
-            💰 Prize: <strong>{(tournament.fee_amount * (tournament.participants || []).length * 0.95).toFixed(2)} {formatCurrencyLabel(tournament.fee_currency)}</strong>
-          </div>
+          {/* Moment filter details */}
+          {(tournament.buyin_type || 'TOKEN') === 'MOMENT' && tournament.moment_filters && (
+            <div className="bracket-moment-requirements">
+              🃏 <strong>Required Moment:</strong>{' '}
+              {[tournament.moment_filters.tier, tournament.moment_filters.player_name, tournament.moment_filters.set_name, tournament.moment_filters.series && `Series ${tournament.moment_filters.series}`].filter(Boolean).join(' · ')}
+            </div>
+          )}
+
+          {(tournament.buyin_type || 'TOKEN') === 'TOKEN' && (
+            <div className="bracket-prize-pool">
+              💰 Prize: <strong>{(tournament.fee_amount * (tournament.participants || []).length * 0.95).toFixed(2)} {formatCurrencyLabel(tournament.fee_currency)}</strong>
+            </div>
+          )}
+          {(tournament.buyin_type || 'TOKEN') === 'FREEROLL' && (
+            <div className="bracket-prize-pool">
+              🆓 Free entry — bragging rights on the line!
+            </div>
+          )}
+          {(tournament.buyin_type || 'TOKEN') === 'MOMENT' && (
+            <div className="bracket-prize-pool">
+              🃏 Moment buy-in — prove you own a qualifying moment to enter!
+            </div>
+          )}
 
           {/* Winner banner */}
           {tournament.status === 'COMPLETE' && tournament.winner_wallet && (
@@ -516,7 +625,15 @@ export default function FastbreakBracket() {
           {/* Signup action */}
           {isSignupOpen && !userParticipant && (
             <div className="bracket-signup-box">
-              {!user.loggedIn && <p>Connect your wallet and pay the entry fee to join this bracket.</p>}
+              {!user.loggedIn && (
+                <p>
+                  {(tournament.buyin_type || 'TOKEN') === 'FREEROLL'
+                    ? 'Connect your wallet to join this free bracket.'
+                    : (tournament.buyin_type || 'TOKEN') === 'MOMENT'
+                      ? 'Connect your wallet to verify your moment and join.'
+                      : 'Connect your wallet and pay the entry fee to join this bracket.'}
+                </p>
+              )}
               {user.loggedIn && childLoading && (
                 <p className="bracket-wallet-checking"><Spinner animation="border" size="sm" variant="warning" /> Checking wallet…</p>
               )}
@@ -528,16 +645,26 @@ export default function FastbreakBracket() {
                 </div>
               )}
               {user.loggedIn && !childLoading && childAddr && (
-                <p>Your Dapper account is linked. Pay the entry fee to join.</p>
+                <p>
+                  {(tournament.buyin_type || 'TOKEN') === 'FREEROLL'
+                    ? 'Your Dapper account is linked. Join for free!'
+                    : (tournament.buyin_type || 'TOKEN') === 'MOMENT'
+                      ? 'Your Dapper account is linked. Verify your moment and join.'
+                      : 'Your Dapper account is linked. Pay the entry fee to join.'}
+                </p>
               )}
               <button
                 className="bracket-signup-btn"
                 onClick={handleSignup}
                 disabled={!user.loggedIn || processing || childLoading || !!childError}
               >
-                {processing ? 'Processing…' : user.loggedIn
-                  ? `Pay ${tournament.fee_amount} ${formatCurrencyLabel(tournament.fee_currency)} & Sign Up`
-                  : 'Connect Wallet to Sign Up'}
+                {processing ? 'Processing…' : !user.loggedIn
+                  ? 'Connect Wallet to Sign Up'
+                  : (tournament.buyin_type || 'TOKEN') === 'FREEROLL'
+                    ? 'Sign Up (Free)'
+                    : (tournament.buyin_type || 'TOKEN') === 'MOMENT'
+                      ? 'Verify Moment & Sign Up'
+                      : `Pay ${tournament.fee_amount} ${formatCurrencyLabel(tournament.fee_currency)} & Sign Up`}
               </button>
               {txStatus && <p className="bracket-tx-status mt-2" dangerouslySetInnerHTML={{ __html: txStatus }} />}
             </div>
@@ -561,13 +688,19 @@ export default function FastbreakBracket() {
             <div className="bracket-rules-box mt-4">
               <h5 className="text-warning mb-2">🏆 How It Works</h5>
               <ul className="bracket-rules-list">
-                <li>Sign up by paying the entry fee before the deadline</li>
+                <li>
+                  {(tournament.buyin_type || 'TOKEN') === 'FREEROLL'
+                    ? 'Sign up for free before the deadline'
+                    : (tournament.buyin_type || 'TOKEN') === 'MOMENT'
+                      ? 'Sign up by verifying you own a qualifying TopShot moment'
+                      : 'Sign up by paying the entry fee before the deadline'}
+                </li>
                 <li>Your Flow wallet is linked to your Dapper/TopShot username</li>
                 <li>Once signups close, a single-elimination bracket is formed</li>
                 <li>Each round corresponds to one daily Fastbreak contest on NBA TopShot</li>
                 <li>Your real Fastbreak score determines the winner of each matchup</li>
                 <li>If you don't have an opponent in round 1, you get a BYE (auto-advance)</li>
-                <li>Last player standing wins the prize pool!</li>
+                <li>Last player standing wins{(tournament.buyin_type || 'TOKEN') === 'TOKEN' ? ' the prize pool!' : '!'}</li>
               </ul>
             </div>
           )}

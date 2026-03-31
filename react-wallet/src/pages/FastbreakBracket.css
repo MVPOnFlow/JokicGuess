@@ -287,6 +287,23 @@
   border-color: #fdb927;
   outline: none;
 }
+.bracket-moment-filters {
+  border: 1px solid #374151;
+  border-radius: 8px;
+  padding: 10px 12px;
+  margin-bottom: 8px;
+  background: rgba(253, 185, 39, 0.04);
+}
+.bracket-moment-requirements {
+  text-align: center;
+  padding: 8px 12px;
+  margin: 6px 0;
+  background: rgba(253, 185, 39, 0.08);
+  border: 1px solid #fdb927;
+  border-radius: 8px;
+  color: #fdb927;
+  font-size: 0.9rem;
+}
 .bracket-current-badge {
   background: #fdb927;
   color: #0b1220;
