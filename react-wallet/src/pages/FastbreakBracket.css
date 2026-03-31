@@ -499,3 +499,164 @@
     font-size: 0.85rem;
   }
 }
+
+/* ──────────────────────────────────────────────
+   Moment Picker (mp-*)
+   ────────────────────────────────────────────── */
+
+.mp-overlay {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0, 0, 0, 0.75);
+  z-index: 1050;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+}
+
+.mp-modal {
+  background: #0e192b;
+  border: 1px solid #273549;
+  border-radius: 14px;
+  width: 100%;
+  max-width: 1200px;
+  height: 90vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.mp-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem 1.25rem 0.75rem;
+  border-bottom: 1px solid #273549;
+}
+.mp-header h4 {
+  margin: 0;
+  color: #fdb927;
+  font-weight: 700;
+  font-size: 1.15rem;
+}
+.mp-close {
+  background: none;
+  border: none;
+  color: #9ca3af;
+  font-size: 1.5rem;
+  cursor: pointer;
+  line-height: 1;
+  padding: 0 4px;
+}
+.mp-close:hover { color: #fff; }
+
+.mp-requirements {
+  padding: 0.6rem 1.25rem;
+  background: rgba(253, 185, 39, 0.08);
+  border-bottom: 1px solid #273549;
+  font-size: 0.88rem;
+  color: #e5e7eb;
+}
+
+.mp-loading {
+  padding: 2rem;
+  text-align: center;
+  color: #9ca3af;
+}
+
+.mp-error {
+  padding: 1rem 1.25rem;
+  color: #f87171;
+  text-align: center;
+}
+
+/* Scrollable body that holds filters, grid, and pagination.
+   Takes all remaining space in the flex-column modal and scrolls. */
+.mp-body {
+  flex: 1 1 0;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+/* Inside the scrollable body the grid renders at its natural height
+   — identical to the Swap page — no flex or height overrides needed. */
+.mp-modal .swap-moment-grid {
+  padding: 0.75rem 1.25rem;
+  max-height: none !important;
+  overflow-y: visible !important;
+}
+
+/* Image placeholder when moment has no asset URL */
+.mp-img-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #1c2a3a;
+  font-size: 2rem;
+}
+
+.mp-count {
+  padding: 0.4rem 1.25rem;
+  font-size: 0.82rem;
+  color: #9ca3af;
+}
+.mp-selected-count {
+  color: #fdb927;
+  font-weight: 600;
+}
+
+/* ── Actions bar ── */
+.mp-actions {
+  padding: 0.75rem 1.25rem;
+  border-top: 1px solid #273549;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* ── Pagination ── */
+.mp-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 0.5rem 1.25rem;
+  border-top: 1px solid #1c2a3a;
+  flex-shrink: 0;
+}
+.mp-page-btn {
+  background: #1c2a3a;
+  border: 1px solid #273549;
+  color: #e5e7eb;
+  border-radius: 6px;
+  padding: 4px 14px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.15s, border-color 0.15s;
+}
+.mp-page-btn:hover:not(:disabled) {
+  background: #273549;
+  border-color: #fdb927;
+  color: #fdb927;
+}
+.mp-page-btn:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+.mp-page-info {
+  font-size: 0.8rem;
+  color: #9ca3af;
+  font-weight: 500;
+  min-width: 100px;
+  text-align: center;
+}
+
+/* ── Responsive ── */
+@media (max-width: 600px) {
+  .mp-modal {
+    max-height: 95vh;
+    border-radius: 10px;
+  }
+}

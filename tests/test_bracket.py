@@ -51,8 +51,8 @@ class TestListBracketTournaments:
         db, cursor = _mock_db()
         mock_get_db.return_value = db
 
-        # Tournament row (includes max_rounds as 10th, buyin_type as 11th, moment_filters as 12th column)
-        tournament_row = (1, 'Test Cup', 5.0, '$MVP', 9999999999, 'SIGNUP', 0, None, '2026-01-01', 3, 'TOKEN', None)
+        # Tournament row (includes max_rounds as 10th, buyin_type as 11th, moment_filters as 12th, num_moments as 13th)
+        tournament_row = (1, 'Test Cup', 5.0, '$MVP', 9999999999, 'SIGNUP', 0, None, '2026-01-01', 3, 'TOKEN', None, 1)
         cursor.fetchall.side_effect = [
             [tournament_row],  # tournament list
         ]
@@ -155,8 +155,8 @@ class TestGetBracketTournament:
         db, cursor = _mock_db()
         mock_get_db.return_value = db
 
-        # First fetchone: tournament row (includes max_rounds as 10th, buyin_type, moment_filters)
-        tournament_row = (1, 'Test Cup', 5.0, '$MVP', 9999999999, 'ACTIVE', 1, None, '2026-01-01', 3, 'TOKEN', None)
+        # First fetchone: tournament row (includes max_rounds as 10th, buyin_type, moment_filters, num_moments)
+        tournament_row = (1, 'Test Cup', 5.0, '$MVP', 9999999999, 'ACTIVE', 1, None, '2026-01-01', 3, 'TOKEN', None, 1)
         participant_rows = [
             (1, '0xaaa', 'user1', 1, None),
             (2, '0xbbb', 'user2', 2, None),
@@ -195,11 +195,11 @@ class TestBracketSignup:
 
         import time
         future_ts = int(time.time()) + 3600
-        # Tournament row (signup_close_ts, status, max_rounds, buyin_type)
+        # Tournament row (signup_close_ts, status, max_rounds, buyin_type, num_moments)
         cursor.fetchone.side_effect = [
-            (future_ts, 'SIGNUP', 3, 'TOKEN'),  # tournament check
-            (0,),                                # participant count for max-players check
-            None,                                # duplicate check (no existing)
+            (future_ts, 'SIGNUP', 3, 'TOKEN', 1),  # tournament check
+            (0,),                                    # participant count for max-players check
+            None,                                    # duplicate check (no existing)
         ]
 
         resp = client.post(
@@ -234,7 +234,7 @@ class TestBracketSignup:
         db, cursor = _mock_db()
         mock_get_conn.return_value = (db, 'sqlite')
 
-        cursor.fetchone.return_value = (1000000, 'ACTIVE', 3, 'TOKEN')  # not SIGNUP
+        cursor.fetchone.return_value = (1000000, 'ACTIVE', 3, 'TOKEN', 1)  # not SIGNUP
 
         resp = client.post(
             '/api/bracket/tournament/1/signup',
@@ -487,9 +487,9 @@ class TestFreerollSignup:
         import time
         future_ts = int(time.time()) + 3600
         cursor.fetchone.side_effect = [
-            (future_ts, 'SIGNUP', 3, 'FREEROLL'),  # tournament check
-            (0,),                                    # participant count
-            None,                                    # duplicate check
+            (future_ts, 'SIGNUP', 3, 'FREEROLL', 1),  # tournament check
+            (0,),                                       # participant count
+            None,                                       # duplicate check
         ]
 
         resp = client.post(
@@ -509,17 +509,17 @@ class TestMomentSignup:
 
     @patch('routes.api.get_ts_username_from_flow_wallet', return_value='momentuser1')
     @patch('db.init.get_db_connection')
-    def test_signup_moment(self, mock_get_conn, mock_ts, client):
-        """Moment signup should succeed when wallet resolves to a username."""
+    def test_signup_moment_missing_txid(self, mock_get_conn, mock_ts, client):
+        """Moment signup without txId should return 400."""
         db, cursor = _mock_db()
         mock_get_conn.return_value = (db, 'sqlite')
 
         import time
         future_ts = int(time.time()) + 3600
         cursor.fetchone.side_effect = [
-            (future_ts, 'SIGNUP', 3, 'MOMENT'),  # tournament check
-            (0,),                                  # participant count
-            None,                                  # duplicate check
+            (future_ts, 'SIGNUP', 3, 'MOMENT', 1),  # tournament check
+            (0,),                                     # participant count
+            None,                                     # duplicate check
         ]
 
         resp = client.post(
@@ -527,11 +527,123 @@ class TestMomentSignup:
             data=json.dumps({'wallet': '0xMomentPlayer'}),
             content_type='application/json',
         )
+        assert resp.status_code == 400
+        data = json.loads(resp.data)
+        assert 'txId' in data['error'] or 'momentIds' in data['error']
+
+    @patch('routes.api.get_ts_username_from_flow_wallet', return_value='momentuser1')
+    @patch('db.init.get_db_connection')
+    def test_signup_moment_wrong_count(self, mock_get_conn, mock_ts, client):
+        """Moment signup with wrong number of momentIds should return 400."""
+        db, cursor = _mock_db()
+        mock_get_conn.return_value = (db, 'sqlite')
+
+        import time
+        future_ts = int(time.time()) + 3600
+        cursor.fetchone.side_effect = [
+            (future_ts, 'SIGNUP', 3, 'MOMENT', 2),  # needs 2 moments
+            (0,),
+            None,
+        ]
+
+        resp = client.post(
+            '/api/bracket/tournament/1/signup',
+            data=json.dumps({'wallet': '0xMomentPlayer', 'txId': 'abc123', 'momentIds': [100]}),
+            content_type='application/json',
+        )
+        assert resp.status_code == 400
+        data = json.loads(resp.data)
+        assert 'Expected 2' in data['error']
+
+    @patch('routes.api.http_requests')
+    @patch('routes.api.get_ts_username_from_flow_wallet', return_value='momentuser1')
+    @patch('db.init.get_db_connection')
+    def test_signup_moment_replay_protection(self, mock_get_conn, mock_ts, mock_http, client):
+        """Same txId used twice should return 409."""
+        db, cursor = _mock_db()
+        mock_get_conn.return_value = (db, 'sqlite')
+
+        import time
+        future_ts = int(time.time()) + 3600
+        cursor.fetchone.side_effect = [
+            (future_ts, 'SIGNUP', 3, 'MOMENT', 1),
+            (0,),
+            None,      # duplicate wallet check
+            (99,),     # replay check — txId already used
+        ]
+
+        resp = client.post(
+            '/api/bracket/tournament/1/signup',
+            data=json.dumps({'wallet': '0xMomentPlayer', 'txId': 'replay_tx', 'momentIds': [100]}),
+            content_type='application/json',
+        )
+        assert resp.status_code == 409
+        assert 'already been used' in json.loads(resp.data)['error']
+
+    @patch('routes.api.FLOW_ACCOUNT', '0xTREASURY')
+    @patch('routes.api.http_requests')
+    @patch('routes.api.get_ts_username_from_flow_wallet', return_value='momentuser1')
+    @patch('db.init.get_db_connection')
+    def test_signup_moment_success(self, mock_get_conn, mock_ts, mock_http, client):
+        """Full moment signup with on-chain verification should succeed."""
+        import base64 as _b64
+
+        db, cursor = _mock_db()
+        mock_get_conn.return_value = (db, 'sqlite')
+
+        import time
+        future_ts = int(time.time()) + 3600
+        cursor.fetchone.side_effect = [
+            (future_ts, 'SIGNUP', 3, 'MOMENT', 1),
+            (0,),
+            None,   # duplicate wallet check
+            None,   # replay check — txId not used
+        ]
+
+        # Build mock deposit event payload (CCF/JSON-CDC)
+        deposit_payload = json.dumps({
+            'value': {
+                'fields': [
+                    {'name': 'id', 'value': {'value': '12345'}},
+                    {'name': 'to', 'value': {'type': 'Optional', 'value': {'value': '0xtreasury'}}},
+                ]
+            }
+        })
+        b64_payload = _b64.b64encode(deposit_payload.encode()).decode()
+
+        # Mock Flow REST API responses
+        mock_tx_result = Mock()
+        mock_tx_result.status_code = 200
+        mock_tx_result.json.return_value = {
+            'status': 'SEALED',
+            'error_message': '',
+            'events': [{
+                'type': 'A.0b2a3299cc857e29.TopShot.Deposit',
+                'payload': b64_payload,
+            }],
+        }
+        mock_tx_body = Mock()
+        mock_tx_body.status_code = 200
+        mock_tx_body.json.return_value = {
+            'proposer': '0xmomentplayer',
+        }
+        mock_http.get.side_effect = [mock_tx_result, mock_tx_body]
+
+        resp = client.post(
+            '/api/bracket/tournament/1/signup',
+            data=json.dumps({
+                'wallet': '0xMomentPlayer',
+                'txId': 'verified_tx_123',
+                'momentIds': [12345],
+            }),
+            content_type='application/json',
+        )
         assert resp.status_code == 200
         data = json.loads(resp.data)
         assert data['success'] is True
         assert data['ts_username'] == 'momentuser1'
         assert data['buyin_type'] == 'MOMENT'
+        assert data['moments_verified'] == 1
 
 
 class TestListTournamentsWithBuyinTypes:
@@ -542,10 +654,10 @@ class TestListTournamentsWithBuyinTypes:
         db, cursor = _mock_db()
         mock_get_db.return_value = db
 
-        token_row = (1, 'Token Cup', 10.0, '$MVP', 9999999999, 'SIGNUP', 0, None, '2026-01-01', 3, 'TOKEN', None)
-        freeroll_row = (2, 'Free Cup', 0.0, '', 9999999999, 'SIGNUP', 0, None, '2026-01-02', 3, 'FREEROLL', None)
+        token_row = (1, 'Token Cup', 10.0, '$MVP', 9999999999, 'SIGNUP', 0, None, '2026-01-01', 3, 'TOKEN', None, 1)
+        freeroll_row = (2, 'Free Cup', 0.0, '', 9999999999, 'SIGNUP', 0, None, '2026-01-02', 3, 'FREEROLL', None, 1)
         moment_row = (3, 'Moment Cup', 0.0, '', 9999999999, 'SIGNUP', 0, None, '2026-01-03', 3, 'MOMENT',
-                      json.dumps({'tier': 'RARE', 'player_name': 'Stephen Curry'}))
+                      json.dumps({'tier': 'RARE', 'player_name': 'Stephen Curry'}), 2)
 
         cursor.fetchall.side_effect = [
             [token_row, freeroll_row, moment_row],
@@ -573,7 +685,7 @@ class TestGetTournamentDetailBuyinTypes:
         mock_get_db.return_value = db
 
         tournament_row = (1, 'Moment Cup', 0.0, '', 9999999999, 'SIGNUP', 0, None, '2026-01-01', 3,
-                          'MOMENT', json.dumps({'tier': 'RARE', 'player_name': 'Stephen Curry', 'series': '8'}))
+                          'MOMENT', json.dumps({'tier': 'RARE', 'player_name': 'Stephen Curry', 'series': '8'}), 1)
         cursor.fetchone.return_value = tournament_row
         cursor.fetchall.side_effect = [[], [], []]  # participants, matchups, round_schedule
 
@@ -591,7 +703,7 @@ class TestGetTournamentDetailBuyinTypes:
         mock_get_db.return_value = db
 
         tournament_row = (2, 'Free Cup', 0.0, '', 9999999999, 'SIGNUP', 0, None, '2026-01-01', 3,
-                          'FREEROLL', None)
+                          'FREEROLL', None, 1)
         cursor.fetchone.return_value = tournament_row
         cursor.fetchall.side_effect = [[], [], []]
 
@@ -600,3 +712,381 @@ class TestGetTournamentDetailBuyinTypes:
         data = json.loads(resp.data)
         assert data['buyin_type'] == 'FREEROLL'
         assert data['moment_filters'] is None
+
+
+class TestEnrichMoments:
+    """POST /api/bracket/tournament/<id>/enrich-moments"""
+
+    def test_empty_moments(self, client):
+        """Empty moments list should return empty."""
+        resp = client.post(
+            '/api/bracket/tournament/1/enrich-moments',
+            data=json.dumps({'moments': []}),
+            content_type='application/json',
+        )
+        assert resp.status_code == 200
+        data = json.loads(resp.data)
+        assert data['moments'] == []
+
+    @patch('routes.api.http_requests')
+    @patch('db.connection.get_db')
+    def test_enriches_moments(self, mock_get_db, mock_http, client):
+        """Should call TopShot GraphQL batch and return enriched data."""
+        _db = Mock(); _cur = Mock(); _db.cursor.return_value = _cur; _cur.fetchall.return_value = []
+        mock_get_db.return_value = _db
+        # The batch endpoint sends one request with aliases m0, m1, …
+        # Return a mock response keyed by alias.
+        mock_resp = Mock()
+        mock_resp.status_code = 200
+        mock_resp.raise_for_status = Mock()
+        mock_resp.json.return_value = {
+            'data': {
+                'm0': {
+                    'data': {
+                        'id': '12345',
+                        'tier': 'MOMENT_TIER_RARE',
+                        'set': {'flowName': 'Base Set', 'flowSeriesNumber': 4},
+                        'play': {
+                            'stats': {
+                                'playerName': 'Nikola Jokic',
+                                'teamAtMoment': 'Denver Nuggets',
+                                'nbaSeason': '2023-24',
+                                'playCategory': 'Dunk',
+                            }
+                        },
+                        'assetPathPrefix': 'https://assets.nbatopshot.com/media/12345/',
+                    }
+                }
+            }
+        }
+        mock_http.post.return_value = mock_resp
+
+        resp = client.post(
+            '/api/bracket/tournament/1/enrich-moments',
+            data=json.dumps({'moments': [{'id': 12345, 'serial': 42}]}),
+            content_type='application/json',
+        )
+        assert resp.status_code == 200
+        data = json.loads(resp.data)
+        assert len(data['moments']) == 1
+        m = data['moments'][0]
+        assert m['playerName'] == 'Nikola Jokic'
+        assert m['tier'] == 'RARE'
+        assert m['setName'] == 'Base Set'
+        assert m['serial'] == 42
+        assert m['seriesNumber'] == 4
+        assert m['teamName'] == 'Denver Nuggets'
+
+    @patch('routes.api.http_requests')
+    @patch('db.connection.get_db')
+    def test_enriches_skips_failures(self, mock_get_db, mock_http, client):
+        """Failed GraphQL batch calls should be silently skipped."""
+        _db = Mock(); _cur = Mock(); _db.cursor.return_value = _cur; _cur.fetchall.return_value = []
+        mock_get_db.return_value = _db
+        mock_http.post.side_effect = Exception("API error")
+
+        resp = client.post(
+            '/api/bracket/tournament/1/enrich-moments',
+            data=json.dumps({'moments': [{'id': 99}]}),
+            content_type='application/json',
+        )
+        assert resp.status_code == 200
+        data = json.loads(resp.data)
+        assert data['moments'] == []
+
+    @patch('routes.api.http_requests')
+    @patch('db.connection.get_db')
+    def test_enriches_multiple_moments_in_batch(self, mock_get_db, mock_http, client):
+        """Multiple moments should be batched into a single GraphQL request."""
+        _db = Mock(); _cur = Mock(); _db.cursor.return_value = _cur; _cur.fetchall.return_value = []
+        mock_get_db.return_value = _db
+        mock_resp = Mock()
+        mock_resp.status_code = 200
+        mock_resp.raise_for_status = Mock()
+        mock_resp.json.return_value = {
+            'data': {
+                'm0': {
+                    'data': {
+                        'id': '100', 'tier': 'MOMENT_TIER_COMMON',
+                        'set': {'flowName': 'Set A', 'flowSeriesNumber': 3},
+                        'play': {'stats': {'playerName': 'Player One', 'teamAtMoment': 'Team A', 'nbaSeason': '2024-25', 'playCategory': 'Assist'}},
+                        'assetPathPrefix': 'https://assets.nbatopshot.com/media/100/',
+                    }
+                },
+                'm1': {
+                    'data': {
+                        'id': '200', 'tier': 'MOMENT_TIER_LEGENDARY',
+                        'set': {'flowName': 'Set B', 'flowSeriesNumber': 5},
+                        'play': {'stats': {'playerName': 'Player Two', 'teamAtMoment': 'Team B', 'nbaSeason': '2025-26', 'playCategory': 'Block'}},
+                        'assetPathPrefix': '',
+                    }
+                },
+            }
+        }
+        mock_http.post.return_value = mock_resp
+
+        resp = client.post(
+            '/api/bracket/tournament/1/enrich-moments',
+            data=json.dumps({'moments': [
+                {'id': 100, 'serial': 5},
+                {'id': 200, 'serial': 88},
+            ]}),
+            content_type='application/json',
+        )
+        assert resp.status_code == 200
+        data = json.loads(resp.data)
+        assert len(data['moments']) == 2
+        by_id = {m['id']: m for m in data['moments']}
+        assert by_id[100]['playerName'] == 'Player One'
+        assert by_id[100]['tier'] == 'COMMON'
+        assert by_id[200]['playerName'] == 'Player Two'
+        assert by_id[200]['tier'] == 'LEGENDARY'
+        assert by_id[200]['imageUrl'] == ''  # no assetPathPrefix
+
+        # Only ONE HTTP call should have been made (both moments in one batch)
+        assert mock_http.post.call_count == 1
+
+    @patch('routes.api.http_requests')
+    @patch('db.connection.get_db')
+    def test_cap_at_2000(self, mock_get_db, mock_http, client):
+        """Moments list should be capped at 2000."""
+        _db = Mock(); _cur = Mock(); _db.cursor.return_value = _cur; _cur.fetchall.return_value = []
+        mock_get_db.return_value = _db
+        mock_resp = Mock()
+        mock_resp.status_code = 200
+        mock_resp.raise_for_status = Mock()
+        mock_resp.json.return_value = {'data': {}}
+        mock_http.post.return_value = mock_resp
+
+        # Send 2100 moments
+        moments = [{'id': i, 'serial': i} for i in range(2100)]
+        resp = client.post(
+            '/api/bracket/tournament/1/enrich-moments',
+            data=json.dumps({'moments': moments}),
+            content_type='application/json',
+        )
+        assert resp.status_code == 200
+        # With batch size 48 and cap 2000, we expect ceil(2000/48) = 42 batch requests
+        assert mock_http.post.call_count == 42
+
+
+class TestNumMomentsInResponse:
+    """Verify num_moments appears in tournament list and detail responses."""
+
+    @patch('routes.api.get_db')
+    def test_list_includes_num_moments(self, mock_get_db, client):
+        db, cursor = _mock_db()
+        mock_get_db.return_value = db
+
+        row = (1, 'Moment Cup', 0.0, '', 9999999999, 'SIGNUP', 0, None, '2026-01-01', 3, 'MOMENT',
+               json.dumps({'tier': 'RARE'}), 3)
+        cursor.fetchall.side_effect = [[row]]
+        cursor.fetchone.return_value = (0,)
+
+        resp = client.get('/api/bracket/tournaments')
+        assert resp.status_code == 200
+        data = json.loads(resp.data)
+        assert data[0]['num_moments'] == 3
+
+    @patch('routes.api.get_db')
+    def test_detail_includes_num_moments(self, mock_get_db, client):
+        db, cursor = _mock_db()
+        mock_get_db.return_value = db
+
+        row = (1, 'Moment Cup', 0.0, '', 9999999999, 'SIGNUP', 0, None, '2026-01-01', 3, 'MOMENT',
+               json.dumps({'tier': 'RARE'}), 5)
+        cursor.fetchone.return_value = row
+        cursor.fetchall.side_effect = [[], [], []]
+
+        resp = client.get('/api/bracket/tournament/1')
+        assert resp.status_code == 200
+        data = json.loads(resp.data)
+        assert data['num_moments'] == 5
+
+
+class TestEnrichMomentsCache:
+    """Cache layer tests for enrich-moments endpoint."""
+
+    @patch('routes.api.http_requests')
+    @patch('db.connection.get_db')
+    def test_cache_hit_skips_graphql(self, mock_get_db, mock_http, client):
+        """When all moments are cached, no GraphQL call is made."""
+        db = Mock()
+        cur = Mock()
+        db.cursor.return_value = cur
+        mock_get_db.return_value = db
+
+        # Simulate a cached row returned from the DB.  SQLite row_factory
+        # makes rows behave like dicts, so return dict-like Mock objects.
+        cached_row = {
+            'moment_id': 12345,
+            'player_name': 'Nikola Jokic',
+            'tier': 'RARE',
+            'set_name': 'Base Set',
+            'series_number': 4,
+            'image_url': 'https://img/Hero_2880_2880_Black.jpg',
+            'team_name': 'Denver Nuggets',
+            'nba_season': '2023-24',
+            'play_category': 'Dunk',
+        }
+        row_mock = Mock()
+        row_mock.__getitem__ = lambda self, k: cached_row[k]
+        row_mock.keys = lambda: cached_row.keys()
+        cur.fetchall.return_value = [row_mock]
+
+        resp = client.post(
+            '/api/bracket/tournament/1/enrich-moments',
+            data=json.dumps({'moments': [{'id': 12345, 'serial': 42}]}),
+            content_type='application/json',
+        )
+        assert resp.status_code == 200
+        data = json.loads(resp.data)
+        assert len(data['moments']) == 1
+        m = data['moments'][0]
+        assert m['playerName'] == 'Nikola Jokic'
+        assert m['tier'] == 'RARE'
+        assert m['serial'] == 42
+        # No GraphQL call should have been made
+        mock_http.post.assert_not_called()
+
+    @patch('routes.api.http_requests')
+    @patch('db.connection.get_db')
+    def test_cache_miss_fetches_and_stores(self, mock_get_db, mock_http, client):
+        """Uncached moments should be fetched via GraphQL and then cached."""
+        db = Mock()
+        cur = Mock()
+        db.cursor.return_value = cur
+        mock_get_db.return_value = db
+        # Empty cache
+        cur.fetchall.return_value = []
+
+        mock_resp = Mock()
+        mock_resp.status_code = 200
+        mock_resp.raise_for_status = Mock()
+        mock_resp.json.return_value = {
+            'data': {
+                'm0': {
+                    'data': {
+                        'id': '500', 'tier': 'MOMENT_TIER_COMMON',
+                        'set': {'flowName': 'Cool Set', 'flowSeriesNumber': 2},
+                        'play': {'stats': {'playerName': 'Jamal Murray', 'teamAtMoment': 'Denver Nuggets', 'nbaSeason': '2024-25', 'playCategory': 'Three Pointer'}},
+                        'assetPathPrefix': 'https://assets.nbatopshot.com/media/500/',
+                    }
+                }
+            }
+        }
+        mock_http.post.return_value = mock_resp
+
+        resp = client.post(
+            '/api/bracket/tournament/1/enrich-moments',
+            data=json.dumps({'moments': [{'id': 500, 'serial': 7}]}),
+            content_type='application/json',
+        )
+        assert resp.status_code == 200
+        data = json.loads(resp.data)
+        assert len(data['moments']) == 1
+        assert data['moments'][0]['playerName'] == 'Jamal Murray'
+        # GraphQL should have been called
+        assert mock_http.post.call_count == 1
+        # Cache INSERT should have been executed (executemany for sqlite)
+        assert cur.executemany.called or cur.execute.called
+        db.commit.assert_called()
+
+    @patch('routes.api.http_requests')
+    @patch('db.connection.get_db')
+    def test_mixed_cached_and_uncached(self, mock_get_db, mock_http, client):
+        """Moments partly in cache: only uncached ones hit GraphQL."""
+        db = Mock()
+        cur = Mock()
+        db.cursor.return_value = cur
+        mock_get_db.return_value = db
+
+        # Moment 100 is cached; moment 200 is not
+        cached_row = {
+            'moment_id': 100,
+            'player_name': 'Cached Player',
+            'tier': 'COMMON',
+            'set_name': 'Set A',
+            'series_number': 3,
+            'image_url': 'https://img/100.jpg',
+            'team_name': 'Team A',
+            'nba_season': '2024-25',
+            'play_category': 'Assist',
+        }
+        row_mock = Mock()
+        row_mock.__getitem__ = lambda self, k: cached_row[k]
+        row_mock.keys = lambda: cached_row.keys()
+        cur.fetchall.return_value = [row_mock]
+
+        mock_resp = Mock()
+        mock_resp.status_code = 200
+        mock_resp.raise_for_status = Mock()
+        mock_resp.json.return_value = {
+            'data': {
+                'm0': {
+                    'data': {
+                        'id': '200', 'tier': 'MOMENT_TIER_LEGENDARY',
+                        'set': {'flowName': 'Set B', 'flowSeriesNumber': 5},
+                        'play': {'stats': {'playerName': 'Fresh Player', 'teamAtMoment': 'Team B', 'nbaSeason': '2025-26', 'playCategory': 'Block'}},
+                        'assetPathPrefix': '',
+                    }
+                }
+            }
+        }
+        mock_http.post.return_value = mock_resp
+
+        resp = client.post(
+            '/api/bracket/tournament/1/enrich-moments',
+            data=json.dumps({'moments': [
+                {'id': 100, 'serial': 5},
+                {'id': 200, 'serial': 88},
+            ]}),
+            content_type='application/json',
+        )
+        assert resp.status_code == 200
+        data = json.loads(resp.data)
+        assert len(data['moments']) == 2
+        by_id = {m['id']: m for m in data['moments']}
+        # Cached moment
+        assert by_id[100]['playerName'] == 'Cached Player'
+        assert by_id[100]['serial'] == 5
+        # Fresh moment from GraphQL
+        assert by_id[200]['playerName'] == 'Fresh Player'
+        assert by_id[200]['tier'] == 'LEGENDARY'
+        # Only 1 GraphQL call (for moment 200 only)
+        assert mock_http.post.call_count == 1
+
+    @patch('routes.api.http_requests')
+    @patch('db.connection.get_db')
+    def test_cache_read_failure_falls_through(self, mock_get_db, mock_http, client):
+        """If cache read fails, all moments should go to GraphQL."""
+        db = Mock()
+        db.cursor.side_effect = Exception("DB error")
+        mock_get_db.return_value = db
+
+        mock_resp = Mock()
+        mock_resp.status_code = 200
+        mock_resp.raise_for_status = Mock()
+        mock_resp.json.return_value = {
+            'data': {
+                'm0': {
+                    'data': {
+                        'id': '999', 'tier': 'MOMENT_TIER_COMMON',
+                        'set': {'flowName': 'Fallback Set', 'flowSeriesNumber': 1},
+                        'play': {'stats': {'playerName': 'Fallback Player', 'teamAtMoment': 'Team X', 'nbaSeason': '2024-25', 'playCategory': 'Dunk'}},
+                        'assetPathPrefix': 'https://assets.nbatopshot.com/media/999/',
+                    }
+                }
+            }
+        }
+        mock_http.post.return_value = mock_resp
+
+        resp = client.post(
+            '/api/bracket/tournament/1/enrich-moments',
+            data=json.dumps({'moments': [{'id': 999, 'serial': 1}]}),
+            content_type='application/json',
+        )
+        assert resp.status_code == 200
+        data = json.loads(resp.data)
+        assert len(data['moments']) == 1
+        assert data['moments'][0]['playerName'] == 'Fallback Player'

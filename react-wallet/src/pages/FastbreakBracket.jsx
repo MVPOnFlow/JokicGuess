@@ -3,6 +3,18 @@ import { useSearchParams } from 'react-router-dom';
 import * as fcl from '@onflow/fcl';
 import { Spinner } from 'react-bootstrap';
 import './FastbreakBracket.css';
+import './Swap.css';  // reuse swap moment card styles
+
+/* ── Tier config (matches Swap page) ── */
+const TIERS = [
+  { key: 'COMMON',    label: 'Common',    emoji: '🟢', color: '#4ade80' },
+  { key: 'FANDOM',    label: 'Fandom',    emoji: '🔹', color: '#40e0d0' },
+  { key: 'RARE',      label: 'Rare',      emoji: '🔵', color: '#60a5fa' },
+  { key: 'LEGENDARY', label: 'Legendary', emoji: '🟡', color: '#fbbf24' },
+  { key: 'ULTIMATE',  label: 'Ultimate',  emoji: '💎', color: '#ec4899' },
+];
+const TIER_MAP = {};
+TIERS.forEach(t => { TIER_MAP[t.key] = t; });
 
 /* ── Token helpers (shared with Fastbreak.jsx) ── */
 
@@ -72,6 +84,149 @@ transaction(amount: UFix64, recipient: Address) {
 `;
 }
 
+/* ── Cadence: count moments in child Dapper collection ── */
+const CADENCE_MOMENT_COUNT = `
+import TopShot from 0x0b2a3299cc857e29
+
+access(all) fun main(account: Address): Int {
+  let acct = getAccount(account)
+  let ref = acct.capabilities
+    .borrow<&TopShot.Collection>(/public/MomentCollection)!
+  return ref.getIDs().length
+}
+`;
+
+/* ── Cadence: paginated moment listing with on-chain metadata ── */
+const CADENCE_LIST_MOMENTS_PAGE = `
+import TopShot from 0x0b2a3299cc857e29
+import TopShotLocking from 0x0b2a3299cc857e29
+
+access(all) fun main(account: Address, offset: Int, limit: Int): [[String]] {
+  let acct = getAccount(account)
+  let ref = acct.capabilities
+    .borrow<&TopShot.Collection>(/public/MomentCollection)!
+  let ids = ref.getIDs()
+  let end = offset + limit > ids.length ? ids.length : offset + limit
+  var setNames: {UInt32: String} = {}
+  var result: [[String]] = []
+  var i = offset
+  while i < end {
+    let id = ids[i]
+    let nft = ref.borrowMoment(id: id)!
+    let sid = nft.data.setID
+    if setNames[sid] == nil {
+      setNames[sid] = TopShot.getSetName(setID: sid) ?? ""
+    }
+    let locked = TopShotLocking.isLocked(nftRef: nft)
+    let subedition = TopShot.getMomentsSubedition(nftID: id) ?? 0
+    result.append([
+      id.toString(),
+      nft.data.playID.toString(),
+      setNames[sid]!,
+      nft.data.serialNumber.toString(),
+      locked ? "1" : "0",
+      subedition.toString()
+    ])
+    i = i + 1
+  }
+  return result
+}
+`;
+
+const MOMENTS_PAGE_SIZE = 500;
+
+/* ── Cadence: transfer moments from child Dapper → recipient ── */
+function buildTransferMomentsCadence(childAddr) {
+  return `
+import HybridCustody from 0xd8a7e05a7ac670c0
+import NonFungibleToken from 0x1d7e57aa55817448
+import TopShot from 0x0b2a3299cc857e29
+
+transaction(momentIds: [UInt64], recipient: Address) {
+
+  let provider: auth(NonFungibleToken.Withdraw)
+               &{NonFungibleToken.Provider, NonFungibleToken.CollectionPublic}
+
+  prepare(signer: auth(Storage, Capabilities) &Account) {
+    let mgr = signer.storage.borrow<auth(HybridCustody.Manage) &HybridCustody.Manager>(
+      from: HybridCustody.ManagerStoragePath
+    ) ?? panic("No HybridCustody manager")
+
+    let childAcct = mgr.borrowAccount(addr: ${childAddr})
+      ?? panic("Child account not found")
+
+    let capType = Type<
+      auth(NonFungibleToken.Withdraw)
+      &{NonFungibleToken.Provider, NonFungibleToken.CollectionPublic}>()
+
+    let controllerID = childAcct.getControllerIDForType(
+      type: capType,
+      forPath: /storage/MomentCollection
+    ) ?? panic("Controller ID not found for TopShot collection on child")
+
+    let cap = childAcct.getCapability(
+      controllerID: controllerID,
+      type: capType
+    ) as! Capability<
+      auth(NonFungibleToken.Withdraw)
+      &{NonFungibleToken.Provider, NonFungibleToken.CollectionPublic}>
+
+    assert(cap.check(), message: "Invalid provider capability")
+    self.provider = cap.borrow()!
+  }
+
+  execute {
+    let recipientAcct = getAccount(recipient)
+    let receiver = recipientAcct.capabilities
+      .borrow<&{NonFungibleToken.Receiver}>(/public/MomentCollection)
+      ?? panic("Recipient has no TopShot collection")
+
+    for id in momentIds {
+      let nft <- self.provider.withdraw(withdrawID: id)
+      receiver.deposit(token: <-nft)
+    }
+  }
+}
+`;
+}
+
+/* Dapper treasury wallet for moment transfers */
+const TREASURY_DAPPER = '0xf853bd09d46e7db6';
+
+/* ── MomentCard: reuses swap-moment-card styles for consistency ── */
+const MomentCard = React.memo(function MomentCard({ m, isSelected, onToggle }) {
+  const tierInfo = TIER_MAP[m.tier];
+  const handleClick = useCallback(() => onToggle(m.id), [onToggle, m.id]);
+  return (
+    <div
+      className={`swap-moment-card ${isSelected ? 'selected' : ''}`}
+      onClick={handleClick}
+      style={{ borderColor: isSelected ? (tierInfo?.color || '#FDB927') : undefined }}
+    >
+      {m.imageUrl ? (
+        <img src={m.imageUrl} alt={m.player || ''} className="swap-moment-img" loading="lazy" />
+      ) : (
+        <div className="swap-moment-img mp-img-placeholder">
+          <span>{tierInfo?.emoji || '🏀'}</span>
+        </div>
+      )}
+      <div className="swap-moment-info">
+        <div className="swap-moment-player">{m.player || 'Unknown'}</div>
+        <div className="swap-moment-headline">
+          {m.set}{m.seriesNumber ? ` · Series ${m.seriesNumber}` : ''}
+        </div>
+        <div className="swap-moment-meta">
+          <span style={{ color: tierInfo?.color || '#adb5bd' }}>
+            {tierInfo?.emoji} {tierInfo?.label || m.tier}
+          </span>
+          <span style={{ color: '#9CA3AF', fontSize: '0.75rem' }}>#{m.serial}</span>
+        </div>
+      </div>
+      {isSelected && <div className="swap-moment-check">✓</div>}
+    </div>
+  );
+});
+
 async function sendToken({ token, amount, recipient }) {
   const cfg = TOKEN_CONFIG[token];
   if (!cfg) throw new Error(`Unsupported token '${token}'`);
@@ -134,6 +289,20 @@ export default function FastbreakBracket() {
   const [childError, setChildError] = useState(null);
   const [childLoading, setChildLoading] = useState(false);
 
+  /* ── Moment picker state ── */
+  const [momentPickerOpen, setMomentPickerOpen] = useState(false);
+  const [userMoments, setUserMoments] = useState([]);
+  const [momentsLoading, setMomentsLoading] = useState(false);
+  const [momentsLoadingMsg, setMomentsLoadingMsg] = useState('');
+  const [momentsError, setMomentsError] = useState('');
+  const [selectedMoments, setSelectedMoments] = useState(new Set());
+  const [momentFilterPlayer, setMomentFilterPlayer] = useState('');
+  const [momentFilterSet, setMomentFilterSet] = useState('');
+  const [momentFilterSeason, setMomentFilterSeason] = useState('');
+  const [momentFilterTeam, setMomentFilterTeam] = useState('');
+  const [momentPage, setMomentPage] = useState(0);
+  const MOMENTS_PER_PAGE = 24;
+
   useEffect(() => { fcl.currentUser().subscribe(setUser); }, []);
 
   /* ── Discover child Dapper account when wallet connects ── */
@@ -167,6 +336,168 @@ export default function FastbreakBracket() {
     })();
     return () => { cancelled = true; };
   }, [user?.addr]);
+
+  /* ── Load & enrich moments when moment picker opens ── */
+  const ENRICH_CHUNK = 500; // moments per enrichment request
+
+  const loadUserMoments = useCallback(async () => {
+    if (!childAddr || !tournament) return;
+    setMomentsLoading(true);
+    setMomentsLoadingMsg('Counting moments…');
+    setMomentsError('');
+    setUserMoments([]);
+    setSelectedMoments(new Set());
+
+    try {
+      // 1. Get total count
+      const count = await fcl.query({
+        cadence: CADENCE_MOMENT_COUNT,
+        args: (arg, t) => [arg(childAddr, t.Address)],
+      });
+      const total = Number(count);
+      if (total === 0) {
+        setMomentsError('No moments found in your Dapper collection.');
+        setMomentsLoading(false);
+        return;
+      }
+
+      // 2. Paginated fetch of raw moments from chain
+      let rawMoments = [];
+      const chainPages = Math.ceil(total / MOMENTS_PAGE_SIZE);
+      for (let offset = 0; offset < total; offset += MOMENTS_PAGE_SIZE) {
+        const pageNum = Math.floor(offset / MOMENTS_PAGE_SIZE) + 1;
+        setMomentsLoadingMsg(`Reading chain… page ${pageNum}/${chainPages} (${total} moments)`);
+        const page = await fcl.query({
+          cadence: CADENCE_LIST_MOMENTS_PAGE,
+          args: (arg, t) => [
+            arg(childAddr, t.Address),
+            arg(String(offset), t.Int),
+            arg(String(MOMENTS_PAGE_SIZE), t.Int),
+          ],
+        });
+        for (const row of page) {
+          const isLocked = row[4] === '1';
+          if (!isLocked) {
+            rawMoments.push({
+              id: parseInt(row[0]),
+              playID: parseInt(row[1]),
+              setName: row[2],
+              serial: parseInt(row[3]),
+              subedition: parseInt(row[5] || '0'),
+            });
+          }
+        }
+      }
+
+      if (rawMoments.length === 0) {
+        setMomentsError('All moments are locked. Only unlocked moments can be used.');
+        setMomentsLoading(false);
+        return;
+      }
+
+      // 3. Enrich via backend in chunks (batch GraphQL on server)
+      const totalChunks = Math.ceil(rawMoments.length / ENRICH_CHUNK);
+      let allEnriched = [];
+      for (let i = 0; i < rawMoments.length; i += ENRICH_CHUNK) {
+        const chunkIdx = Math.floor(i / ENRICH_CHUNK) + 1;
+        setMomentsLoadingMsg(`Enriching moments… ${chunkIdx}/${totalChunks}`);
+        const chunk = rawMoments.slice(i, i + ENRICH_CHUNK);
+        try {
+          const resp = await fetch(`/api/bracket/tournament/${tournament.id}/enrich-moments`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ moments: chunk }),
+          });
+          const enriched = await resp.json();
+          allEnriched = allEnriched.concat(enriched.moments || []);
+        } catch (err) {
+          console.warn(`Enrichment chunk ${chunkIdx} failed`, err);
+        }
+      }
+
+      // 4. Normalise to Swap-style shape: {id, serial, player, set, seriesNumber, tier, imageUrl, team}
+      let moments = allEnriched.map(m => ({
+        id: m.id,
+        serial: m.serial,
+        player: m.playerName || '',
+        set: m.setName || '',
+        seriesNumber: m.seriesNumber || null,
+        tier: m.tier || '',
+        imageUrl: m.imageUrl || null,
+        team: m.teamName || '',
+        nbaSeason: m.nbaSeason || '',
+      }));
+
+      // Apply tournament moment_filters client-side
+      const filters = tournament.moment_filters || {};
+      if (filters.tier) {
+        const ft = filters.tier.toUpperCase();
+        moments = moments.filter(m => (m.tier || '').toUpperCase() === ft);
+      }
+      if (filters.player_name) {
+        const fp = filters.player_name.toLowerCase();
+        moments = moments.filter(m => (m.player || '').toLowerCase().includes(fp));
+      }
+      if (filters.set_name) {
+        const fs = filters.set_name.toLowerCase();
+        moments = moments.filter(m => (m.set || '').toLowerCase().includes(fs));
+      }
+      if (filters.series) {
+        const fser = String(filters.series);
+        moments = moments.filter(m => String(m.seriesNumber) === fser);
+      }
+
+      // Sort by player name then serial
+      moments.sort((a, b) => (a.player || '').localeCompare(b.player || '') || a.serial - b.serial);
+      setUserMoments(moments);
+
+      if (moments.length === 0) {
+        setMomentsError('You don\'t have any eligible moments matching this tournament\'s requirements.');
+      }
+    } catch (e) {
+      console.error('Failed to load moments', e);
+      setMomentsError('Failed to load moments from your collection. Please try again.');
+    } finally {
+      setMomentsLoading(false);
+      setMomentsLoadingMsg('');
+    }
+  }, [childAddr, tournament]);
+
+  /* ── Filtered moments for the picker ── */
+  const filteredMoments = useMemo(() => {
+    let list = userMoments;
+    if (momentFilterPlayer) {
+      const lc = momentFilterPlayer.toLowerCase();
+      list = list.filter(m => (m.player || '').toLowerCase().includes(lc));
+    }
+    if (momentFilterSet) {
+      const lc = momentFilterSet.toLowerCase();
+      list = list.filter(m => (m.set || '').toLowerCase().includes(lc));
+    }
+    if (momentFilterSeason) {
+      list = list.filter(m => String(m.seriesNumber) === momentFilterSeason || (m.nbaSeason || '').includes(momentFilterSeason));
+    }
+    if (momentFilterTeam) {
+      const lc = momentFilterTeam.toLowerCase();
+      list = list.filter(m => (m.team || '').toLowerCase().includes(lc));
+    }
+    return list;
+  }, [userMoments, momentFilterPlayer, momentFilterSet, momentFilterSeason, momentFilterTeam]);
+
+  // Reset page when filters or moments change
+  useEffect(() => { setMomentPage(0); }, [momentFilterPlayer, momentFilterSet, momentFilterSeason, momentFilterTeam, userMoments]);
+
+  const totalMomentPages = Math.max(1, Math.ceil(filteredMoments.length / MOMENTS_PER_PAGE));
+  const paginatedMoments = filteredMoments.slice(momentPage * MOMENTS_PER_PAGE, (momentPage + 1) * MOMENTS_PER_PAGE);
+
+  /* ── Unique filter options ── */
+  const momentFilterOptions = useMemo(() => {
+    const players = [...new Set(userMoments.map(m => m.player).filter(Boolean))].sort();
+    const sets = [...new Set(userMoments.map(m => m.set).filter(Boolean))].sort();
+    const seasons = [...new Set(userMoments.map(m => m.seriesNumber != null ? String(m.seriesNumber) : null).filter(Boolean))].sort();
+    const teams = [...new Set(userMoments.map(m => m.team).filter(Boolean))].sort();
+    return { players, sets, seasons, teams };
+  }, [userMoments]);
 
   const isAdmin = ADMIN_WALLETS.includes(user?.addr?.toLowerCase());
 
@@ -225,6 +556,19 @@ export default function FastbreakBracket() {
 
     const buyin = tournament.buyin_type || 'TOKEN';
 
+    // MOMENT buy-in — open the moment picker instead
+    if (buyin === 'MOMENT') {
+      setMomentPickerOpen(true);
+      setMomentFilterPlayer('');
+      setMomentFilterSet('');
+      setMomentFilterSeason('');
+      setMomentFilterTeam('');
+      setSelectedMoments(new Set());
+      setTxStatus('');
+      loadUserMoments();
+      return;
+    }
+
     try {
       setProcessing(true);
 
@@ -241,7 +585,7 @@ export default function FastbreakBracket() {
         await fcl.tx(txId).onceSealed();
         setTxStatus('✅ Payment confirmed. Registering…');
       } else {
-        // FREEROLL or MOMENT — no on-chain payment needed
+        // FREEROLL
         setTxStatus('Registering…');
       }
 
@@ -265,6 +609,80 @@ export default function FastbreakBracket() {
       setProcessing(false);
     }
   };
+
+  /* ── Moment buy-in: transfer moments + signup ── */
+  const handleMomentSignup = async () => {
+    if (!childAddr || !tournament || !user?.addr) return;
+    const numRequired = tournament.num_moments || 1;
+    if (selectedMoments.size !== numRequired) {
+      setTxStatus(`❗ Please select exactly ${numRequired} moment(s).`);
+      return;
+    }
+
+    const momentIds = [...selectedMoments];
+    try {
+      setProcessing(true);
+      setTxStatus('Waiting for wallet approval to transfer moment(s)…');
+
+      const cadence = buildTransferMomentsCadence(childAddr);
+      const authz = fcl.currentUser().authorization;
+      const txId = await fcl.mutate({
+        cadence,
+        args: (arg, t) => [
+          arg(momentIds.map(id => String(id)), t.Array(t.UInt64)),
+          arg(TREASURY_DAPPER, t.Address),
+        ],
+        proposer: authz,
+        payer: authz,
+        authorizations: [authz],
+        limit: 9999,
+      });
+
+      setTxStatus(`✅ Transfer submitted: <a href="https://flowscan.io/tx/${txId}" target="_blank" rel="noopener noreferrer">${txId.slice(0, 12)}…</a>. Waiting for seal…`);
+      await fcl.tx(txId).onceSealed();
+      setTxStatus('✅ Moments transferred! Verifying and registering…');
+
+      // POST signup with moment verification data
+      const res = await fetch(`/api/bracket/tournament/${tournament.id}/signup`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          wallet: user.addr,
+          txId,
+          momentIds,
+        }),
+      });
+      const j = await res.json();
+      if (!res.ok) {
+        setTxStatus(`❗ ${j.error || 'Signup failed'}`);
+      } else {
+        setTxStatus(`✅ Signed up as <strong>${j.ts_username}</strong>! ${j.moments_verified} moment(s) verified.`);
+        setMomentPickerOpen(false);
+        fetchTournamentDetail(tournament.id);
+        fetchTournaments();
+      }
+    } catch (e) {
+      const msg = simplifyFlowError(e);
+      setTxStatus(`❗ ${msg}`);
+    } finally {
+      setProcessing(false);
+    }
+  };
+
+  const toggleMomentSelection = useCallback((id) => {
+    setSelectedMoments(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        const numRequired = tournament?.num_moments || 1;
+        if (next.size < numRequired) {
+          next.add(id);
+        }
+      }
+      return next;
+    });
+  }, [tournament?.num_moments]);
 
   /* ── Create tournament (admin) ── */
   const handleCreateTournament = async () => {
@@ -635,7 +1053,7 @@ export default function FastbreakBracket() {
                 </p>
               )}
               {user.loggedIn && childLoading && (
-                <p className="bracket-wallet-checking"><Spinner animation="border" size="sm" variant="warning" /> Checking wallet…</p>
+                <div className="bracket-wallet-checking"><Spinner animation="border" size="sm" variant="warning" /> Checking wallet…</div>
               )}
               {user.loggedIn && childError && (
                 <div className="bracket-wallet-warning">
@@ -663,10 +1081,126 @@ export default function FastbreakBracket() {
                   : (tournament.buyin_type || 'TOKEN') === 'FREEROLL'
                     ? 'Sign Up (Free)'
                     : (tournament.buyin_type || 'TOKEN') === 'MOMENT'
-                      ? 'Verify Moment & Sign Up'
+                      ? 'Select Moment(s) & Sign Up'
                       : `Pay ${tournament.fee_amount} ${formatCurrencyLabel(tournament.fee_currency)} & Sign Up`}
               </button>
               {txStatus && <p className="bracket-tx-status mt-2" dangerouslySetInnerHTML={{ __html: txStatus }} />}
+
+              {/* ── Moment Picker Overlay ── */}
+              {momentPickerOpen && (
+                <div className="mp-overlay">
+                  <div className="mp-modal">
+                    <div className="mp-header">
+                      <h4>Select Moment{(tournament.num_moments || 1) > 1 ? 's' : ''} to Enter</h4>
+                      <button className="mp-close" onClick={() => { setMomentPickerOpen(false); setTxStatus(''); }}>&times;</button>
+                    </div>
+
+                    {/* Requirement summary */}
+                    {tournament.moment_filters && (
+                      <div className="mp-requirements">
+                        🃏 <strong>Eligible:</strong>{' '}
+                        {[tournament.moment_filters.tier, tournament.moment_filters.player_name, tournament.moment_filters.set_name, tournament.moment_filters.series && `Series ${tournament.moment_filters.series}`].filter(Boolean).join(' · ')}
+                        {' — '}<strong>{tournament.num_moments || 1}</strong> required
+                      </div>
+                    )}
+
+                    {/* Loading state */}
+                    {momentsLoading && (
+                      <div className="mp-loading">
+                        <Spinner animation="border" variant="warning" size="sm" />{' '}
+                        {momentsLoadingMsg || 'Loading your moments…'}
+                      </div>
+                    )}
+
+                    {/* Error state */}
+                    {momentsError && !momentsLoading && (
+                      <div className="mp-error">{momentsError}</div>
+                    )}
+
+                    {/* Filters + grid */}
+                    {!momentsLoading && userMoments.length > 0 && (
+                      <div className="mp-body">
+                        <div className="swap-filter-row" style={{ padding: '0.75rem 1.25rem', borderBottom: '1px solid #1c2a3a' }}>
+                          <select className="swap-filter-select" value={momentFilterPlayer} onChange={e => setMomentFilterPlayer(e.target.value)}>
+                            <option value="">All Players</option>
+                            {momentFilterOptions.players.map(p => <option key={p} value={p}>{p}</option>)}
+                          </select>
+                          <select className="swap-filter-select" value={momentFilterSet} onChange={e => setMomentFilterSet(e.target.value)}>
+                            <option value="">All Sets</option>
+                            {momentFilterOptions.sets.map(s => <option key={s} value={s}>{s}</option>)}
+                          </select>
+                          <select className="swap-filter-select" value={momentFilterSeason} onChange={e => setMomentFilterSeason(e.target.value)}>
+                            <option value="">All Seasons</option>
+                            {momentFilterOptions.seasons.map(s => <option key={s} value={s}>Series {s}</option>)}
+                          </select>
+                          <select className="swap-filter-select" value={momentFilterTeam} onChange={e => setMomentFilterTeam(e.target.value)}>
+                            <option value="">All Teams</option>
+                            {momentFilterOptions.teams.map(t => <option key={t} value={t}>{t}</option>)}
+                          </select>
+                        </div>
+
+                        <div className="mp-count">
+                          {filteredMoments.length} eligible moment{filteredMoments.length !== 1 ? 's' : ''} found
+                          {selectedMoments.size > 0 && (
+                            <span className="mp-selected-count"> — {selectedMoments.size}/{tournament.num_moments || 1} selected</span>
+                          )}
+                        </div>
+
+                        <div className="swap-moment-grid">
+                          {paginatedMoments.map(m => (
+                            <MomentCard
+                              key={m.id}
+                              m={m}
+                              isSelected={selectedMoments.has(m.id)}
+                              onToggle={toggleMomentSelection}
+                            />
+                          ))}
+                        </div>
+
+                        {/* Pagination controls */}
+                        {totalMomentPages > 1 && (
+                          <div className="mp-pagination">
+                            <button
+                              className="mp-page-btn"
+                              disabled={momentPage === 0}
+                              onClick={() => setMomentPage(p => p - 1)}
+                            >
+                              ‹ Prev
+                            </button>
+                            <span className="mp-page-info">
+                              Page {momentPage + 1} of {totalMomentPages}
+                            </span>
+                            <button
+                              className="mp-page-btn"
+                              disabled={momentPage >= totalMomentPages - 1}
+                              onClick={() => setMomentPage(p => p + 1)}
+                            >
+                              Next ›
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Action bar */}
+                    <div className="mp-actions">
+                      <button
+                        className="bracket-signup-btn"
+                        disabled={processing || selectedMoments.size !== (tournament.num_moments || 1)}
+                        onClick={handleMomentSignup}
+                      >
+                        {processing
+                          ? 'Processing…'
+                          : `Transfer ${selectedMoments.size}/${tournament.num_moments || 1} Moment${(tournament.num_moments || 1) > 1 ? 's' : ''} & Sign Up`}
+                      </button>
+                      <button className="btn btn-sm btn-outline-secondary ms-2" onClick={() => { setMomentPickerOpen(false); setTxStatus(''); }}>
+                        Cancel
+                      </button>
+                    </div>
+                    {txStatus && <p className="bracket-tx-status mt-2" dangerouslySetInnerHTML={{ __html: txStatus }} />}
+                  </div>
+                </div>
+              )}
             </div>
           )}
           {isTournamentFull && !userParticipant && tournament.status === 'SIGNUP' && (
