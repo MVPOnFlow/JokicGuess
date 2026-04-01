@@ -312,6 +312,7 @@ def initialize_database(conn, db_type):
             buyin_type TEXT NOT NULL DEFAULT 'TOKEN',
             moment_filters TEXT DEFAULT NULL,
             num_moments INTEGER NOT NULL DEFAULT 1,
+            prize_description TEXT DEFAULT NULL,
             signup_close_ts BIGINT NOT NULL,
             status TEXT NOT NULL DEFAULT 'SIGNUP',
             current_round INTEGER NOT NULL DEFAULT 0,
@@ -403,6 +404,15 @@ def initialize_database(conn, db_type):
     try:
         cursor.execute(prepare_query(
             "ALTER TABLE bracket_tournaments ADD COLUMN num_moments INTEGER NOT NULL DEFAULT 1"
+        ))
+        conn.commit()
+    except Exception:
+        conn.rollback()
+
+    # Migration: add prize_description column if it doesn't exist yet
+    try:
+        cursor.execute(prepare_query(
+            "ALTER TABLE bracket_tournaments ADD COLUMN prize_description TEXT DEFAULT NULL"
         ))
         conn.commit()
     except Exception:

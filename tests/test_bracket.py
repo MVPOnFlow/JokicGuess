@@ -51,8 +51,8 @@ class TestListBracketTournaments:
         db, cursor = _mock_db()
         mock_get_db.return_value = db
 
-        # Tournament row (includes max_rounds as 10th, buyin_type as 11th, moment_filters as 12th, num_moments as 13th)
-        tournament_row = (1, 'Test Cup', 5.0, '$MVP', 9999999999, 'SIGNUP', 0, None, '2026-01-01', 3, 'TOKEN', None, 1)
+        # Tournament row (includes max_rounds as 10th, buyin_type as 11th, moment_filters as 12th, num_moments as 13th, prize_description as 14th)
+        tournament_row = (1, 'Test Cup', 5.0, '$MVP', 9999999999, 'SIGNUP', 0, None, '2026-01-01', 3, 'TOKEN', None, 1, None)
         cursor.fetchall.side_effect = [
             [tournament_row],  # tournament list
         ]
@@ -155,8 +155,8 @@ class TestGetBracketTournament:
         db, cursor = _mock_db()
         mock_get_db.return_value = db
 
-        # First fetchone: tournament row (includes max_rounds as 10th, buyin_type, moment_filters, num_moments)
-        tournament_row = (1, 'Test Cup', 5.0, '$MVP', 9999999999, 'ACTIVE', 1, None, '2026-01-01', 3, 'TOKEN', None, 1)
+        # First fetchone: tournament row (includes max_rounds as 10th, buyin_type, moment_filters, num_moments, prize_description)
+        tournament_row = (1, 'Test Cup', 5.0, '$MVP', 9999999999, 'ACTIVE', 1, None, '2026-01-01', 3, 'TOKEN', None, 1, None)
         participant_rows = [
             (1, '0xaaa', 'user1', 1, None),
             (2, '0xbbb', 'user2', 2, None),
@@ -654,10 +654,10 @@ class TestListTournamentsWithBuyinTypes:
         db, cursor = _mock_db()
         mock_get_db.return_value = db
 
-        token_row = (1, 'Token Cup', 10.0, '$MVP', 9999999999, 'SIGNUP', 0, None, '2026-01-01', 3, 'TOKEN', None, 1)
-        freeroll_row = (2, 'Free Cup', 0.0, '', 9999999999, 'SIGNUP', 0, None, '2026-01-02', 3, 'FREEROLL', None, 1)
+        token_row = (1, 'Token Cup', 10.0, '$MVP', 9999999999, 'SIGNUP', 0, None, '2026-01-01', 3, 'TOKEN', None, 1, None)
+        freeroll_row = (2, 'Free Cup', 0.0, '', 9999999999, 'SIGNUP', 0, None, '2026-01-02', 3, 'FREEROLL', None, 1, None)
         moment_row = (3, 'Moment Cup', 0.0, '', 9999999999, 'SIGNUP', 0, None, '2026-01-03', 3, 'MOMENT',
-                      json.dumps({'tier': 'RARE', 'player_name': 'Stephen Curry'}), 2)
+                      json.dumps({'tier': 'RARE', 'player_name': 'Stephen Curry'}), 2, None)
 
         cursor.fetchall.side_effect = [
             [token_row, freeroll_row, moment_row],
@@ -685,7 +685,7 @@ class TestGetTournamentDetailBuyinTypes:
         mock_get_db.return_value = db
 
         tournament_row = (1, 'Moment Cup', 0.0, '', 9999999999, 'SIGNUP', 0, None, '2026-01-01', 3,
-                          'MOMENT', json.dumps({'tier': 'RARE', 'player_name': 'Stephen Curry', 'series': '8'}), 1)
+                          'MOMENT', json.dumps({'tier': 'RARE', 'player_name': 'Stephen Curry', 'series': '8'}), 1, None)
         cursor.fetchone.return_value = tournament_row
         cursor.fetchall.side_effect = [[], [], []]  # participants, matchups, round_schedule
 
@@ -703,7 +703,7 @@ class TestGetTournamentDetailBuyinTypes:
         mock_get_db.return_value = db
 
         tournament_row = (2, 'Free Cup', 0.0, '', 9999999999, 'SIGNUP', 0, None, '2026-01-01', 3,
-                          'FREEROLL', None, 1)
+                          'FREEROLL', None, 1, None)
         cursor.fetchone.return_value = tournament_row
         cursor.fetchall.side_effect = [[], [], []]
 
@@ -879,7 +879,7 @@ class TestNumMomentsInResponse:
         mock_get_db.return_value = db
 
         row = (1, 'Moment Cup', 0.0, '', 9999999999, 'SIGNUP', 0, None, '2026-01-01', 3, 'MOMENT',
-               json.dumps({'tier': 'RARE'}), 3)
+               json.dumps({'tier': 'RARE'}), 3, None)
         cursor.fetchall.side_effect = [[row]]
         cursor.fetchone.return_value = (0,)
 
@@ -894,7 +894,7 @@ class TestNumMomentsInResponse:
         mock_get_db.return_value = db
 
         row = (1, 'Moment Cup', 0.0, '', 9999999999, 'SIGNUP', 0, None, '2026-01-01', 3, 'MOMENT',
-               json.dumps({'tier': 'RARE'}), 5)
+               json.dumps({'tier': 'RARE'}), 5, None)
         cursor.fetchone.return_value = row
         cursor.fetchall.side_effect = [[], [], []]
 
@@ -902,6 +902,90 @@ class TestNumMomentsInResponse:
         assert resp.status_code == 200
         data = json.loads(resp.data)
         assert data['num_moments'] == 5
+
+
+class TestPrizeDescription:
+    """Verify prize_description appears in list / detail / create responses."""
+
+    @patch('routes.api.get_db')
+    def test_list_includes_prize_description(self, mock_get_db, client):
+        db, cursor = _mock_db()
+        mock_get_db.return_value = db
+
+        row = (1, 'Prize Cup', 5.0, '$MVP', 9999999999, 'SIGNUP', 0, None, '2026-01-01', 3,
+               'TOKEN', None, 1, 'Rookie revelation standard pack')
+        cursor.fetchall.side_effect = [[row]]
+        cursor.fetchone.return_value = (0,)
+
+        resp = client.get('/api/bracket/tournaments')
+        assert resp.status_code == 200
+        data = json.loads(resp.data)
+        assert data[0]['prize_description'] == 'Rookie revelation standard pack'
+
+    @patch('routes.api.get_db')
+    def test_list_prize_description_null(self, mock_get_db, client):
+        db, cursor = _mock_db()
+        mock_get_db.return_value = db
+
+        row = (1, 'No Prize', 5.0, '$MVP', 9999999999, 'SIGNUP', 0, None, '2026-01-01', 3,
+               'TOKEN', None, 1, None)
+        cursor.fetchall.side_effect = [[row]]
+        cursor.fetchone.return_value = (0,)
+
+        resp = client.get('/api/bracket/tournaments')
+        assert resp.status_code == 200
+        data = json.loads(resp.data)
+        assert data[0]['prize_description'] is None
+
+    @patch('routes.api.get_db')
+    def test_detail_includes_prize_description(self, mock_get_db, client):
+        db, cursor = _mock_db()
+        mock_get_db.return_value = db
+
+        row = (1, 'Prize Cup', 0.0, '', 9999999999, 'SIGNUP', 0, None, '2026-01-01', 3,
+               'FREEROLL', None, 1, 'Rookie revelation standard pack')
+        cursor.fetchone.return_value = row
+        cursor.fetchall.side_effect = [[], [], []]
+
+        resp = client.get('/api/bracket/tournament/1')
+        assert resp.status_code == 200
+        data = json.loads(resp.data)
+        assert data['prize_description'] == 'Rookie revelation standard pack'
+
+    @patch('routes.api.extract_fastbreak_runs')
+    @patch('db.init.get_db_connection')
+    def test_create_with_prize_description(self, mock_conn_fn, mock_fb_runs, client):
+        """Create tournament with prize_description included in response."""
+        mock_conn = Mock()
+        mock_cursor = Mock()
+        mock_conn.cursor.return_value = mock_cursor
+        mock_cursor.fetchone.return_value = (77,)
+        mock_conn_fn.return_value = (mock_conn, 'sqlite')
+
+        mock_fb_runs.return_value = [{
+            'runName': 'Classic',
+            'fastBreaks': [
+                {'id': f'fb{i}', 'gameDate': f'2026-04-{10+i:02d}T00:00:00Z',
+                 'gamesStartAt': f'2026-04-{10+i:02d}T23:00:00Z', 'status': 'FAST_BREAK_SCHEDULED'}
+                for i in range(3)
+            ]
+        }]
+
+        resp = client.post('/api/bracket/tournaments', json={
+            'name': 'Prize Bracket',
+            'start_date': '2026-04-10',
+            'fee_amount': 5,
+            'max_rounds': 3,
+            'prize_description': 'Rookie revelation standard pack',
+        })
+        assert resp.status_code == 201
+        data = json.loads(resp.data)
+        assert data['prize_description'] == 'Rookie revelation standard pack'
+
+        # Verify the prize_description was passed to the INSERT
+        insert_call = mock_cursor.execute.call_args_list[0]
+        insert_args = insert_call[0][1]
+        assert insert_args[6] == 'Rookie revelation standard pack'  # prize_description
 
 
 class TestEnrichMomentsCache:

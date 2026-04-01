@@ -280,7 +280,7 @@ export default function FastbreakBracket() {
   const [showCreate, setShowCreate] = useState(false);
   const [createForm, setCreateForm] = useState({
     name: '', start_date: '', fee_amount: '5', fee_currency: '$MVP', max_rounds: '3',
-    buyin_type: 'TOKEN',
+    buyin_type: 'TOKEN', num_moments: '1', prize_description: '',
     moment_tier: '', moment_player_name: '', moment_set_name: '', moment_series: '',
   });
   const [createStatus, setCreateStatus] = useState('');
@@ -708,6 +708,9 @@ export default function FastbreakBracket() {
         max_rounds: parseInt(createForm.max_rounds) || 3,
         buyin_type: createForm.buyin_type,
       };
+      if (createForm.prize_description.trim()) {
+        body.prize_description = createForm.prize_description.trim();
+      }
       if (createForm.buyin_type === 'MOMENT') {
         const mf = {};
         if (createForm.moment_tier) mf.tier = createForm.moment_tier;
@@ -715,6 +718,7 @@ export default function FastbreakBracket() {
         if (createForm.moment_set_name) mf.set_name = createForm.moment_set_name;
         if (createForm.moment_series) mf.series = createForm.moment_series;
         body.moment_filters = mf;
+        body.num_moments = parseInt(createForm.num_moments) || 1;
       }
       const res = await fetch('/api/bracket/tournaments', {
         method: 'POST',
@@ -728,7 +732,8 @@ export default function FastbreakBracket() {
         setCreateStatus(`✅ Created! ID=${j.id}, ${j.rounds_mapped} rounds mapped.`);
         setCreateForm({
           name: '', start_date: '', fee_amount: '5', fee_currency: '$MVP', max_rounds: '3',
-          buyin_type: 'TOKEN', moment_tier: '', moment_player_name: '', moment_set_name: '', moment_series: '',
+          buyin_type: 'TOKEN', num_moments: '1', prize_description: '',
+          moment_tier: '', moment_player_name: '', moment_set_name: '', moment_series: '',
         });
         fetchTournaments();
       }
@@ -884,8 +889,18 @@ export default function FastbreakBracket() {
                           <input type="text" placeholder="e.g. 8" value={createForm.moment_series}
                             onChange={e => setCreateForm(f => ({ ...f, moment_series: e.target.value }))} />
                         </div>
+                        <div className="bracket-admin-row">
+                          <label># Moments</label>
+                          <input type="number" min="1" max="50" value={createForm.num_moments}
+                            onChange={e => setCreateForm(f => ({ ...f, num_moments: e.target.value }))} />
+                        </div>
                       </div>
                     )}
+                    <div className="bracket-admin-row">
+                      <label>Bonus Prize</label>
+                      <input type="text" placeholder="e.g. Rookie revelation standard pack" value={createForm.prize_description}
+                        onChange={e => setCreateForm(f => ({ ...f, prize_description: e.target.value }))} />
+                    </div>
                     <div className="bracket-admin-row">
                       <label>Max Rounds</label>
                       <select value={createForm.max_rounds}
@@ -940,10 +955,11 @@ export default function FastbreakBracket() {
                           {t.buyin_type === 'FREEROLL'
                             ? 'Entry: 🆓 Freeroll'
                             : t.buyin_type === 'MOMENT'
-                              ? <>Entry: 🃏 Moment{t.moment_filters && <> ({[t.moment_filters.tier, t.moment_filters.player_name, t.moment_filters.set_name, t.moment_filters.series && `S${t.moment_filters.series}`].filter(Boolean).join(', ')})</>}</>
+                              ? <>Entry: 🃏 {t.num_moments > 1 ? `${t.num_moments} Moments` : 'Moment'}{t.moment_filters && <> ({[t.moment_filters.tier, t.moment_filters.player_name, t.moment_filters.set_name, t.moment_filters.series && `S${t.moment_filters.series}`].filter(Boolean).join(', ')})</>}</>
                               : <>Fee: <strong>{t.fee_amount} {formatCurrencyLabel(t.fee_currency)}</strong></>}
                         </span>
                         <span>Players: <strong>{t.participant_count}{t.max_players ? ` / ${t.max_players}` : ''}</strong></span>
+                        {t.prize_description && <span>🎁 {t.prize_description}</span>}
                         {t.winner_wallet && (
                           <span>Winner: <strong>{shortenWallet(t.winner_wallet)}</strong></span>
                         )}
@@ -1020,16 +1036,19 @@ export default function FastbreakBracket() {
           {(tournament.buyin_type || 'TOKEN') === 'TOKEN' && (
             <div className="bracket-prize-pool">
               💰 Prize: <strong>{(tournament.fee_amount * (tournament.participants || []).length * 0.95).toFixed(2)} {formatCurrencyLabel(tournament.fee_currency)}</strong>
+              {tournament.prize_description && <> + 🎁 <strong>{tournament.prize_description}</strong></>}
             </div>
           )}
           {(tournament.buyin_type || 'TOKEN') === 'FREEROLL' && (
             <div className="bracket-prize-pool">
-              🆓 Free entry — bragging rights on the line!
+              🆓 Free entry — {tournament.prize_description ? <>Prize: 🎁 <strong>{tournament.prize_description}</strong></> : 'bragging rights on the line!'}
             </div>
           )}
           {(tournament.buyin_type || 'TOKEN') === 'MOMENT' && (
             <div className="bracket-prize-pool">
-              🃏 Moment buy-in — prove you own a qualifying moment to enter!
+              🃏 Moment buy-in — {tournament.num_moments || 1} moment{(tournament.num_moments || 1) > 1 ? 's' : ''} required to enter.
+              Winner takes all <strong>{(tournament.participants || []).length * (tournament.num_moments || 1)}</strong> moments!
+              {tournament.prize_description && <> + 🎁 <strong>{tournament.prize_description}</strong></>}
             </div>
           )}
 
@@ -1364,6 +1383,7 @@ export default function FastbreakBracket() {
                     <th>TopShot Username</th>
                     <th>Wallet</th>
                     <th>Status</th>
+                    {(tournament.buyin_type || 'TOKEN') === 'MOMENT' && <th>Moments</th>}
                   </tr>
                 </thead>
                 <tbody>
@@ -1381,6 +1401,9 @@ export default function FastbreakBracket() {
                             : tournament.status === 'COMPLETE' ? '—'
                             : '✅ Active'}
                         </td>
+                        {(tournament.buyin_type || 'TOKEN') === 'MOMENT' && (
+                          <td>{p.moment_ids ? `${JSON.parse(p.moment_ids).length} deposited` : '—'}</td>
+                        )}
                       </tr>
                     );
                   })}
