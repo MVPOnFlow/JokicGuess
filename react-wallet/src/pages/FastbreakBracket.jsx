@@ -400,7 +400,7 @@ export default function FastbreakBracket() {
       let allEnriched = [];
       for (let i = 0; i < rawMoments.length; i += ENRICH_CHUNK) {
         const chunkIdx = Math.floor(i / ENRICH_CHUNK) + 1;
-        setMomentsLoadingMsg(`Enriching moments… ${chunkIdx}/${totalChunks}`);
+        setMomentsLoadingMsg(`Fetching moment metadata... ${chunkIdx}/${totalChunks}`);
         const chunk = rawMoments.slice(i, i + ENRICH_CHUNK);
         try {
           const resp = await fetch(`/api/bracket/tournament/${tournament.id}/enrich-moments`, {
