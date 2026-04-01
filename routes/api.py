@@ -2534,6 +2534,9 @@ def register_routes(app):
         for ts in all_ts:
             dt = datetime.datetime.fromtimestamp(ts, tz=datetime.UTC)
             seen_months.add(f'{dt.year}-{dt.month:02d}')
+        # Always include the current month so the dropdown is never empty
+        now_utc = datetime.datetime.now(datetime.UTC)
+        seen_months.add(f'{now_utc.year}-{now_utc.month:02d}')
         available_months = sorted(seen_months, reverse=True)
 
         leaderboard = []

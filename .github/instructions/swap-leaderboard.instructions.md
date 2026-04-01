@@ -41,6 +41,14 @@ Monthly swap leaderboard showing who earned the most $MVP and raffle points thro
 - Success-only in-memory cache (24hr TTL) avoids repeated gRPC calls. Failures are never cached.
 - gRPC calls are throttled with a 0.35s delay lock to prevent `RESOURCE_EXHAUSTED` errors.
 - Users with resolved usernames link to `https://nbatopshot.com/user/{username}`; unresolved wallets link to `https://www.flowdiver.io/account/{address}`.
+- The backend always includes the current month in `availableMonths` even if no swaps exist yet, so the dropdown is never empty.
+
+## Monthly Prize Configuration
+- Prizes are defined per month in `prizesByMonth` inside `SwapLeaderboard.jsx`.
+- Each key is a `YYYY-MM` string mapping to an array of prize objects `{ label, url, internal? }`.
+- When the selected month has an entry in `prizesByMonth`, the full prize draft section is shown.
+- When the selected month has no entry (prizes are `null`), a "Prizes for {month} — TBD" message is shown instead.
+- **To add prizes for a new month:** add a new entry to `prizesByMonth`, e.g. `'2026-04': [{ label: '...', url: '...' }, ...]`.
 
 ## Related Files
 - `react-wallet/src/pages/SwapLeaderboard.jsx`
