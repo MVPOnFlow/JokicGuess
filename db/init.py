@@ -312,6 +312,7 @@ def initialize_database(conn, db_type):
             buyin_type TEXT NOT NULL DEFAULT 'TOKEN',
             moment_filters TEXT DEFAULT NULL,
             num_moments INTEGER NOT NULL DEFAULT 1,
+            prize_description TEXT DEFAULT NULL,
             signup_close_ts BIGINT NOT NULL,
             status TEXT NOT NULL DEFAULT 'SIGNUP',
             current_round INTEGER NOT NULL DEFAULT 0,

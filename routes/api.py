@@ -624,6 +624,7 @@ def register_routes(app):
             num_moments = int(data.get('num_moments', 1))
             if num_moments < 1 or num_moments > 50:
                 return jsonify({"error": "num_moments must be between 1 and 50"}), 400
+            prize_description = (data.get('prize_description') or '').strip() or None
 
             if not name or not start_date:
                 return jsonify({"error": "name and start_date are required"}), 400
@@ -698,9 +699,9 @@ def register_routes(app):
                 cursor.execute(prepare_query(
                     '''INSERT INTO bracket_tournaments
                        (name, fee_amount, fee_currency, buyin_type, moment_filters,
-                        num_moments, signup_close_ts, status, current_round, max_rounds)
-                       VALUES (?, ?, ?, ?, ?, ?, ?, 'SIGNUP', 0, ?)'''
-                ), (name, fee_amount, fee_currency, buyin_type, moment_filters_str, num_moments, signup_close_ts, max_rounds))
+                        num_moments, prize_description, signup_close_ts, status, current_round, max_rounds)
+                       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'SIGNUP', 0, ?)'''
+                ), (name, fee_amount, fee_currency, buyin_type, moment_filters_str, num_moments, prize_description, signup_close_ts, max_rounds))
                 conn.commit()
                 # Retrieve the new id
                 if db_type == 'postgresql':
@@ -726,6 +727,7 @@ def register_routes(app):
                     "max_players": 2 ** max_rounds,
                     "buyin_type": buyin_type,
                     "num_moments": num_moments,
+                    "prize_description": prize_description,
                 }), 201
             finally:
                 conn.close()
@@ -734,7 +736,7 @@ def register_routes(app):
         cursor.execute(prepare_query('''
             SELECT id, name, fee_amount, fee_currency, signup_close_ts,
                    status, current_round, winner_wallet, created_at, max_rounds,
-                   buyin_type, moment_filters, num_moments
+                   buyin_type, moment_filters, num_moments, prize_description
             FROM bracket_tournaments
             ORDER BY created_at DESC
         '''))
@@ -748,6 +750,7 @@ def register_routes(app):
             mf_raw = r[11] if len(r) > 11 else None
             mf = _json_mod.loads(mf_raw) if mf_raw else None
             nm = int(r[12]) if len(r) > 12 and r[12] is not None else 1
+            pd = r[13] if len(r) > 13 else None
             # participant count
             cursor.execute(prepare_query(
                 'SELECT COUNT(*) FROM bracket_participants WHERE tournament_id = ?'
@@ -762,6 +765,7 @@ def register_routes(app):
                 "max_rounds": mr, "max_players": 2 ** mr,
                 "buyin_type": bt, "moment_filters": mf,
                 "num_moments": nm,
+                "prize_description": pd,
             })
         return jsonify(tournaments)
 
@@ -773,7 +777,7 @@ def register_routes(app):
         cursor.execute(prepare_query('''
             SELECT id, name, fee_amount, fee_currency, signup_close_ts,
                    status, current_round, winner_wallet, created_at, max_rounds,
-                   buyin_type, moment_filters, num_moments
+                   buyin_type, moment_filters, num_moments, prize_description
             FROM bracket_tournaments WHERE id = ?
         '''), (tid,))
         row = cursor.fetchone()
@@ -786,6 +790,7 @@ def register_routes(app):
         mf_raw = row[11] if len(row) > 11 else None
         mf = _json_mod.loads(mf_raw) if mf_raw else None
         nm = int(row[12]) if len(row) > 12 and row[12] is not None else 1
+        pd = row[13] if len(row) > 13 else None
         tournament = {
             "id": row[0], "name": row[1],
             "fee_amount": float(row[2]), "fee_currency": row[3],
@@ -795,6 +800,7 @@ def register_routes(app):
             "max_rounds": mr, "max_players": 2 ** mr,
             "buyin_type": bt, "moment_filters": mf,
             "num_moments": nm,
+            "prize_description": pd,
         }
 
         # Participants
