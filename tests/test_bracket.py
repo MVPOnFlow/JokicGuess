@@ -52,7 +52,7 @@ class TestListBracketTournaments:
         mock_get_db.return_value = db
 
         # Tournament row (includes max_rounds as 10th, buyin_type as 11th, moment_filters as 12th, num_moments as 13th, prize_description as 14th)
-        tournament_row = (1, 'Test Cup', 5.0, '$MVP', 9999999999, 'SIGNUP', 0, None, '2026-01-01', 3, 'TOKEN', None, 1, None)
+        tournament_row = (1, 'Test Cup', 5.0, '$MVP', 9999999999, 'SIGNUP', 0, None, '2026-01-01', 3, 'TOKEN', None, 1, None, None)
         cursor.fetchall.side_effect = [
             [tournament_row],  # tournament list
         ]
@@ -156,7 +156,7 @@ class TestGetBracketTournament:
         mock_get_db.return_value = db
 
         # First fetchone: tournament row (includes max_rounds as 10th, buyin_type, moment_filters, num_moments, prize_description)
-        tournament_row = (1, 'Test Cup', 5.0, '$MVP', 9999999999, 'ACTIVE', 1, None, '2026-01-01', 3, 'TOKEN', None, 1, None)
+        tournament_row = (1, 'Test Cup', 5.0, '$MVP', 9999999999, 'ACTIVE', 1, None, '2026-01-01', 3, 'TOKEN', None, 1, None, None)
         participant_rows = [
             (1, '0xaaa', 'user1', 1, None),
             (2, '0xbbb', 'user2', 2, None),
@@ -654,10 +654,10 @@ class TestListTournamentsWithBuyinTypes:
         db, cursor = _mock_db()
         mock_get_db.return_value = db
 
-        token_row = (1, 'Token Cup', 10.0, '$MVP', 9999999999, 'SIGNUP', 0, None, '2026-01-01', 3, 'TOKEN', None, 1, None)
-        freeroll_row = (2, 'Free Cup', 0.0, '', 9999999999, 'SIGNUP', 0, None, '2026-01-02', 3, 'FREEROLL', None, 1, None)
+        token_row = (1, 'Token Cup', 10.0, '$MVP', 9999999999, 'SIGNUP', 0, None, '2026-01-01', 3, 'TOKEN', None, 1, None, None)
+        freeroll_row = (2, 'Free Cup', 0.0, '', 9999999999, 'SIGNUP', 0, None, '2026-01-02', 3, 'FREEROLL', None, 1, None, None)
         moment_row = (3, 'Moment Cup', 0.0, '', 9999999999, 'SIGNUP', 0, None, '2026-01-03', 3, 'MOMENT',
-                      json.dumps({'tier': 'RARE', 'player_name': 'Stephen Curry'}), 2, None)
+                      json.dumps({'tier': 'RARE', 'player_name': 'Stephen Curry'}), 2, None, None)
 
         cursor.fetchall.side_effect = [
             [token_row, freeroll_row, moment_row],
@@ -685,7 +685,7 @@ class TestGetTournamentDetailBuyinTypes:
         mock_get_db.return_value = db
 
         tournament_row = (1, 'Moment Cup', 0.0, '', 9999999999, 'SIGNUP', 0, None, '2026-01-01', 3,
-                          'MOMENT', json.dumps({'tier': 'RARE', 'player_name': 'Stephen Curry', 'series': '8'}), 1, None)
+                          'MOMENT', json.dumps({'tier': 'RARE', 'player_name': 'Stephen Curry', 'series': '8'}), 1, None, None)
         cursor.fetchone.return_value = tournament_row
         cursor.fetchall.side_effect = [[], [], []]  # participants, matchups, round_schedule
 
@@ -702,8 +702,7 @@ class TestGetTournamentDetailBuyinTypes:
         db, cursor = _mock_db()
         mock_get_db.return_value = db
 
-        tournament_row = (2, 'Free Cup', 0.0, '', 9999999999, 'SIGNUP', 0, None, '2026-01-01', 3,
-                          'FREEROLL', None, 1, None)
+        tournament_row = (2, 'Free Cup', 0.0, '', 9999999999, 'SIGNUP', 0, None, '2026-01-01', 3, 'FREEROLL', None, 1, None, None)
         cursor.fetchone.return_value = tournament_row
         cursor.fetchall.side_effect = [[], [], []]
 
@@ -1174,3 +1173,117 @@ class TestEnrichMomentsCache:
         data = json.loads(resp.data)
         assert len(data['moments']) == 1
         assert data['moments'][0]['playerName'] == 'Fallback Player'
+
+
+class TestBracketPayout:
+    """POST /api/bracket/tournament/<id>/payout"""
+
+    @patch('routes.api._send_mvp_from_treasury', return_value='tx_payout_token_abc')
+    @patch('db.init.get_db_connection')
+    def test_payout_token_success(self, mock_get_conn, mock_send_mvp, client):
+        """TOKEN tournament payout sends 95% of fees to winner."""
+        db, cursor = _mock_db()
+        mock_get_conn.return_value = (db, 'sqlite')
+
+        # Tournament: COMPLETE, TOKEN, fee=10, winner=0xWinner, no payout yet
+        cursor.fetchone.side_effect = [
+            ('COMPLETE', '0xwinner', 'TOKEN', 10.0, '$MVP', None),  # tournament row
+            (4,),  # participant count
+        ]
+
+        import asyncio
+
+        resp = client.post('/api/bracket/tournament/1/payout')
+        assert resp.status_code == 200
+        data = json.loads(resp.data)
+        assert data['success'] is True
+        assert data['payout_type'] == 'TOKEN'
+        assert data['amount'] == 38.0  # 10 * 4 * 0.95
+        assert data['payout_tx_id'] == 'tx_payout_token_abc'
+        assert data['winner_wallet'] == '0xwinner'
+
+    @patch('routes.api._send_moments_from_treasury', return_value='tx_payout_moment_abc')
+    @patch('utils.helpers.get_linked_child_account', return_value='0xWinnerDapper')
+    @patch('db.init.get_db_connection')
+    def test_payout_moment_success(self, mock_get_conn, mock_child, mock_send_moments, client):
+        """MOMENT tournament payout sends all deposited moments to winner's Dapper wallet."""
+        db, cursor = _mock_db()
+        mock_get_conn.return_value = (db, 'sqlite')
+
+        cursor.fetchone.side_effect = [
+            ('COMPLETE', '0xwinner', 'MOMENT', 0.0, '', None),  # tournament row
+        ]
+        cursor.fetchall.return_value = [
+            ('[100, 200]',),
+            ('[300]',),
+        ]
+
+        import asyncio
+
+        resp = client.post('/api/bracket/tournament/1/payout')
+        assert resp.status_code == 200
+        data = json.loads(resp.data)
+        assert data['success'] is True
+        assert data['payout_type'] == 'MOMENT'
+        assert data['moments_sent'] == 3
+        assert data['payout_tx_id'] == 'tx_payout_moment_abc'
+        assert data['winner_dapper'] == '0xWinnerDapper'
+
+    @patch('db.init.get_db_connection')
+    def test_payout_not_complete(self, mock_get_conn, client):
+        """Payout on non-complete tournament should return 400."""
+        db, cursor = _mock_db()
+        mock_get_conn.return_value = (db, 'sqlite')
+
+        cursor.fetchone.return_value = ('ACTIVE', '0xwinner', 'TOKEN', 10.0, '$MVP', None)
+
+        resp = client.post('/api/bracket/tournament/1/payout')
+        assert resp.status_code == 400
+        assert 'not complete' in json.loads(resp.data)['error']
+
+    @patch('db.init.get_db_connection')
+    def test_payout_already_done(self, mock_get_conn, client):
+        """Payout already completed should return 409."""
+        db, cursor = _mock_db()
+        mock_get_conn.return_value = (db, 'sqlite')
+
+        cursor.fetchone.return_value = ('COMPLETE', '0xwinner', 'TOKEN', 10.0, '$MVP', 'existing_tx_id')
+
+        resp = client.post('/api/bracket/tournament/1/payout')
+        assert resp.status_code == 409
+        assert 'already completed' in json.loads(resp.data)['error']
+
+    @patch('db.init.get_db_connection')
+    def test_payout_freeroll_rejected(self, mock_get_conn, client):
+        """Freeroll tournament payout should return 400."""
+        db, cursor = _mock_db()
+        mock_get_conn.return_value = (db, 'sqlite')
+
+        cursor.fetchone.return_value = ('COMPLETE', '0xwinner', 'FREEROLL', 0.0, '', None)
+
+        resp = client.post('/api/bracket/tournament/1/payout')
+        assert resp.status_code == 400
+        assert 'Freeroll' in json.loads(resp.data)['error']
+
+    @patch('db.init.get_db_connection')
+    def test_payout_no_winner(self, mock_get_conn, client):
+        """Payout with no winner should return 400."""
+        db, cursor = _mock_db()
+        mock_get_conn.return_value = (db, 'sqlite')
+
+        cursor.fetchone.return_value = ('COMPLETE', None, 'TOKEN', 10.0, '$MVP', None)
+
+        resp = client.post('/api/bracket/tournament/1/payout')
+        assert resp.status_code == 400
+        assert 'No winner' in json.loads(resp.data)['error']
+
+    @patch('db.init.get_db_connection')
+    def test_payout_not_found(self, mock_get_conn, client):
+        """Payout on non-existent tournament should return 404."""
+        db, cursor = _mock_db()
+        mock_get_conn.return_value = (db, 'sqlite')
+
+        cursor.fetchone.return_value = None
+
+        resp = client.post('/api/bracket/tournament/999/payout')
+        assert resp.status_code == 404

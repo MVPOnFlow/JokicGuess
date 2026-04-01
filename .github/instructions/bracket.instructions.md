@@ -19,6 +19,7 @@ Single-elimination bracket tournaments powered by NBA TopShot Fastbreak daily sc
 | `/api/bracket/tournament/<id>/enrich-moments` | POST | Enrich raw Cadence moments with TopShot metadata. Uses DB cache (`moment_metadata` table). Body: `{ moments: [{id, playID, setName, serial}, ...] }`. |
 | `/api/bracket/tournament/<id>/generate` | POST | Admin: close signups, seed participants randomly, create round-1 matchups with BYEs. |
 | `/api/bracket/tournament/<id>/advance` | POST | Admin: score current-round matchups from `fastbreak_rankings`, generate next round. |
+| `/api/bracket/tournament/<id>/payout` | POST | Admin: complete prize payout for finished tournament. TOKEN → sends 95% fees to winner Flow wallet; MOMENT → sends all deposited moments to winner's child Dapper wallet. |
 | `/api/bracket/check-wallet` | GET | Pre-check wallet → TopShot username resolution. Returns `{ ts_username }` or error with `reason`. |
 
 ## Buy-in Types
@@ -86,7 +87,7 @@ Single-elimination bracket tournaments powered by NBA TopShot Fastbreak daily sc
 - Follows the same dark theme / gold accent pattern as other pages.
 
 ## Database Tables
-- `bracket_tournaments` — tournament metadata (name, fee, status, buyin_type, moment_filters, num_moments, current_round, max_rounds, winner).
+- `bracket_tournaments` — tournament metadata (name, fee, status, buyin_type, moment_filters, num_moments, current_round, max_rounds, winner, payout_tx_id).
 - `bracket_participants` — signed-up players (wallet, ts_username, seed, eliminated_in_round, moment_tx_id, moment_ids).
 - `bracket_matchups` — per-round pairings with scores, ranks, lineups, and winner.
 - `bracket_rounds` — maps round_number → fastbreak_id + game_date + objectives for each tournament.
@@ -107,7 +108,9 @@ Single-elimination bracket tournaments powered by NBA TopShot Fastbreak daily sc
 ## Moment Return Policy
 - **Winner-takes-all** for MOMENT tournaments: all deposited moments go to the champion.
 - Eliminated players' moments remain in the treasury Dapper wallet.
-- Returns are handled manually by admin via separate Flow transactions (no automated return endpoint yet).
+- Admin triggers payout via `/api/bracket/tournament/<id>/payout` endpoint, which discovers the winner's child Dapper wallet via `HybridCustody` and transfers all collected moments using the same server-signed `_send_moments_from_treasury` flow used by the Swap page.
+- For TOKEN tournaments, payout sends 95% of collected entry fees to the winner's Flow wallet via `_send_mvp_from_treasury`.
+- Payout TX is stored in `payout_tx_id` on `bracket_tournaments` for replay protection and audit.
 
 ## External Data Sources
 - Flow blockchain (FCL token/moment transfers, Cadence scripts for collection queries).

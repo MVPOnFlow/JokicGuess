@@ -736,7 +736,8 @@ def register_routes(app):
         cursor.execute(prepare_query('''
             SELECT id, name, fee_amount, fee_currency, signup_close_ts,
                    status, current_round, winner_wallet, created_at, max_rounds,
-                   buyin_type, moment_filters, num_moments, prize_description
+                   buyin_type, moment_filters, num_moments, prize_description,
+                   payout_tx_id
             FROM bracket_tournaments
             ORDER BY created_at DESC
         '''))
@@ -751,6 +752,7 @@ def register_routes(app):
             mf = _json_mod.loads(mf_raw) if mf_raw else None
             nm = int(r[12]) if len(r) > 12 and r[12] is not None else 1
             pd = r[13] if len(r) > 13 else None
+            pt = r[14] if len(r) > 14 else None
             # participant count
             cursor.execute(prepare_query(
                 'SELECT COUNT(*) FROM bracket_participants WHERE tournament_id = ?'
@@ -766,6 +768,7 @@ def register_routes(app):
                 "buyin_type": bt, "moment_filters": mf,
                 "num_moments": nm,
                 "prize_description": pd,
+                "payout_tx_id": pt,
             })
         return jsonify(tournaments)
 
@@ -777,7 +780,8 @@ def register_routes(app):
         cursor.execute(prepare_query('''
             SELECT id, name, fee_amount, fee_currency, signup_close_ts,
                    status, current_round, winner_wallet, created_at, max_rounds,
-                   buyin_type, moment_filters, num_moments, prize_description
+                   buyin_type, moment_filters, num_moments, prize_description,
+                   payout_tx_id
             FROM bracket_tournaments WHERE id = ?
         '''), (tid,))
         row = cursor.fetchone()
@@ -791,6 +795,7 @@ def register_routes(app):
         mf = _json_mod.loads(mf_raw) if mf_raw else None
         nm = int(row[12]) if len(row) > 12 and row[12] is not None else 1
         pd = row[13] if len(row) > 13 else None
+        pt = row[14] if len(row) > 14 else None
         tournament = {
             "id": row[0], "name": row[1],
             "fee_amount": float(row[2]), "fee_currency": row[3],
@@ -801,6 +806,7 @@ def register_routes(app):
             "buyin_type": bt, "moment_filters": mf,
             "num_moments": nm,
             "prize_description": pd,
+            "payout_tx_id": pt,
         }
 
         # Participants
@@ -1513,6 +1519,127 @@ def register_routes(app):
         conn.commit()
 
         return jsonify({"success": True, "status": "ACTIVE", "next_round": next_round, "winners": len(winners)})
+
+    @app.route("/api/bracket/tournament/<int:tid>/payout", methods=["POST"])
+    def api_bracket_payout(tid):
+        """Admin: complete payout for a finished bracket tournament.
+
+        - TOKEN buy-in: sends 95% of total fees to winner's Flow wallet.
+        - MOMENT buy-in: sends all deposited moments to winner's child
+          Dapper wallet (via HybridCustody, same as swap buy flow).
+        - FREEROLL: no automated payout (returns error).
+
+        Stores the resulting tx id in ``payout_tx_id``.
+        """
+        import asyncio
+        import json as _json
+        from db.init import get_db_connection
+        from utils.helpers import get_linked_child_account, _grpc_lock, _GRPC_DELAY
+        import time as _time
+
+        conn, db_type = get_db_connection()
+        cursor = conn.cursor()
+
+        cursor.execute(prepare_query(
+            '''SELECT status, winner_wallet, buyin_type, fee_amount, fee_currency,
+                      payout_tx_id
+               FROM bracket_tournaments WHERE id = ?'''
+        ), (tid,))
+        row = cursor.fetchone()
+        if not row:
+            conn.close()
+            return jsonify({"error": "Tournament not found"}), 404
+
+        status, winner_wallet, buyin_type, fee_amount, fee_currency, payout_tx_id = row
+
+        if status != 'COMPLETE':
+            conn.close()
+            return jsonify({"error": "Tournament is not complete"}), 400
+        if not winner_wallet:
+            conn.close()
+            return jsonify({"error": "No winner determined"}), 400
+        if payout_tx_id:
+            conn.close()
+            return jsonify({"error": "Payout already completed", "payout_tx_id": payout_tx_id}), 409
+
+        try:
+            if buyin_type == 'TOKEN':
+                # Calculate prize: 95% of total fees
+                cursor.execute(prepare_query(
+                    'SELECT COUNT(*) FROM bracket_participants WHERE tournament_id = ?'
+                ), (tid,))
+                participant_count = cursor.fetchone()[0]
+                prize_amount = float(fee_amount) * participant_count * 0.95
+                if prize_amount <= 0:
+                    conn.close()
+                    return jsonify({"error": "No prize to pay out"}), 400
+
+                tx_id = asyncio.run(_send_mvp_from_treasury(winner_wallet, prize_amount))
+
+                cursor.execute(prepare_query(
+                    'UPDATE bracket_tournaments SET payout_tx_id = ? WHERE id = ?'
+                ), (tx_id, tid))
+                conn.commit()
+                conn.close()
+                return jsonify({
+                    "success": True,
+                    "payout_type": "TOKEN",
+                    "amount": prize_amount,
+                    "currency": fee_currency,
+                    "payout_tx_id": tx_id,
+                    "winner_wallet": winner_wallet,
+                })
+
+            elif buyin_type == 'MOMENT':
+                # Gather all deposited moment IDs from all participants
+                cursor.execute(prepare_query(
+                    'SELECT moment_ids FROM bracket_participants WHERE tournament_id = ? AND moment_ids IS NOT NULL'
+                ), (tid,))
+                all_moment_ids = []
+                for r in cursor.fetchall():
+                    try:
+                        ids = _json.loads(r[0])
+                        all_moment_ids.extend(ids)
+                    except Exception:
+                        continue
+
+                if not all_moment_ids:
+                    conn.close()
+                    return jsonify({"error": "No deposited moments found"}), 400
+
+                # Discover winner's child Dapper account
+                with _grpc_lock:
+                    winner_dapper = asyncio.run(get_linked_child_account(winner_wallet))
+                    _time.sleep(_GRPC_DELAY)
+
+                if not winner_dapper:
+                    conn.close()
+                    return jsonify({"error": "Could not discover winner's Dapper wallet"}), 502
+
+                tx_id = asyncio.run(_send_moments_from_treasury(winner_dapper, all_moment_ids))
+
+                cursor.execute(prepare_query(
+                    'UPDATE bracket_tournaments SET payout_tx_id = ? WHERE id = ?'
+                ), (tx_id, tid))
+                conn.commit()
+                conn.close()
+                return jsonify({
+                    "success": True,
+                    "payout_type": "MOMENT",
+                    "moments_sent": len(all_moment_ids),
+                    "payout_tx_id": tx_id,
+                    "winner_wallet": winner_wallet,
+                    "winner_dapper": winner_dapper,
+                })
+
+            else:
+                # FREEROLL — no automated payout
+                conn.close()
+                return jsonify({"error": "Freeroll tournaments have no automated payout"}), 400
+
+        except Exception as e:
+            conn.close()
+            return jsonify({"error": f"Payout failed: {str(e)}"}), 500
 
     @app.route("/api/museum")
     def museum_editions():

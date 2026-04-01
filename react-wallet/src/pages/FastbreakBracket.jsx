@@ -288,6 +288,8 @@ export default function FastbreakBracket() {
   const [childAddr, setChildAddr] = useState(null);
   const [childError, setChildError] = useState(null);
   const [childLoading, setChildLoading] = useState(false);
+  const [payoutProcessing, setPayoutProcessing] = useState(false);
+  const [payoutStatus, setPayoutStatus] = useState('');
 
   /* ── Moment picker state ── */
   const [momentPickerOpen, setMomentPickerOpen] = useState(false);
@@ -771,6 +773,39 @@ export default function FastbreakBracket() {
   }, [tournament]);
 
   /* ── Render helpers ── */
+  /* ── Admin: complete payout for finished tournament ── */
+  const handlePayout = async () => {
+    if (!tournament || tournament.status !== 'COMPLETE' || !tournament.winner_wallet) return;
+    if (tournament.payout_tx_id) {
+      setPayoutStatus('❗ Payout already completed.');
+      return;
+    }
+    setPayoutProcessing(true);
+    setPayoutStatus('Processing payout…');
+    try {
+      const res = await fetch(`/api/bracket/tournament/${tournament.id}/payout`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      });
+      const j = await res.json();
+      if (!res.ok) {
+        setPayoutStatus(`❗ ${j.error || 'Payout failed'}`);
+      } else {
+        const txLink = `<a href="https://flowscan.io/tx/${j.payout_tx_id}" target="_blank" rel="noopener noreferrer">${j.payout_tx_id.slice(0, 12)}…</a>`;
+        if (j.payout_type === 'TOKEN') {
+          setPayoutStatus(`✅ Sent ${j.amount.toFixed(2)} ${j.currency} to winner. TX: ${txLink}`);
+        } else {
+          setPayoutStatus(`✅ Sent ${j.moments_sent} moment(s) to winner's Dapper wallet. TX: ${txLink}`);
+        }
+        fetchTournamentDetail(tournament.id);
+      }
+    } catch (e) {
+      setPayoutStatus(`❗ ${e.message}`);
+    } finally {
+      setPayoutProcessing(false);
+    }
+  };
+
   const walletDisplay = useCallback((wallet) => {
     if (!wallet) return <span className="bracket-bye">BYE</span>;
     const p = (tournament?.participants || []).find(pp => pp.wallet_address === wallet);
@@ -1056,6 +1091,31 @@ export default function FastbreakBracket() {
           {tournament.status === 'COMPLETE' && tournament.winner_wallet && (
             <div className="bracket-winner-banner">
               🏆 Champion: {walletDisplay(tournament.winner_wallet)}
+              {tournament.payout_tx_id && (
+                <div className="bracket-payout-info">
+                  💸 Payout TX: <a href={`https://flowscan.io/tx/${tournament.payout_tx_id}`} target="_blank" rel="noopener noreferrer">
+                    {tournament.payout_tx_id.slice(0, 12)}…
+                  </a>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Admin: Payout button for completed tournaments */}
+          {isAdmin && tournament.status === 'COMPLETE' && tournament.winner_wallet && !tournament.payout_tx_id && (tournament.buyin_type || 'TOKEN') !== 'FREEROLL' && (
+            <div className="bracket-admin-box mt-2 mb-3">
+              <button
+                className="bracket-signup-btn"
+                disabled={payoutProcessing}
+                onClick={handlePayout}
+              >
+                {payoutProcessing ? 'Processing Payout…' : (
+                  (tournament.buyin_type || 'TOKEN') === 'MOMENT'
+                    ? `💸 Send ${(tournament.participants || []).length * (tournament.num_moments || 1)} Moment(s) to Winner`
+                    : `💸 Send ${(tournament.fee_amount * (tournament.participants || []).length * 0.95).toFixed(2)} ${formatCurrencyLabel(tournament.fee_currency)} to Winner`
+                )}
+              </button>
+              {payoutStatus && <p className="bracket-tx-status mt-2" dangerouslySetInnerHTML={{ __html: payoutStatus }} />}
             </div>
           )}
 

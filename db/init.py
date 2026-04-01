@@ -418,6 +418,15 @@ def initialize_database(conn, db_type):
     except Exception:
         conn.rollback()
 
+    # Migration: add payout_tx_id column to bracket_tournaments
+    try:
+        cursor.execute(prepare_query(
+            "ALTER TABLE bracket_tournaments ADD COLUMN payout_tx_id TEXT DEFAULT NULL"
+        ))
+        conn.commit()
+    except Exception:
+        conn.rollback()
+
     # Migration: add moment_tx_id column to bracket_participants
     try:
         cursor.execute(prepare_query(
