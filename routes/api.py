@@ -1432,6 +1432,10 @@ def register_routes(app):
             except Exception:
                 return {}
 
+        # Back-fill scores for BYE matchups so they count in tiebreakers
+        from bot.bracket_poller import _backfill_bye_scores
+        _backfill_bye_scores(conn, 'sqlite', tid, current_round, fastbreak_id)
+
         winners = []
         for matchup_id, p1, p2 in pending:
             if not p2:
@@ -1453,17 +1457,12 @@ def register_routes(app):
             ln1_str = _json.dumps(ln1) if ln1 else None
             ln2_str = _json.dumps(ln2) if ln2 else None
 
-            # Determine winner: higher points wins; None means no lineup → loss
-            if s1 is not None and s2 is not None:
-                winner = p1 if s1 >= s2 else p2
-                loser = p2 if winner == p1 else p1
-            elif s1 is not None:
-                winner, loser = p1, p2
-            elif s2 is not None:
-                winner, loser = p2, p1
-            else:
-                # Neither has a score — p1 wins by coin flip (seeded higher)
-                winner, loser = p1, p2
+            # Determine winner with tiebreaker:
+            #   1. Higher Fastbreak score wins
+            #   2. Tied → higher cumulative tournament points wins
+            #   3. Still tied → higher seed (p1) wins
+            from bot.bracket_poller import _resolve_winner
+            winner, loser = _resolve_winner(cursor, tid, p1, p2, s1, s2)
 
             cursor.execute(prepare_query('''
                 UPDATE bracket_matchups

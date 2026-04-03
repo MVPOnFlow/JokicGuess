@@ -120,6 +120,99 @@ def _auto_generate(conn, db_type, tid):
     )
 
 
+# ── Tiebreaker helpers ───────────────────────────────────────────────
+
+def _get_cumulative_score(cursor, tid, wallet):
+    """Sum of a player's scores from all COMPLETE and BYE matchups in this tournament.
+
+    Used as the primary tiebreaker when two players tie in the current round.
+    BYE matchups are included so players who received a first-round bye
+    still accumulate points for tiebreaker purposes.
+    """
+    cursor.execute(prepare_query(
+        "SELECT COALESCE(SUM(CASE "
+        "WHEN player1_wallet = ? THEN player1_score "
+        "WHEN player2_wallet = ? THEN player2_score "
+        "ELSE 0 END), 0) "
+        "FROM bracket_matchups "
+        "WHERE tournament_id = ? AND status IN ('COMPLETE', 'BYE')"
+    ), (wallet, wallet, tid))
+    return cursor.fetchone()[0] or 0
+
+
+def _resolve_winner(cursor, tid, p1, p2, s1, s2):
+    """Decide the winner of a matchup, applying tiebreakers.
+
+    Priority:
+      1. Higher Fastbreak score wins.
+      2. If tied: higher cumulative tournament points wins.
+      3. If still tied: higher seed (player 1) wins.
+    """
+    if s1 is not None and s2 is not None:
+        if s1 != s2:
+            return (p1, p2) if s1 > s2 else (p2, p1)
+        # Tiebreaker #1: cumulative tournament points
+        cum1 = _get_cumulative_score(cursor, tid, p1) + s1
+        cum2 = _get_cumulative_score(cursor, tid, p2) + s2
+        if cum1 != cum2:
+            return (p1, p2) if cum1 > cum2 else (p2, p1)
+        # Tiebreaker #2: higher seed (p1 is always the higher seed)
+        return (p1, p2)
+    elif s1 is not None:
+        return (p1, p2)
+    elif s2 is not None:
+        return (p2, p1)
+    else:
+        return (p1, p2)  # no scores — higher seed wins
+
+
+# ── BYE score backfill ─────────────────────────────────────────────
+
+def _backfill_bye_scores(conn, db_type, tid, round_number, fastbreak_id):
+    """Fetch Fastbreak scores for BYE winners who don't have a score yet.
+
+    BYE matchups are created without scores. This back-fills the winner's
+    score/rank/lineup so their points count in cumulative tiebreakers.
+    """
+    cursor = conn.cursor()
+
+    # wallet → username mapping
+    cursor.execute(prepare_query(
+        "SELECT wallet_address, ts_username "
+        "FROM bracket_participants WHERE tournament_id = ?"
+    ), (tid,))
+    wallet_to_username = {r[0]: r[1] for r in cursor.fetchall()}
+
+    # BYE matchups with missing scores in this round
+    cursor.execute(prepare_query(
+        "SELECT id, player1_wallet FROM bracket_matchups "
+        "WHERE tournament_id = ? AND round_number = ? AND status = 'BYE' "
+        "AND player1_score IS NULL"
+    ), (tid, round_number))
+    byes = cursor.fetchall()
+
+    updated = 0
+    for matchup_id, p1 in byes:
+        d1 = _fb_data_for_user(wallet_to_username.get(p1), fastbreak_id) if p1 else {}
+        ln1 = json.dumps(d1["players"]) if d1.get("players") else None
+
+        cursor.execute(prepare_query(
+            "UPDATE bracket_matchups "
+            "SET player1_score = ?, player1_rank = ?, player1_lineup = ?, "
+            "    fastbreak_id = ? "
+            "WHERE id = ?"
+        ), (d1.get("points"), d1.get("rank"), ln1, fastbreak_id, matchup_id))
+        updated += 1
+
+    if updated:
+        conn.commit()
+        logger.debug(
+            "[Bracket] Back-filled scores for %d BYE matchups (tournament %d, round %d)",
+            updated, tid, round_number,
+        )
+    return updated
+
+
 # ── Live score update ───────────────────────────────────────────────
 
 def _update_live_scores(conn, db_type, tid, current_round, fastbreak_id):
@@ -215,15 +308,9 @@ def _update_projected_matchups(conn, db_type, tid, current_round, total_rounds):
         if status in ("COMPLETE", "BYE"):
             projected_winners.append(winner)
         elif status == "PENDING":
-            # Project based on current live scores
-            if s1 is not None and s2 is not None:
-                projected_winners.append(p1 if s1 >= s2 else p2)
-            elif s1 is not None:
-                projected_winners.append(p1)
-            elif s2 is not None:
-                projected_winners.append(p2)
-            else:
-                projected_winners.append(p1)  # higher seed by default
+            # Project based on current live scores (with tiebreaker)
+            proj_winner, _ = _resolve_winner(cursor, tid, p1, p2, s1, s2)
+            projected_winners.append(proj_winner)
 
     if not projected_winners:
         conn.commit()
@@ -271,15 +358,7 @@ def _finalize_round(conn, db_type, tid, current_round, fastbreak_id):
             winners.append(p1)
             continue
 
-        if s1 is not None and s2 is not None:
-            winner = p1 if s1 >= s2 else p2
-            loser = p2 if winner == p1 else p1
-        elif s1 is not None:
-            winner, loser = p1, p2
-        elif s2 is not None:
-            winner, loser = p2, p1
-        else:
-            winner, loser = p1, p2  # higher seed default
+        winner, loser = _resolve_winner(cursor, tid, p1, p2, s1, s2)
 
         cursor.execute(prepare_query(
             "UPDATE bracket_matchups SET winner_wallet = ?, status = 'COMPLETE' WHERE id = ?"
@@ -361,6 +440,9 @@ def _poll_active_tournament(conn, db_type, tid, current_round, fb_status_map):
 
     # Update live scores (even after FB finishes, ensures final scores are stored)
     n_updated = _update_live_scores(conn, db_type, tid, current_round, fastbreak_id)
+
+    # Back-fill scores for BYE matchups so they count in tiebreakers
+    _backfill_bye_scores(conn, db_type, tid, current_round, fastbreak_id)
 
     # Compute total_rounds for projection
     cursor.execute(prepare_query(
