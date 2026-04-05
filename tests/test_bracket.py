@@ -314,15 +314,11 @@ class TestBracketAdvance:
             ('ACTIVE', 1),            # tournament status + current_round
             ('fb123',),               # bracket_rounds fastbreak_id for round 1
         ]
-        # Pending matchups for round 1
-        # Then _backfill_bye_scores: participants, BYE matchups with NULL score
-        # Then wallet-to-username map
-        # Then BYE winners
+        # Pending matchups, wallet→username, BYE matchups (inline scoring), BYE winners
         cursor.fetchall.side_effect = [
             [(1, '0xaaa', '0xbbb')],              # pending matchups
-            [('0xaaa', 'user1'), ('0xbbb', 'user2')],  # _backfill_bye_scores: participants
-            [],                                    # _backfill_bye_scores: BYE matchups (none)
             [('0xaaa', 'user1'), ('0xbbb', 'user2')],  # wallet→username
+            [],                                    # BYE matchups in current round (none)
             [],                                    # BYE winners
         ]
 
@@ -1408,13 +1404,13 @@ class TestGetCumulativeScore:
         assert 'COMPLETE' in query
 
 
-class TestBackfillByeScores:
-    """Tests for _backfill_bye_scores helper."""
+class TestUpdateLiveScoresBye:
+    """Tests that _update_live_scores handles BYE matchups inline."""
 
     @patch('bot.bracket_poller._fb_data_for_user')
-    def test_backfills_score_for_bye_player(self, mock_fb):
-        """BYE matchup gets player1_score populated from Fastbreak data."""
-        from bot.bracket_poller import _backfill_bye_scores
+    def test_updates_bye_matchup_score(self, mock_fb):
+        """BYE matchup gets player1_score populated via _update_live_scores."""
+        from bot.bracket_poller import _update_live_scores
 
         mock_fb.return_value = {'rank': 3, 'points': 210, 'players': ['Jokic', 'Murray']}
 
@@ -1422,44 +1418,20 @@ class TestBackfillByeScores:
         cursor = Mock()
         conn.cursor.return_value = cursor
 
-        _last_q = [None]
-        def _execute(query, params=None):
-            _last_q[0] = query
-        cursor.execute.side_effect = _execute
-
-        # First call: wallet→username, Second: BYE matchups with NULL score
         cursor.fetchall.side_effect = [
-            [('0xaaa', 'user1')],      # participants
-            [(42, '0xaaa')],            # BYE matchup with NULL score
+            [('0xaaa', 'user1')],      # wallet→username
+            [],                         # PENDING matchups (none)
+            [(42, '0xaaa')],            # BYE matchups
         ]
 
-        result = _backfill_bye_scores(conn, 'sqlite', 1, 1, 'fb123')
+        result = _update_live_scores(conn, 'sqlite', 1, 1, 'fb123')
         assert result == 1
         conn.commit.assert_called_once()
 
     @patch('bot.bracket_poller._fb_data_for_user')
-    def test_skips_already_scored_byes(self, mock_fb):
-        """Already-scored BYE matchups are not re-fetched."""
-        from bot.bracket_poller import _backfill_bye_scores
-
-        conn = Mock()
-        cursor = Mock()
-        conn.cursor.return_value = cursor
-
-        cursor.fetchall.side_effect = [
-            [('0xaaa', 'user1')],  # participants
-            [],                     # no BYE matchups with NULL score
-        ]
-
-        result = _backfill_bye_scores(conn, 'sqlite', 1, 1, 'fb123')
-        assert result == 0
-        conn.commit.assert_not_called()
-        mock_fb.assert_not_called()
-
-    @patch('bot.bracket_poller._fb_data_for_user')
-    def test_no_data_stores_none(self, mock_fb):
-        """When Fastbreak API returns empty, score stays None but update runs."""
-        from bot.bracket_poller import _backfill_bye_scores
+    def test_bye_no_data_stores_none(self, mock_fb):
+        """When Fastbreak API returns empty for BYE player, update still runs."""
+        from bot.bracket_poller import _update_live_scores
 
         mock_fb.return_value = {}
 
@@ -1468,9 +1440,31 @@ class TestBackfillByeScores:
         conn.cursor.return_value = cursor
 
         cursor.fetchall.side_effect = [
-            [('0xaaa', 'user1')],
-            [(42, '0xaaa')],
+            [('0xaaa', 'user1')],      # wallet→username
+            [],                         # PENDING matchups
+            [(42, '0xaaa')],            # BYE matchups
         ]
 
-        result = _backfill_bye_scores(conn, 'sqlite', 1, 1, 'fb123')
+        result = _update_live_scores(conn, 'sqlite', 1, 1, 'fb123')
         assert result == 1
+
+    @patch('bot.bracket_poller._fb_data_for_user')
+    def test_no_bye_matchups(self, mock_fb):
+        """When there are no BYE matchups, only PENDING ones are processed."""
+        from bot.bracket_poller import _update_live_scores
+
+        mock_fb.return_value = {'rank': 1, 'points': 300, 'players': ['LeBron']}
+
+        conn = Mock()
+        cursor = Mock()
+        conn.cursor.return_value = cursor
+
+        cursor.fetchall.side_effect = [
+            [('0xaaa', 'user1'), ('0xbbb', 'user2')],  # wallet→username
+            [(1, '0xaaa', '0xbbb')],                     # PENDING matchup
+            [],                                           # BYE matchups (none)
+        ]
+
+        result = _update_live_scores(conn, 'sqlite', 1, 1, 'fb123')
+        assert result == 1
+        conn.commit.assert_called_once()

@@ -257,7 +257,7 @@ function getRoundName(round, totalRounds) {
 
 /* ── Bracket visualization helper ── */
 function shortenWallet(w) {
-  if (!w) return 'BYE';
+  if (!w || w === 'BYE') return 'BYE';
   return `${w.slice(0, 6)}…${w.slice(-4)}`;
 }
 
@@ -807,7 +807,7 @@ export default function FastbreakBracket() {
   };
 
   const walletDisplay = useCallback((wallet) => {
-    if (!wallet) return <span className="bracket-bye">BYE</span>;
+    if (!wallet || wallet === 'BYE') return <span className="bracket-bye">BYE</span>;
     const p = (tournament?.participants || []).find(pp => pp.wallet_address === wallet);
     const name = p?.ts_username || shortenWallet(wallet);
     const isMe = user?.addr && wallet === user.addr.toLowerCase();

@@ -95,7 +95,7 @@ def _auto_generate(conn, db_type, tid):
                 "INSERT INTO bracket_matchups "
                 "(tournament_id, round_number, match_index, player1_wallet, "
                 "player2_wallet, winner_wallet, status) "
-                "VALUES (?, 1, ?, ?, NULL, ?, 'BYE')"
+                "VALUES (?, 1, ?, ?, 'BYE', ?, 'BYE')"
             ), (tid, match_idx, p1_wallet, p1_wallet))
             num_byes -= 1
             i += 1
@@ -166,60 +166,15 @@ def _resolve_winner(cursor, tid, p1, p2, s1, s2):
         return (p1, p2)  # no scores — higher seed wins
 
 
-# ── BYE score backfill ─────────────────────────────────────────────
-
-def _backfill_bye_scores(conn, db_type, tid, round_number, fastbreak_id):
-    """Fetch Fastbreak scores for BYE winners who don't have a score yet.
-
-    BYE matchups are created without scores. This back-fills the winner's
-    score/rank/lineup so their points count in cumulative tiebreakers.
-    """
-    cursor = conn.cursor()
-
-    # wallet → username mapping
-    cursor.execute(prepare_query(
-        "SELECT wallet_address, ts_username "
-        "FROM bracket_participants WHERE tournament_id = ?"
-    ), (tid,))
-    wallet_to_username = {r[0]: r[1] for r in cursor.fetchall()}
-
-    # BYE matchups with missing scores in this round
-    cursor.execute(prepare_query(
-        "SELECT id, player1_wallet FROM bracket_matchups "
-        "WHERE tournament_id = ? AND round_number = ? AND status = 'BYE' "
-        "AND player1_score IS NULL"
-    ), (tid, round_number))
-    byes = cursor.fetchall()
-
-    updated = 0
-    for matchup_id, p1 in byes:
-        d1 = _fb_data_for_user(wallet_to_username.get(p1), fastbreak_id) if p1 else {}
-        ln1 = json.dumps(d1["players"]) if d1.get("players") else None
-
-        cursor.execute(prepare_query(
-            "UPDATE bracket_matchups "
-            "SET player1_score = ?, player1_rank = ?, player1_lineup = ?, "
-            "    fastbreak_id = ? "
-            "WHERE id = ?"
-        ), (d1.get("points"), d1.get("rank"), ln1, fastbreak_id, matchup_id))
-        updated += 1
-
-    if updated:
-        conn.commit()
-        logger.debug(
-            "[Bracket] Back-filled scores for %d BYE matchups (tournament %d, round %d)",
-            updated, tid, round_number,
-        )
-    return updated
-
-
 # ── Live score update ───────────────────────────────────────────────
 
 def _update_live_scores(conn, db_type, tid, current_round, fastbreak_id):
-    """Fetch current scores from TopShot and update PENDING matchup rows.
+    """Fetch current scores from TopShot and update PENDING and BYE matchup rows.
 
-    This stores live scores/ranks/lineups on the matchup without changing
-    its status, so the frontend can show in-progress projections.
+    For PENDING matchups both players' scores are updated.
+    For BYE matchups only player1's score is fetched (player2 is the
+    literal sentinel 'BYE').  This keeps BYE players' points up-to-date
+    for cumulative tiebreaker calculations without a separate backfill step.
     """
     cursor = conn.cursor()
 
@@ -230,7 +185,7 @@ def _update_live_scores(conn, db_type, tid, current_round, fastbreak_id):
     ), (tid,))
     wallet_to_username = {r[0]: r[1] for r in cursor.fetchall()}
 
-    # Pending matchups in current round
+    # PENDING matchups in current round
     cursor.execute(prepare_query(
         "SELECT id, player1_wallet, player2_wallet "
         "FROM bracket_matchups "
@@ -259,6 +214,25 @@ def _update_live_scores(conn, db_type, tid, current_round, fastbreak_id):
             ln1, ln2,
             fastbreak_id, matchup_id,
         ))
+        updated += 1
+
+    # BYE matchups — only fetch player1's score
+    cursor.execute(prepare_query(
+        "SELECT id, player1_wallet FROM bracket_matchups "
+        "WHERE tournament_id = ? AND round_number = ? AND status = 'BYE'"
+    ), (tid, current_round))
+    bye_matchups = cursor.fetchall()
+
+    for matchup_id, p1 in bye_matchups:
+        d1 = _fb_data_for_user(wallet_to_username.get(p1), fastbreak_id) if p1 else {}
+        ln1 = json.dumps(d1["players"]) if d1.get("players") else None
+
+        cursor.execute(prepare_query(
+            "UPDATE bracket_matchups "
+            "SET player1_score = ?, player1_rank = ?, player1_lineup = ?, "
+            "    fastbreak_id = ? "
+            "WHERE id = ?"
+        ), (d1.get("points"), d1.get("rank"), ln1, fastbreak_id, matchup_id))
         updated += 1
 
     conn.commit()
@@ -351,7 +325,7 @@ def _finalize_round(conn, db_type, tid, current_round, fastbreak_id):
 
     winners = []
     for mid, p1, p2, s1, s2 in pending:
-        if not p2:
+        if p2 == 'BYE' or not p2:
             cursor.execute(prepare_query(
                 "UPDATE bracket_matchups SET winner_wallet = ?, status = 'BYE' WHERE id = ?"
             ), (p1, mid))
@@ -400,9 +374,9 @@ def _finalize_round(conn, db_type, tid, current_round, fastbreak_id):
     # Create next-round matchups
     for mi in range(0, len(winners), 2):
         p1 = winners[mi]
-        p2 = winners[mi + 1] if mi + 1 < len(winners) else None
-        st = "BYE" if not p2 else "PENDING"
-        w = p1 if not p2 else None
+        p2 = winners[mi + 1] if mi + 1 < len(winners) else 'BYE'
+        st = "BYE" if p2 == 'BYE' else "PENDING"
+        w = p1 if p2 == 'BYE' else None
         cursor.execute(prepare_query(
             "INSERT INTO bracket_matchups "
             "(tournament_id, round_number, match_index, player1_wallet, "
@@ -439,10 +413,8 @@ def _poll_active_tournament(conn, db_type, tid, current_round, fb_status_map):
     fb_status = fb_status_map.get(fastbreak_id)
 
     # Update live scores (even after FB finishes, ensures final scores are stored)
+    # This also updates BYE matchup scores for tiebreaker calculations.
     n_updated = _update_live_scores(conn, db_type, tid, current_round, fastbreak_id)
-
-    # Back-fill scores for BYE matchups so they count in tiebreakers
-    _backfill_bye_scores(conn, db_type, tid, current_round, fastbreak_id)
 
     # Compute total_rounds for projection
     cursor.execute(prepare_query(
