@@ -108,7 +108,7 @@ Single-elimination bracket tournaments powered by NBA TopShot Fastbreak daily sc
 2. **Tiebreaker #1 — Cumulative tournament points**: if the current round's scores are tied, the player with more total points across all completed rounds wins.
 3. **Tiebreaker #2 — Higher seed**: if cumulative points are also tied, the higher-seeded player (player 1 in the matchup) advances.
 4. If only one player has a score, that player wins. If neither has a score, the higher-seeded player advances.
-5. **BYE score tracking**: players who receive a BYE have their Fastbreak score back-filled so it counts toward cumulative tiebreaker totals.
+5. **BYE score tracking**: BYE matchups store `player2_wallet = 'BYE'` (sentinel string) and are treated like regular matchups in the database. The poller's `_update_live_scores` fetches the BYE player's score each cycle, so their points are always visible in the bracket and count toward cumulative tiebreaker totals.
 
 ## Moment Return Policy
 - **Winner-takes-all** for MOMENT tournaments: all deposited moments go to the champion.

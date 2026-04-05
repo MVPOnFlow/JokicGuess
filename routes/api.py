@@ -1348,7 +1348,7 @@ def register_routes(app):
                 cursor.execute(prepare_query('''
                     INSERT INTO bracket_matchups
                     (tournament_id, round_number, match_index, player1_wallet, player2_wallet, winner_wallet, status)
-                    VALUES (?, 1, ?, ?, NULL, ?, 'BYE')
+                    VALUES (?, 1, ?, ?, 'BYE', ?, 'BYE')
                 '''), (tid, match_idx, p1_wallet, p1_wallet))
                 bye_wallets.append(p1_wallet)
                 num_byes -= 1
@@ -1383,7 +1383,7 @@ def register_routes(app):
         """
         from db.init import get_db_connection
         import json as _json
-        conn, _ = get_db_connection()
+        conn, db_type = get_db_connection()
         cursor = conn.cursor()
 
         cursor.execute(prepare_query(
@@ -1433,12 +1433,24 @@ def register_routes(app):
                 return {}
 
         # Back-fill scores for BYE matchups so they count in tiebreakers
-        from bot.bracket_poller import _backfill_bye_scores
-        _backfill_bye_scores(conn, 'sqlite', tid, current_round, fastbreak_id)
+        # (handled by _update_live_scores in the poller; for the manual
+        #  advance endpoint we fetch them inline below.)
+        cursor.execute(prepare_query(
+            "SELECT id, player1_wallet FROM bracket_matchups "
+            "WHERE tournament_id = ? AND round_number = ? AND status = 'BYE'"
+        ), (tid, current_round))
+        for bye_mid, bye_p1 in cursor.fetchall():
+            d = get_fb_data(bye_p1)
+            ln = _json.dumps(d['players']) if d.get('players') else None
+            cursor.execute(prepare_query(
+                "UPDATE bracket_matchups "
+                "SET player1_score = ?, player1_rank = ?, player1_lineup = ?, fastbreak_id = ? "
+                "WHERE id = ?"
+            ), (d.get('points'), d.get('rank'), ln, fastbreak_id, bye_mid))
 
         winners = []
         for matchup_id, p1, p2 in pending:
-            if not p2:
+            if p2 == 'BYE' or not p2:
                 # BYE — shouldn't be PENDING, but handle gracefully
                 cursor.execute(prepare_query(
                     'UPDATE bracket_matchups SET winner_wallet = ?, status = ?, fastbreak_id = ? WHERE id = ?'
@@ -1503,9 +1515,9 @@ def register_routes(app):
         next_round = current_round + 1
         for mi in range(0, len(winners), 2):
             p1 = winners[mi]
-            p2 = winners[mi + 1] if mi + 1 < len(winners) else None
-            st = 'BYE' if not p2 else 'PENDING'
-            w = p1 if not p2 else None
+            p2 = winners[mi + 1] if mi + 1 < len(winners) else 'BYE'
+            st = 'BYE' if p2 == 'BYE' else 'PENDING'
+            w = p1 if p2 == 'BYE' else None
             cursor.execute(prepare_query('''
                 INSERT INTO bracket_matchups
                 (tournament_id, round_number, match_index, player1_wallet, player2_wallet, winner_wallet, status)
