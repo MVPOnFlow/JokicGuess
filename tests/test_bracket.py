@@ -315,10 +315,13 @@ class TestBracketAdvance:
             ('fb123',),               # bracket_rounds fastbreak_id for round 1
         ]
         # Pending matchups for round 1
+        # Then _backfill_bye_scores: participants, BYE matchups with NULL score
         # Then wallet-to-username map
         # Then BYE winners
         cursor.fetchall.side_effect = [
             [(1, '0xaaa', '0xbbb')],              # pending matchups
+            [('0xaaa', 'user1'), ('0xbbb', 'user2')],  # _backfill_bye_scores: participants
+            [],                                    # _backfill_bye_scores: BYE matchups (none)
             [('0xaaa', 'user1'), ('0xbbb', 'user2')],  # wallet→username
             [],                                    # BYE winners
         ]
@@ -1287,3 +1290,187 @@ class TestBracketPayout:
 
         resp = client.post('/api/bracket/tournament/999/payout')
         assert resp.status_code == 404
+
+
+# ── Tiebreaker logic (bot/bracket_poller.py) ─────────────────────
+
+
+class TestResolveWinner:
+    """Tests for _resolve_winner tiebreaker helper."""
+
+    def _make_cursor(self, cumulative_scores=None):
+        """Mock cursor where _get_cumulative_score queries return mapped values.
+
+        cumulative_scores: dict of wallet → cumulative score from COMPLETE rounds
+        """
+        cumulative_scores = cumulative_scores or {}
+        cursor = Mock()
+
+        def _execute(query, params=None):
+            cursor._last_params = params
+
+        cursor.execute.side_effect = _execute
+        cursor.fetchone.side_effect = lambda: (cumulative_scores.get(cursor._last_params[0], 0),)
+        return cursor
+
+    def test_higher_score_wins(self):
+        """Player with more points wins — no tiebreaker needed."""
+        from bot.bracket_poller import _resolve_winner
+        cursor = self._make_cursor()
+        winner, loser = _resolve_winner(cursor, 1, '0xaaa', '0xbbb', 200, 150)
+        assert winner == '0xaaa'
+        assert loser == '0xbbb'
+
+    def test_lower_score_loses(self):
+        """Player with fewer points is the loser."""
+        from bot.bracket_poller import _resolve_winner
+        cursor = self._make_cursor()
+        winner, loser = _resolve_winner(cursor, 1, '0xaaa', '0xbbb', 100, 250)
+        assert winner == '0xbbb'
+        assert loser == '0xaaa'
+
+    def test_tied_cumulative_breaks_tie(self):
+        """When scores are tied, higher cumulative tournament points wins."""
+        from bot.bracket_poller import _resolve_winner
+        cursor = self._make_cursor({'0xaaa': 300, '0xbbb': 500})
+        winner, loser = _resolve_winner(cursor, 1, '0xaaa', '0xbbb', 200, 200)
+        # 0xbbb has 500+200=700 cumulative vs 0xaaa 300+200=500
+        assert winner == '0xbbb'
+        assert loser == '0xaaa'
+
+    def test_tied_cumulative_p1_higher(self):
+        """When scores tied and p1 has higher cumulative, p1 wins."""
+        from bot.bracket_poller import _resolve_winner
+        cursor = self._make_cursor({'0xaaa': 600, '0xbbb': 400})
+        winner, loser = _resolve_winner(cursor, 1, '0xaaa', '0xbbb', 200, 200)
+        assert winner == '0xaaa'
+
+    def test_tied_score_and_cumulative_seed_wins(self):
+        """When scores AND cumulative are tied, higher seed (p1) wins."""
+        from bot.bracket_poller import _resolve_winner
+        cursor = self._make_cursor({'0xaaa': 300, '0xbbb': 300})
+        winner, loser = _resolve_winner(cursor, 1, '0xaaa', '0xbbb', 200, 200)
+        assert winner == '0xaaa'
+        assert loser == '0xbbb'
+
+    def test_only_p1_has_score(self):
+        """Only p1 has a score — p1 wins."""
+        from bot.bracket_poller import _resolve_winner
+        cursor = self._make_cursor()
+        winner, loser = _resolve_winner(cursor, 1, '0xaaa', '0xbbb', 180, None)
+        assert winner == '0xaaa'
+
+    def test_only_p2_has_score(self):
+        """Only p2 has a score — p2 wins."""
+        from bot.bracket_poller import _resolve_winner
+        cursor = self._make_cursor()
+        winner, loser = _resolve_winner(cursor, 1, '0xaaa', '0xbbb', None, 220)
+        assert winner == '0xbbb'
+
+    def test_neither_has_score(self):
+        """Neither has a score — higher seed (p1) wins."""
+        from bot.bracket_poller import _resolve_winner
+        cursor = self._make_cursor()
+        winner, loser = _resolve_winner(cursor, 1, '0xaaa', '0xbbb', None, None)
+        assert winner == '0xaaa'
+
+
+class TestGetCumulativeScore:
+    """Tests for _get_cumulative_score helper."""
+
+    def test_sums_completed_rounds(self):
+        """Returns sum of scores from COMPLETE matchups."""
+        from bot.bracket_poller import _get_cumulative_score
+        cursor = Mock()
+        cursor.fetchone.return_value = (450,)
+        result = _get_cumulative_score(cursor, 1, '0xaaa')
+        assert result == 450
+        # Verify the query was called with correct params
+        call_args = cursor.execute.call_args[0]
+        assert '0xaaa' in call_args[1]
+
+    def test_returns_zero_when_none(self):
+        """Returns 0 when no completed matchups exist."""
+        from bot.bracket_poller import _get_cumulative_score
+        cursor = Mock()
+        cursor.fetchone.return_value = (None,)
+        result = _get_cumulative_score(cursor, 1, '0xaaa')
+        assert result == 0
+
+    def test_includes_bye_matchups(self):
+        """Query includes both COMPLETE and BYE statuses."""
+        from bot.bracket_poller import _get_cumulative_score
+        cursor = Mock()
+        cursor.fetchone.return_value = (300,)
+        _get_cumulative_score(cursor, 1, '0xaaa')
+        query = cursor.execute.call_args[0][0]
+        assert 'BYE' in query
+        assert 'COMPLETE' in query
+
+
+class TestBackfillByeScores:
+    """Tests for _backfill_bye_scores helper."""
+
+    @patch('bot.bracket_poller._fb_data_for_user')
+    def test_backfills_score_for_bye_player(self, mock_fb):
+        """BYE matchup gets player1_score populated from Fastbreak data."""
+        from bot.bracket_poller import _backfill_bye_scores
+
+        mock_fb.return_value = {'rank': 3, 'points': 210, 'players': ['Jokic', 'Murray']}
+
+        conn = Mock()
+        cursor = Mock()
+        conn.cursor.return_value = cursor
+
+        _last_q = [None]
+        def _execute(query, params=None):
+            _last_q[0] = query
+        cursor.execute.side_effect = _execute
+
+        # First call: wallet→username, Second: BYE matchups with NULL score
+        cursor.fetchall.side_effect = [
+            [('0xaaa', 'user1')],      # participants
+            [(42, '0xaaa')],            # BYE matchup with NULL score
+        ]
+
+        result = _backfill_bye_scores(conn, 'sqlite', 1, 1, 'fb123')
+        assert result == 1
+        conn.commit.assert_called_once()
+
+    @patch('bot.bracket_poller._fb_data_for_user')
+    def test_skips_already_scored_byes(self, mock_fb):
+        """Already-scored BYE matchups are not re-fetched."""
+        from bot.bracket_poller import _backfill_bye_scores
+
+        conn = Mock()
+        cursor = Mock()
+        conn.cursor.return_value = cursor
+
+        cursor.fetchall.side_effect = [
+            [('0xaaa', 'user1')],  # participants
+            [],                     # no BYE matchups with NULL score
+        ]
+
+        result = _backfill_bye_scores(conn, 'sqlite', 1, 1, 'fb123')
+        assert result == 0
+        conn.commit.assert_not_called()
+        mock_fb.assert_not_called()
+
+    @patch('bot.bracket_poller._fb_data_for_user')
+    def test_no_data_stores_none(self, mock_fb):
+        """When Fastbreak API returns empty, score stays None but update runs."""
+        from bot.bracket_poller import _backfill_bye_scores
+
+        mock_fb.return_value = {}
+
+        conn = Mock()
+        cursor = Mock()
+        conn.cursor.return_value = cursor
+
+        cursor.fetchall.side_effect = [
+            [('0xaaa', 'user1')],
+            [(42, '0xaaa')],
+        ]
+
+        result = _backfill_bye_scores(conn, 'sqlite', 1, 1, 'fb123')
+        assert result == 1

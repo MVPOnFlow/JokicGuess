@@ -102,8 +102,13 @@ Single-elimination bracket tournaments powered by NBA TopShot Fastbreak daily sc
 - Participants shuffled randomly and assigned seed numbers.
 - Bracket size is rounded up to the nearest power of 2.
 - Excess slots become BYEs (auto-advance for some round-1 participants).
-- Winner determined by higher Fastbreak points (higher score wins).
-- If neither player has a score, the higher-seeded player advances.
+
+## Matchup Resolution & Tiebreakers
+1. **Higher Fastbreak score wins** the matchup.
+2. **Tiebreaker #1 — Cumulative tournament points**: if the current round's scores are tied, the player with more total points across all completed rounds wins.
+3. **Tiebreaker #2 — Higher seed**: if cumulative points are also tied, the higher-seeded player (player 1 in the matchup) advances.
+4. If only one player has a score, that player wins. If neither has a score, the higher-seeded player advances.
+5. **BYE score tracking**: players who receive a BYE have their Fastbreak score back-filled so it counts toward cumulative tiebreaker totals.
 
 ## Moment Return Policy
 - **Winner-takes-all** for MOMENT tournaments: all deposited moments go to the champion.
