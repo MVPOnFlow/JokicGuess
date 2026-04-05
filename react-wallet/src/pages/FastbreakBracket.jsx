@@ -845,6 +845,12 @@ export default function FastbreakBracket() {
                   <li>If you don't have an opponent in round 1, you get a BYE (auto-advance)</li>
                   <li>Last player standing wins!</li>
                 </ul>
+                <h6 className="text-warning mt-3 mb-2">⚖️ Tiebreaker Rules</h6>
+                <ol className="bracket-rules-list">
+                  <li><strong>Higher Fastbreak score</strong> wins the matchup</li>
+                  <li>If tied, the player with more <strong>cumulative tournament points</strong> (total across all completed rounds) advances</li>
+                  <li>If still tied, the <strong>higher-seeded player</strong> advances</li>
+                </ol>
               </div>
             )}
 
@@ -1315,6 +1321,12 @@ export default function FastbreakBracket() {
                 <li>If you don't have an opponent in round 1, you get a BYE (auto-advance)</li>
                 <li>Last player standing wins{(tournament.buyin_type || 'TOKEN') === 'TOKEN' ? ' the prize pool!' : '!'}</li>
               </ul>
+              <h6 className="text-warning mt-3 mb-2">⚖️ Tiebreaker Rules</h6>
+              <ol className="bracket-rules-list">
+                <li><strong>Higher Fastbreak score</strong> wins the matchup</li>
+                <li>If tied, the player with more <strong>cumulative tournament points</strong> (total across all completed rounds) advances</li>
+                <li>If still tied, the <strong>higher-seeded player</strong> advances</li>
+              </ol>
             </div>
           )}
         </div>
