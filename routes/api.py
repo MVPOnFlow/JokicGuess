@@ -34,6 +34,7 @@ def register_routes(app):
         if _migrations_done[0]:
             return
         _migrations_done[0] = True
+        print("⏳ Running one-time DB migrations …")
         try:
             db = get_db()
             cur = db.cursor()
