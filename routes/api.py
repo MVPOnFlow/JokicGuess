@@ -45,6 +45,24 @@ def register_routes(app):
                 print("\u2705 Migration: added points column to completed_swaps")
             except Exception:
                 pass  # column already exists
+
+            # ── BYE sentinel migration (one-time) ────────────────
+            # Old BYE matchups stored player2_wallet = NULL.
+            # New code uses the literal string 'BYE' so the poller's
+            # _update_live_scores can score them uniformly.
+            try:
+                cur.execute(prepare_query(
+                    "UPDATE bracket_matchups "
+                    "SET player2_wallet = 'BYE' "
+                    "WHERE status = 'BYE' AND player2_wallet IS NULL"
+                ))
+                if cur.rowcount:
+                    db.commit()
+                    print(f"\u2705 Migration: updated {cur.rowcount} BYE matchups (NULL → 'BYE')")
+                else:
+                    db.commit()
+            except Exception:
+                pass  # table may not exist yet
         except Exception:
             pass  # table may not exist yet
 
