@@ -26,47 +26,6 @@ from config import (
 def register_routes(app):
     """Register all Flask routes."""
 
-    # ── One-time DB migrations (run on first request) ─────────────
-    _migrations_done = [False]
-
-    @app.before_request
-    def _run_migrations():
-        if _migrations_done[0]:
-            return
-        _migrations_done[0] = True
-        print("⏳ Running one-time DB migrations …")
-        try:
-            db = get_db()
-            cur = db.cursor()
-            try:
-                cur.execute(prepare_query(
-                    "ALTER TABLE completed_swaps ADD COLUMN points INTEGER NOT NULL DEFAULT 0"
-                ))
-                db.commit()
-                print("\u2705 Migration: added points column to completed_swaps")
-            except Exception:
-                pass  # column already exists
-
-            # ── BYE sentinel migration (one-time) ────────────────
-            # Old BYE matchups stored player2_wallet = NULL.
-            # New code uses the literal string 'BYE' so the poller's
-            # _update_live_scores can score them uniformly.
-            try:
-                cur.execute(prepare_query(
-                    "UPDATE bracket_matchups "
-                    "SET player2_wallet = 'BYE' "
-                    "WHERE status = 'BYE' AND player2_wallet IS NULL"
-                ))
-                if cur.rowcount:
-                    db.commit()
-                    print(f"\u2705 Migration: updated {cur.rowcount} BYE matchups (NULL → 'BYE')")
-                else:
-                    db.commit()
-            except Exception:
-                pass  # table may not exist yet
-        except Exception:
-            pass  # table may not exist yet
-
     @app.route('/', defaults={'path': ''})
     @app.route('/<path:path>')
     def serve_react(path):
